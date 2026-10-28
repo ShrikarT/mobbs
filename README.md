@@ -1,5 +1,25 @@
 # Viralist
 
+Local V02 development (Windows, Python 3.10.2 / Node 26.7.0):
+
+```powershell
+python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements.txt
+npm ci
+npm run build
+.venv/Scripts/python -m apps.api.app.db
+.venv/Scripts/python -m scripts.check_services
+.venv/Scripts/python -m uvicorn apps.api.app.main:app --host 127.0.0.1 --port 58000 --no-access-log
+```
+
+Private configuration defaults to `~/.codex/private-runs/viralist-v02-local/runtime.json`
+(override with `VIRALIST_RUNTIME`). Required keys: `database_url`, `s3_endpoint`,
+`s3_access_key`, `s3_secret_key`, `s3_bucket`, `provider_evidence_root`.
+Never commit this file. Existing coordinator-owned PostgreSQL17 and RustFS services
+are required; `scripts.check_services` creates the configured private app bucket
+if absent and checks a disposable object. Open `http://127.0.0.1:58000`.
+This is a local restricted application, with paid inference disabled.
+
 Test a short product demo with a simulated audience, inspect timestamped editing notes, and compare your next cut.
 
 **Status: planning and feasibility experiments complete, updated 28 October 2026.** Real Meta API experiments and offline scheduler/validation tests exist; the application and deployment remain unbuilt. Owner-selected repository: [ShrikarT/viralist](https://github.com/ShrikarT/viralist). The owner is moving to app development; remaining proposals and evidence limits are recorded in the handoff.
