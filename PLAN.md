@@ -1,5 +1,13 @@
 # Viralist delivery plan
 
+## Current execution: V02
+
+The four original V00-R1 blockers are resolved at **`715be0ee31f8ed3229e64b75853aff624c3f449c`**, independently REVIEW-ACCEPTED by Antigravity (`task_436abf78d22b`, `ctx_cb461cd2c9a7`, 18:04 UTC), then fast-forwarded into coordinator `codex/orchestration-readiness`. [Independent correction review](docs/evidence/v00-correction-review.md). One correction submission; zero failed rounds. Historical pending text below describes the submitted candidate and is superseded by this execution record.
+
+**V02: IN PROGRESS.** Owner's local architecture/upload approval is settled. One Codex writer on `codex/v02-journey`, checkout `C:/Users/Shrikar/orca/workspaces/viralist/codex-v02-journey`, exact base and accepted prerequisite `715be0ee31f8ed3229e64b75853aff624c3f449c`; Run `run_eb62638ed3eb`. [Actual task contract](docs/evidence/v02-assignment.md). Owned app scaffolding/API/worker/UI/migrations/tests and reproducibility; coordinator owns PLAN/STATE/integration. Independent implementation review and real local browser journey remain pending.
+
+Acceptance scope is the complete small-cast upload -> validation -> durable job -> supported note -> persistent report -> deletion journey, including recovery and owner isolation with real PostgreSQL/private S3. Hash-bound saved inference is disclosed as recorded; no new paid calls or canned findings for unmatched media. Full-Flash performance, 50-person experience, A/B, thumbnails and release remain later gates. First checkpoint: running API/migration/PG/S3 roundtrip and frontend compile; submission requires the actual UI path, not backend prerequisites alone.
+
 Canonical local ledger: **VIR-PLAN**, now executing bounded **V00-R1** correction submission 1 before **V02**. Planning is complete. Independent initial review returned REVISE at `a2c90b5e99109d79a8ebbf2249aab0960838666a`; latest owner instruction approves local V02 stack/upload limits and implementation after correction acceptance. PLAN remains canonical until authorized tracker migration; no canonical GitHub issue exists. Current worker owns only the correction, not integration or V02. No deployment/publication/new paid calls. Further all-fifty separation is deferred.
 
 ### V00-R1 review outcome and correction batch
