@@ -1,5 +1,15 @@
 # Current state — 2026-10-28
 
+## Engineering orchestration checkpoint
+
+- Owner requested supervised engineering orchestration on 2026-10-28. Current bounded milestone: V00/V01 independent readiness review before V02. This supersedes the old claim that Orca is unavailable; it does not approve remaining material product proposals, additional provider spending or release.
+- Frozen reviewed baseline: `a2c90b5e99109d79a8ebbf2249aab0960838666a`, verified at origin `refs/heads/codex/meta-api-smoke` with `git ls-remote`. Coordinator checkout remains `C:/Users/Shrikar/viralist`, now on `codex/orchestration-readiness`; original experiment branch is preserved.
+- Orca `1.4.243` is running and reachable. Run `run_78e9fa786ccc`; review task `task_f0e1665a723f` / V00-R1; dispatch `ctx_c2891d1189a6`; Codex terminal `term_7f6301c3-f2d0-4bda-83ad-6d0681195549`. Default configured model, no override. Launch accepted; startup receipt pending. No implementation workers.
+- Reviewer owns isolated checkout `C:/Users/Shrikar/orca/workspaces/viralist/codex-v00-readiness-review`, branch `codex/v00-readiness-review`, at the frozen baseline. No tracked edits permitted. [Actual dispatch contract](evidence/v00-review-assignment.md); report destination outside Git is `C:/Users/Shrikar/.codex/viralist-v00-review/report.md`. PLAN remains canonical; Orca records execution, not a replacement tracker.
+- Runtime discovery: Node `v26.7.0`, Python `3.10.2`; Docker CLI exists but Linux engine pipe is unavailable. PostgreSQL CLI was not found on PATH. No app runtime or database was started. These are development-environment gaps, not passing application checks.
+- Loaded shared/project AGENTS, README, STATE, PROJECT_BRIEF, PLAN V00/V01/V02, ACCEPTANCE, ARCHITECTURE, CONTRACTS, durable-worker ADR, START_HERE, Spark rerun evidence; orchestration skill plus installed placement/coordinator references and ORCA-HANDOFF. User supplied the full worker contract. No provider requests, tracker publication or release performed.
+- Next action: validate reviewer receipt, authorize only scoped offline review, preserve verdict and checks. Product prerequisite acceptance remains pending; correction rounds zero. Spend unchanged at the prior tracked maximum $14.69754320; orchestration model/token spend unavailable.
+
 ## Checkout, authority and recovery
 
 - Repository: `C:/Users/Shrikar/viralist`; branch `codex/meta-api-smoke`; owner-selected origin `https://github.com/ShrikarT/viralist.git`. On 2026-10-28 the owner authorized committing/pushing the existing planning and experiment work. Verify the published revision with `git ls-remote origin refs/heads/codex/meta-api-smoke`. No GitHub issue, application, deployment or release. `PLAN.md` is the canonical task ledger.
