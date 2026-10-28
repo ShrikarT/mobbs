@@ -6,7 +6,7 @@ This is a planning-only repository for Viralist. Read [PROJECT_BRIEF](PROJECT_BR
 
 1. **Discovery/strategy (this pass):** audit the baseline, research claims, define product/design/contracts and acceptance. No product code.
 2. **Owner choices:** approve/amend the brief's material proposals; authorize implementation and live-test budget separately. Review the concrete plan, not a generic permission prompt.
-3. **Orca implementation coordination:** follow [PLAN](../PLAN.md), beginning V00/V01; load the installed version-matched orchestration guide. A worker receives root AGENTS, task, immutable baseline, interfaces and checks. Current Orca CLI is unavailable; resolve that capability before dispatch rather than guessing commands.
+3. **Orca implementation coordination:** follow [PLAN](../PLAN.md), beginning V00/V01; load the installed version-matched orchestration guide. A worker receives root AGENTS, task, immutable baseline, interfaces and checks. Orca 1.4.243 was verified running on 2026-10-28. The first independent [readiness review](evidence/v00-readiness-review.md) returned REVISE; resolve PLAN's numbered correction batch before V02 dispatch.
 4. **Independent verification:** a different verifier inspects and tests a frozen commit. Keep WORKER-REPORTED if verification cannot run. Two failed correction rounds trigger redesign.
 5. **Integration:** one integrator combines accepted commits and checks the new revision. Owner retains merge authority.
 6. **Real journey:** independently exercise the production path on the exact integration artifact. Mocked dependencies and recorded replay are identified separately.
@@ -23,4 +23,4 @@ This is a planning-only repository for Viralist. Read [PROJECT_BRIEF](PROJECT_BR
 | Verification/release | [ACCEPTANCE](ACCEPTANCE.md), [LAUNCH_STORY](LAUNCH_STORY.md) |
 | Terminology | [GLOSSARY](../GLOSSARY.md) |
 
-There is no runnable app, manifest, CI or deployment. Do not invent install/test commands or report passing production tests. The only authorized output of this pass is the planning package. The next meaningful step is V00, then authorized bounded feasibility experiments.
+There is no runnable product app, application manifest, CI or deployment. Experiments and a separate HyperFrames experiment manifest do exist; README records the offline Python test command. Do not report those checks as production integration. The next meaningful step is the bounded V00-R1 contract/readiness correction, followed by independent review and the authorized V02 slice. Do not repeat paid experiments to inspect existing evidence.

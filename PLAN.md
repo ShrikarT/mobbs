@@ -1,6 +1,19 @@
 # Viralist delivery plan
 
-Canonical local task: **VIR-PLAN — product discovery and technical strategy**. Status: author-complete planning/experiment package, owner corrections recorded 2026-10-28, independent review pending. Owner selected `ShrikarT/viralist` and authorized committing/pushing the current work there. PLAN remains canonical until an explicitly authorized tracker migration; no canonical GitHub issue exists. Preserve IDs and avoid duplicate task state. Next product priority is the first working upload-to-report flow; further all-fifty persona separation is deferred.
+Canonical local task: **VIR-PLAN — product discovery and technical strategy**. Status: author-complete planning/experiment package; independent V00-R1 readiness review on 2026-10-28 returned **REVISE** at `a2c90b5e99109d79a8ebbf2249aab0960838666a`. Owner selected `ShrikarT/viralist` and authorized committing/pushing the existing planning/experiment work. PLAN remains canonical until an explicitly authorized tracker migration; no canonical GitHub issue exists. Preserve IDs and avoid duplicate task state. Next product priority is the first working upload-to-report flow; further all-fifty persona separation is deferred.
+
+### V00-R1 review outcome and correction batch
+
+Independent Codex reviewer completed Orca task `task_f0e1665a723f`, dispatch `ctx_c2891d1189a6`, Run `run_78e9fa786ccc`; [assignment](docs/evidence/v00-review-assignment.md), [exact-revision findings and reproduction](docs/evidence/v00-readiness-review.md). All 25 offline experiment tests passed with external provider doubles; synthetic fixture arithmetic passed. This accepts only those observed properties, not full V01 or application readiness. Reviewer terminal released; original clean review worktree preserved. Initial review complete; **zero correction submissions**.
+
+One numbered correction batch, owned by the integrator until a populated worker contract is dispatched:
+
+1. Derive sanitized success/incomplete/error provider examples from saved evidence, preserving source revision/hashes and explicit envelope/usage/error mapping. No paid rerun is needed for this inspection.
+2. Specify C3/C5 normalization between actual experiment shapes and canonical contracts, including local action validation, timing/evidence IDs, unavailable signals and impression bounds. Do not pretend the experimental validator is the app schema.
+3. Complete the synthetic report/deletion lifecycle fixture and profile-specific cast completion/failure rules. Preserve small-test versus Flash labeling and all privacy/isolation invariants.
+4. Record the V02-only scope decision and accepted immutable prerequisite scope: adapter feasibility must not silently stand in for full-Flash cost/latency acceptance. The proposed $0.50 target, 60s worst-case and p95 remain unproved.
+
+V02 stays **SPECIFIED-BLOCKED / REVISION-REQUIRED** until these findings and material scope decisions are settled and the correction commit is independently reviewed. Local Docker engine was unavailable at bootstrap. No app was implemented, integrated, journey-verified or released during this bounded review. Future paid smoke requires applicable authority; the previous $15 ceiling is cumulative and nearly exhausted.
 
 ## Gates and dependency graph
 
