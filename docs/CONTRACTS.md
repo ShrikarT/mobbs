@@ -1,6 +1,6 @@
-# Contract proposal v1
+# Local contract v1 — V00-R1 correction candidate
 
-Status: design only. The integrator freezes executable schemas and generated types in V02 after owner decisions and V01 capability evidence. [vertical-slice.v1.json](contracts/vertical-slice.v1.json) is the single synthetic producer/consumer example. It is not a run, provider receipt or production response. All examples use fictitious IDs/media. Its two-person test profile is never a substitute for the 50-person Flash acceptance test.
+Status: WORKER-REPORTED correction candidate; independent acceptance pending. Owner approved the local V02 architecture and MP4 limits on 2026-10-28. The shared executable boundary is [contracts/normalized.py](../contracts/normalized.py); future app and tests import this module. [vertical-slice.v1.json](contracts/vertical-slice.v1.json) is a synthetic producer/consumer fixture with schema version `normalized-1`, not a run or production response. [provider-saved.v1.json](contracts/provider-saved.v1.json) separately projects saved provider receipts with all private output text replaced by synthetic empty JSON. Its original shapes/hashes remain evidence, while substituted text proves only parser structure. No application is implemented here.
 
 ## Cross-module contracts
 
@@ -21,7 +21,7 @@ Server-generated opaque identifiers; milliseconds as nonnegative integers; UTC I
 
 Scenes are contiguous over accepted duration, max five seconds for Flash, with a 0–3s hook boundary (or the video end when shorter). Decoder scene cuts can create shorter intervals. Regular actions are within `[start_ms,end_ms)`; stop decisions may occur exactly at `end_ms`. Transcript overlap is clipped by time. When a segment's semantics span a boundary, do not leak later words into the earlier prompt; flag coarse timing instead.
 
-Action enum: `like, share, save, comment, follow`. Watching/stopping uses `still_watching`, not contradictory action flags. Optional comment has its own evidence ID and filtering status; do not alter a quote and still label it verbatim. Signals: `confused: boolean|null`, `cta_understood: boolean|null`, `matched_trend_rule_ids: string[]`; null means unobserved. Any trend match must reference a stored rule and current/past feature evidence.
+Action enum: `like, share, save, comment, follow`. Each action has `type`, `at_ms: integer|null` and `timing: observed|unobserved`; null must accompany unobserved. The legacy provider shape supports only the first four actions, with no timestamps. Conversion never fabricates timestamps; canonical richer producers may supply validated observed times. Watching/stopping uses `still_watching`. Optional comment text needs separate evidence/filtering before a later producer adds it; legacy `comment` supplies intent only. Signals: `confused: boolean|null`, `cta_understood: boolean|null`, `matched_trend_rule_ids: string[]`; null means unobserved. Legacy conversion sets both signals null and trend IDs empty. Nonempty trend IDs are unsupported by this v1 local validator until evidence-bound rules exist.
 
 FeatureBundle is a storage contract, **not** permission to send the whole bundle to personas. Construct a separate `SceneInput` projection; include an `allowed_media_refs` list and `max_visible_ms` in dispatch audit. Provider caches must never bind a persona to an earlier whole-video request.
 
@@ -47,13 +47,43 @@ All routes are same-origin, session-authorized and rate-limited. Unowned IDs ret
 
 Error envelope: `{code,stage,message,retryable,request_id}`. Safe user text only. Raw provider errors may be retained in restricted redacted diagnostics; no authorization headers or content excerpts. Later what-if/PDF/share endpoints are defined by V08 before coding; they are not part of the first slice interface.
 
-## Provider boundary — documented request, untested account
+## Provider boundary — observed saved mapping
 
-Base `https://api.meta.ai/v1`, Bearer key supplied server-side. The video guide documents `POST /files` with `purpose=user_data`, then `POST /responses` with model and an input user message containing `{type:"input_file",file_id:...}` plus text. A URL video uses `{type:"input_video",video_url:...}`. See [Meta video guide](https://dev.meta.ai/docs/video-understanding). The fixture's `provider_request_shape` contains placeholders and is illustrative only.
+Historical implementation boundary: `PipelineClient.text` calls `Client.call(POST /responses)` then `output_json`; the latter discards the envelope and rejects non-completed responses. Client.call stores request header ID/latency/usage in a ledger and saves successful HTTP JSON separately. Transport `success` can therefore contain generation `incomplete`. Existing final persona path is Spark 1.3 Standard, current real frame plus scene-local observations/local transcript and own past impression, `store:false`, strict JSON schema, minimal reasoning. Native scene files are used for shared extraction, not attached as whole-video persona context. The fixture request is explicitly illustrative of this selected path. No endpoint verification or paid rerun occurred in this correction.
 
-Adapter returns our normalized `{request_id,model_id,reported_version,output,usage,latency_ms,status}`. This is **our interface**, not a claimed Meta response shape. V01 must save redacted real response examples and map actual usage/schema/refusal fields before V02 locks serialization. `reported_version` may be null; model ID alone is not an exact immutable backend revision.
+`normalize_envelope(raw, receipt)` returns our `{request_id,response_id,model_id,reported_version,output,usage,latency_ms,status,error,incomplete_reason,cancellation}`:
 
-No calls in this planning pass. Test supported structured-output behavior, video/audio path, per-account catalog, token counting and cancellation/retrieval capabilities before relying on them. Never guess a second endpoint/model ID after a rejected request. Live retries use ARCHITECTURE's bounded policy.
+| Normalized field | Observed source / rule |
+|---|---|
+| request_id / response_id | ledger `x-request-id` capture / body `id`; never substitute one for the other |
+| model_id / reported_version | body `model`, fallback ledger requested_model / null (immutable backend revision unavailable) |
+| output | completed `output[type=message].content[type=output_text].text`, concatenate then strict JSON parse; reasoning/encrypted content never enters output |
+| usage | input/output/total tokens plus nested cached/reasoning counts; retained on incomplete generation; missing usage remains null, never zero or free |
+| latency_ms | ledger latency_sec converted decimal half-up to integer milliseconds; excludes preparation, not end-to-end latency |
+| status | completed, incomplete, refused, error; unknown generation status fails closed |
+| incomplete_reason | observed `incomplete_details.reason=max_output_tokens`; no partial JSON accepted |
+| error | safe local code/HTTP status only; observed HTTP500 is ledger-only, body absent and usage unknown; charge uncertain, no automatic retry |
+| cancellation | unknown; not exercised, no cancellation guarantee |
+
+Saved success source is `04b852728ae22967f408f71e34f274911ab07578`. Incomplete/HTTP500 are pre-repair `e8abd1bee0b5706d9166aba4f38985ed6fa6bcff`, not relabeled as final paid runs. Every example records original response (when present), ledger and revision-record SHA-256 plus call number. No refusal was found in inspected saved envelopes; refusal parser handling is synthetic-test coverage only. `tests/reconcile_saved.py` re-extracts allowlisted projections and reconciles original envelopes to the 19 saved small-cast reactions and both notes without exposing content.
+
+New network/provider calls are outside this correction's authority. Saved evidence demonstrates historical adapter/schema feasibility only. Fresh inference, provider deletion/cancellation and full-Flash performance need separately authorized applicable evidence. Replay must be labeled recorded evidence, bound to exact original media SHA-256; unmatched uploads cannot inherit saved observations/findings.
+
+### Reaction and note conversion
+
+`normalize_verdict` requires one exact expected persona ID, a boolean watch decision, nonempty reason, <=30-word legacy impression, and unique whitelisted legacy action strings. It maps `impression` to `impression_update` (canonical maximum 60 words), scene seconds to integer ms, and takes a server-assigned evidence ID. Continued reasons are stored as `simulated_reason` evidence; only stopped viewers get `drop_reason`. Evidence preserves exact quote, persona/scene identity and source scene range. Inputs never execute tools or render HTML.
+
+`stop_trigger` computes segment stops / valid respondents, threshold >=0.15, rejecting duplicate respondents. V02 supports only this detector initially. `normalize_note` converts `start_sec/end_sec`, `finding/suggested_edit` and `evidence_ids/quotes` to the C5 note; a known deterministic trigger and at least one of its evidence IDs are required. Quotes must exactly match a selected stored reason and note range must lie within trigger and cited scene. Missing trigger suppresses the note; unsupported quotes/ranges/actions reject it. This intentionally suppresses one historical small-cast note instead of treating all paid prose as supported product advice. No causal/real audience claim follows from the trigger.
+
+### Small profile, report and recovery semantics
+
+Requested cast is immutable. Effective cast counts valid terminal traces (stopped or reached final scene); stopped is a successful terminal outcome, not failure. Requested = effective + failed + pending. Any pending unit means processing; terminal zero effective means failed; any missing terminal trace means incomplete. All requested valid traces yield `complete_test_profile` for explicit test profiles and `complete` only for Flash requesting 50. Flash <40 is necessarily incomplete; 40–49 also cannot claim full-cast completion. This rule resolves the old unqualified <40 text for V02 without weakening V03.
+
+The synthetic fixture includes complete report provenance, all five content/config hashes, source revision explicitly unavailable because no execution occurred, synthetic observation timestamp, model/version/usage absence, methodology, coverage, caveats, requested/effective/failed/pending/stopped counts, and exact completion/resample arithmetic. Canonical JSON hashes use sorted keys, compact separators, UTF-8 and no nonfinite values. Media zero hash is a disclosed synthetic placeholder. Three hand-checkable resamples are not the production 200.
+
+C4 cursor is a positive per-run sequence; SSE ID is the persisted event_id, resolved under owner+run scope. Conflicting run/ID or invalid cursor is rejected; reconnect sends sequence > cursor, duplicate event IDs are ignored. Heartbeats have no domain sequence or reaction semantics. Retention-expired cursor produces `run.snapshot` with `reset:true` and `through_sequence`, then resumes after that sequence. Discriminated fixtures cover persona, snapshot and deletion events. DB uniqueness/transaction/SSE enforcement remains V02 implementation, not proved by schema validation.
+
+C8 first delete transaction tombstones media, revokes access, increments fence generation and creates one owner+video deletion operation; repeat delete returns that same deletion ID, including after completion. Idempotency is owner+route+key bound to request hash, changed input 409; deletion identity additionally remains stable across different keys. Targets enumerate originals, derivatives, provider files, runs, events, reports and outstanding jobs. Operation stays pending while any target is pending/failed. Failed provider target retains error code/next retry; complete requires all target completion timestamps and final operation timestamp. Upstream backups remain unverified. Every write checks current lease generation and tombstone in its transaction; late response after deletion enters cleanup without report/bytes resurrection. Pending/retry/complete/repeat/stale-job fixtures and pure fence predicate are contract checks only; actual persistence/recovery is V02 work.
 
 ## Metric and evidence contracts
 

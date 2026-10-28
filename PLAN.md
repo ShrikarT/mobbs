@@ -1,28 +1,30 @@
 # Viralist delivery plan
 
-Canonical local task: **VIR-PLAN — product discovery and technical strategy**. Status: author-complete planning/experiment package; independent V00-R1 readiness review on 2026-10-28 returned **REVISE** at `a2c90b5e99109d79a8ebbf2249aab0960838666a`. Owner selected `ShrikarT/viralist` and authorized committing/pushing the existing planning/experiment work. PLAN remains canonical until an explicitly authorized tracker migration; no canonical GitHub issue exists. Preserve IDs and avoid duplicate task state. Next product priority is the first working upload-to-report flow; further all-fifty persona separation is deferred.
+Canonical local ledger: **VIR-PLAN**, now executing bounded **V00-R1** correction submission 1 before **V02**. Planning is complete. Independent initial review returned REVISE at `a2c90b5e99109d79a8ebbf2249aab0960838666a`; latest owner instruction approves local V02 stack/upload limits and implementation after correction acceptance. PLAN remains canonical until authorized tracker migration; no canonical GitHub issue exists. Current worker owns only the correction, not integration or V02. No deployment/publication/new paid calls. Further all-fifty separation is deferred.
 
 ### V00-R1 review outcome and correction batch
 
-Independent Codex reviewer completed Orca task `task_f0e1665a723f`, dispatch `ctx_c2891d1189a6`, Run `run_78e9fa786ccc`; [assignment](docs/evidence/v00-review-assignment.md), [exact-revision findings and reproduction](docs/evidence/v00-readiness-review.md). All 25 offline experiment tests passed with external provider doubles; synthetic fixture arithmetic passed. This accepts only those observed properties, not full V01 or application readiness. Reviewer terminal released; original clean review worktree preserved. Initial review complete; **zero correction submissions**.
+Independent Codex reviewer completed Orca task `task_f0e1665a723f`, dispatch `ctx_c2891d1189a6`, Run `run_78e9fa786ccc`; [assignment](docs/evidence/v00-review-assignment.md), [exact-revision findings and reproduction](docs/evidence/v00-readiness-review.md). All 25 offline experiment tests passed with external provider doubles; synthetic fixture arithmetic passed. This accepts only those observed properties, not full V01 or application readiness. Reviewer terminal released; original clean review worktree preserved. Current **correction submission 1** under V00-R1: task `task_b413039b3ddf`, dispatch `ctx_5ac751b884ef`, Run `run_eb62638ed3eb`; one of maximum two submitted correction rounds. [Correction evidence](docs/evidence/v00-correction-1.md).
 
-One numbered correction batch, owned by the integrator until a populated worker contract is dispatched:
+The original numbered batch is unchanged in scope. Assigned correction writer owns contracts/tests and focused context updates in isolated `codex/v00-correction`, base `14cbdb036ea2ef9b8ef62f3e881c0de3d9d93e43`:
 
 1. Derive sanitized success/incomplete/error provider examples from saved evidence, preserving source revision/hashes and explicit envelope/usage/error mapping. No paid rerun is needed for this inspection.
 2. Specify C3/C5 normalization between actual experiment shapes and canonical contracts, including local action validation, timing/evidence IDs, unavailable signals and impression bounds. Do not pretend the experimental validator is the app schema.
 3. Complete the synthetic report/deletion lifecycle fixture and profile-specific cast completion/failure rules. Preserve small-test versus Flash labeling and all privacy/isolation invariants.
 4. Record the V02-only scope decision and accepted immutable prerequisite scope: adapter feasibility must not silently stand in for full-Flash cost/latency acceptance. The proposed $0.50 target, 60s worst-case and p95 remain unproved.
 
-V02 stays **SPECIFIED-BLOCKED / REVISION-REQUIRED** until these findings and material scope decisions are settled and the correction commit is independently reviewed. Local Docker engine was unavailable at bootstrap. No app was implemented, integrated, journey-verified or released during this bounded review. Future paid smoke requires applicable authority; the previous $15 ceiling is cumulative and nearly exhausted.
+V02 stays **SPECIFIED-BLOCKED / CORRECTION-REVIEW-PENDING** until this candidate is independently accepted and the coordinator records the immutable prerequisite and dispatch baseline. Owner scope is settled; no repeated architecture/upload approval is needed. Coordinator reports PostgreSQL/private S3-compatible local preparation available; correction worker did not inspect or exercise these services. Future paid smoke needs separate authority; $15 is cumulative and nearly exhausted.
+
+Prerequisite ownership is explicit: independent reviewer accepts/rejects the correction's exact submitted SHA; coordinator records that SHA and evidence after review, combines accepted work and records the resulting dispatch baseline. This commit cannot name its own future accepted SHA. V02 requires only (a) bounded offline scheduler/projection/budget properties independently observed at `a2c90b5e99109d79a8ebbf2249aab0960838666a`, and (b) corrected saved-adapter/schema feasibility at the to-be-reviewed correction SHA. `14cbdb036ea2ef9b8ef62f3e881c0de3d9d93e43` is the coordinator handoff base, not accepted application code. Historical paid source `04b852728ae22967f408f71e34f274911ab07578` remains WORKER-REPORTED; saved-artifact conversion does not accept the entire paid experiment. Full-Flash S2 <=$0.50, <=90s, 60s worst-case/p95 and broader fidelity/cost remain V03 gates; they do not block the authorized small V02 build. Fresh-live smoke still cannot be claimed without spend authority; exact-media saved replay is labeled recorded evidence and never fresh inference or analysis of unmatched media.
 
 ## Gates and dependency graph
 
-No product task is READY yet. Every task below is SPECIFIED-BLOCKED until its named prerequisites are accepted at immutable SHAs and the owner authorizes implementation. At dispatch, record exact `base_sha`, `prerequisite_shas`, reviewer/evidence links, checkout, branch, owned files and permitted spend in STATE/the canonical issue. A symbolic task ID or `main` is not an accepted prerequisite SHA. This deliberately avoids invented baseline hashes.
+No product task is READY yet. Local V02 implementation authority exists; its correction acceptance and immutable dispatch baseline remain pending. Later tasks require their own prerequisites/authority. At dispatch, coordinator records exact `base_sha`, `prerequisite_shas`, reviewer/evidence links, checkout, branch, owned files and permitted spend in STATE/the canonical issue. Symbolic IDs or `main` are not accepted prerequisite SHAs.
 
 ```mermaid
 flowchart LR
  P[Planning review and owner choices V00] --> S[Feasibility V01]
- S --> L[Real thin vertical slice V02]
+ S --> L[Small V02: corrected adapter/schema only]
  L --> F[50-person Flash and notes V03]
  F --> A[Paired A/B V04]
  F --> T[Thumbnail Lab V05]
@@ -44,12 +46,12 @@ Author “implemented” advances only to WORKER-REPORTED. Independent exact-com
 ## V00 — accept decisions and establish dispatch baseline
 
 - Behavior: a future worker knows what is authorized, which repository it owns and what evidence is required.
-- Preconditions: planning commit exists; owner reviews PROJECT_BRIEF. Accepted baseline: none yet.
-- Interface/ownership: planning docs and contract proposal only; owner/integrator owns STATE/PLAN. No product code.
-- Check: approve/amend upload/latency contract, record exact planning SHA and reviewer findings; settle license, replacement owned demo footage, Standard API behavior and hard spend cap. Remote selection and receipt of $150 credits are owner-confirmed; Muse Image playground works, but API/policy discrepancy remains. No need to settle paid-product pricing.
+- Preconditions: planning exists; owner approved local stack/upload/scope on 2026-10-28. Correction exact-SHA acceptance remains pending; coordinator records baseline after review.
+- Interface/ownership: assigned V00-R1 writer owns corrected reusable contracts/fixtures/tests and focused guidance; coordinator owns acceptance/integration and next dispatch.
+- Check: record approved local stack/upload boundaries and exact correction SHA with independent findings; full-Flash latency/cost, release license/public footage and later Muse policy remain separate gates. Remote selection/credits/access are settled; no repeated local-scope approval.
 - Real versus simulated: read actual account access/billing only when authorized; no invented credit receipt. Public event facts are not proof of selection.
 - Risk/review: low implementation complexity, high dependency significance; one document review. Not parallel-safe with changes to core contracts.
-- Blockers: owner decisions and independent review availability. Stop after a concrete decision record; do not publish or test paid providers just because the plan exists.
+- Blocker: independent exact-SHA correction acceptance. Local scope decisions are settled. No publication or paid reruns.
 
 ## V01 — bounded integration and fidelity experiments
 
@@ -89,19 +91,19 @@ Author “implemented” advances only to WORKER-REPORTED. Independent exact-com
 ## V02 — one complete thin user journey
 
 - Behavior: owned upload → durable analysis → a small visibly labeled test cast → one supported note → delete; refresh survives processing.
-- Preconditions: accepted V00/V01 SHAs; adapter response fixture resolved. This is a test-profile slice, not a completed Flash product.
-- Interface: C1–C5/C8 and synthetic fixture; executable schema mirrors frozen proposal and real V01 adapter mapping.
+- Preconditions: coordinator-recorded accepted V00-R1 correction SHA for saved-adapter/schema feasibility plus bounded offline evidence at `a2c90b5e99109d79a8ebbf2249aab0960838666a`; no full-V01 acceptance implied. Owner authorized local stack/limits and implementation. This is a test-profile slice, not completed Flash.
+- Interface: C1–C5/C8, normalized-1 fixture and `contracts/normalized.py`; future app imports the same production converter exercised in correction tests. Preserve replay/live identity and exact media binding.
 - Ownership: initial manifests/lockfiles, `apps/`, `contracts/`, `migrations/`, `tests/` scaffold. One writer because this crosses modules; freeze generated interface ownership before subsequent tasks.
 - Acceptance: clean environment installs using committed manifests; server rejects invalid media before model dispatch; real owned clip runs through production worker/adapter to evidence-linked note; reload preserves run; another session cannot read it; delete revokes it and removes controlled objects. Record exact commands in README only after running them.
-- Mocks: external model/storage boundary may be emulated for error tests; acceptance also requires a real adapter smoke. Never mock production scheduler, session checks or event persistence to prove them.
+- Mocks: external model outcomes may be emulated for error tests; actual persistent PostgreSQL, worker, session checks, storage and report path must run. Exact-media recorded responses may exercise the real local adapter under recorded-evidence labeling. Fresh live inference/provider smoke remains a separate unfulfilled acceptance claim requiring new authority; no new paid calls are authorized. Never mock production scheduler, session checks or persistence to prove them.
 - Non-goals/invariants: no elaborate graph, payments, calibrated scores or public share. Source/code-in-window evidence starts here, distinct from planning documents.
-- Risk/review: high, roughly 1–2 focused days; reviewer checks transactional recovery and actual path. Blocked by V01/access/runtime selection; no parallel implementation.
+- Risk/review: high, roughly 1–2 focused days; reviewer checks transactional recovery and actual path. Pending exact-SHA correction acceptance and coordinator runtime dispatch, no further broad readiness review; one coupled implementation writer.
 - Stop: satisfy thin-slice tests at frozen SHA or report exact failure; two failed corrections require redesign.
 
 ## V03 — Flash, transparent report and live evidence view
 
 - Behavior: 50-person Reels run streams real reactions and yields up to three actionable notes, ranges and assumptions.
-- Preconditions: accepted V02 SHA; C2–C5 frozen; S2 cost/latency decision accepted.
+- Preconditions: accepted V02 SHA; C2–C5 frozen; S2 full-Flash cost/latency, 60s worst-case and p95 gates explicitly resolved with owner before full-Flash claims. Prior ~$0.94/33.78s sample does not satisfy <=$0.50 or worst-case/p95.
 - Ownership: simulation/reporting modules, run-view UI, archetype/trend data, corresponding tests. Integrator alone changes DB/contracts. Use shadcn defaults when selecting primitives and browse for actual UI path.
 - Interface: trace → resample/scenario → metric/note/evidence → UI; C5 and fixture arithmetic. Implement documented subscore/method definitions, not new unexplained scoring formulas.
 - Acceptance: A01/A02/A03/A07 in ACCEPTANCE; first 3s boundary, 50 actual cast instances, no future leakage, traceable notes and intervals, degraded cast clearly shown, keyboard/text alternatives and reduced motion. Repeated runs record different LLM outputs without promising determinism.

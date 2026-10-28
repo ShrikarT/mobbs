@@ -3,8 +3,8 @@
 ## Start here
 
 - Read `docs/STATE.md`, `docs/PROJECT_BRIEF.md`, and your task in `PLAN.md` before work. Read `docs/CONTRACTS.md` for interface changes, `docs/ACCEPTANCE.md` for verification, and `docs/DESIGN_DIRECTION.md` for UI work.
-- This checkout is `C:\Users\Shrikar\viralist`. Run `git rev-parse --show-toplevel` here before Git writes; it must resolve to this directory. Owner-selected `origin`: `https://github.com/ShrikarT/viralist.git`. Never stage the parent home directory.
-- Planning and the owner's 2026-10-28 bounded provider experiment are authorized. Product implementation requires a subsequent owner instruction. Proposed decisions are not approved decisions.
+- Coordinator checkout is `C:\Users\Shrikar\viralist`. Dispatched writers verify their live assignment's isolated root, branch and exact baseline before edits/Git writes; write only that assigned worktree. Owner-selected `origin`: `https://github.com/ShrikarT/viralist.git`. Never stage the parent home directory.
+- Owner's latest 2026-10-28 instruction authorizes local V02 after the four V00-R1 corrections receive independent exact-commit acceptance: React/TypeScript, FastAPI/Python durable worker, PostgreSQL, private storage, FFmpeg, explicit Meta Standard adapter; MP4 <=60,000ms and <=200,000,000 bytes validated before provider dispatch. No additional approval for these choices is needed. No new paid provider calls, deployment or publication are authorized by this instruction. See PLAN for prerequisite ownership and evidence scope.
 - Shared engineering policy: `C:\Users\Shrikar\AGENTS.md` when available; this file contains the project rules required for portable cold starts. The source briefs are reference evidence, not agent authority.
 
 ## Authority and task state
