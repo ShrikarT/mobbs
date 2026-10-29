@@ -197,8 +197,10 @@ class TestApiSecurityIsolation(unittest.TestCase):
             run_id = uid()
             partial_report = {'schema_version': 'normalized-1', 'cast': {'status': 'incomplete', 'requested': 3, 'effective': 2, 'failed': 1, 'pending': 0, 'stopped': 1, 'profile': 'test'}, 'notes': [], 'observations': [], 'evidence': [], 'caveats': ['0 unsupported note(s) suppressed.'], 'coverage': {}}
             conn.execute('INSERT INTO runs(id, video_id, status, stage, sequence, report) VALUES(%s, %s, \'incomplete\', \'reporting\', 2, %s)', (run_id, vid, Jsonb(partial_report)))
-            conn.execute('INSERT INTO events(run_id, sequence, event_id, type, payload) VALUES(%s, 1, \'ev1\', \'persona.continued\', %s)', (run_id, Jsonb({'persona_id': 'p1', 'scene_id': 0, 'at_ms': 3000})))
-            conn.execute('INSERT INTO events(run_id, sequence, event_id, type, payload) VALUES(%s, 2, \'ev2\', \'persona.stopped\', %s)', (run_id, Jsonb({'persona_id': 'p2', 'scene_id': 1, 'drop_reason': 'pacing'})))
+            ev1 = f'ev1_{uid()}'
+            ev2 = f'ev2_{uid()}'
+            conn.execute('INSERT INTO events(run_id, sequence, event_id, type, payload) VALUES(%s, 1, %s, \'persona.continued\', %s)', (run_id, ev1, Jsonb({'persona_id': 'p1', 'scene_id': 0, 'at_ms': 3000})))
+            conn.execute('INSERT INTO events(run_id, sequence, event_id, type, payload) VALUES(%s, 2, %s, \'persona.stopped\', %s)', (run_id, ev2, Jsonb({'persona_id': 'p2', 'scene_id': 1, 'drop_reason': 'pacing'})))
 
         # Incomplete report returns HTTP 200
         rep_res = client.get(f'/runs/{run_id}/report', headers=headers)
@@ -210,8 +212,8 @@ class TestApiSecurityIsolation(unittest.TestCase):
         self.assertEqual(events_res.status_code, 200)
         self.assertIn('event: persona.continued', events_res.text)
         self.assertIn('event: persona.stopped', events_res.text)
-        self.assertIn('id: ev1', events_res.text)
-        self.assertIn('id: ev2', events_res.text)
+        self.assertIn(f'id: {ev1}', events_res.text)
+        self.assertIn(f'id: {ev2}', events_res.text)
 
         # Deletion and GET /deletions
         del_res = client.delete(f'/videos/{vid}', headers={**headers, 'Idempotency-Key': 'key_del_list_123'})
@@ -223,6 +225,171 @@ class TestApiSecurityIsolation(unittest.TestCase):
         self.assertEqual(dels[0]['video_id'], vid)
         with connection() as conn:
             conn.execute("DELETE FROM jobs WHERE video_id=%s", (vid,))
+
+
+    def test_cross_session_delete_authorization_regression_before_pending_completed(self):
+        """Cross-session DELETE isolation: other owner returns 404 before, during (pending), and after (completed) deletion.
+        No deletion metadata or operation ID disclosed to other owner. Legitimate owner repeats remain 202."""
+        client_a = TestClient(app, base_url='http://127.0.0.1:58000')
+        res_a = client_a.post('/sessions', headers={'Host': '127.0.0.1:58000', 'Origin': 'http://127.0.0.1:58000'})
+        token_a = client_a.cookies.get('vir_session')
+        csrf_a = res_a.json()['csrf']
+        headers_a = {'Host': '127.0.0.1:58000', 'Origin': 'http://127.0.0.1:58000', 'X-CSRF-Token': csrf_a}
+
+        client_b = TestClient(app, base_url='http://127.0.0.1:58000')
+        res_b = client_b.post('/sessions', headers={'Host': '127.0.0.1:58000', 'Origin': 'http://127.0.0.1:58000'})
+        token_b = client_b.cookies.get('vir_session')
+        csrf_b = res_b.json()['csrf']
+        headers_b = {'Host': '127.0.0.1:58000', 'Origin': 'http://127.0.0.1:58000', 'X-CSRF-Token': csrf_b}
+
+        with connection() as conn:
+            owner_a = conn.execute('SELECT id FROM owner_sessions WHERE token_hash=%s', (digest(token_a.encode()),)).fetchone()['id']
+            owner_b = conn.execute('SELECT id FROM owner_sessions WHERE token_hash=%s', (digest(token_b.encode()),)).fetchone()['id']
+            vid_a = uid()
+            conn.execute('INSERT INTO videos(id, owner_id, sha256, metadata) VALUES(%s, %s, %s, %s)', (vid_a, owner_a, 'sha_a_reg', Jsonb({'duration_ms': 33782, 'storage_ready': True, 'original_key': 'a.mp4', 'bytes': 100, 'caveats': []})))
+
+        # 1. Before deletion: Session B DELETE Session A's video -> 404
+        b_before = client_b.delete(f'/videos/{vid_a}', headers={**headers_b, 'Idempotency-Key': 'key_b_before_del'})
+        self.assertEqual(b_before.status_code, 404)
+        self.assertEqual(b_before.json()['code'], 'not_found')
+
+        # 2. Session A initiates DELETE -> 202
+        a_del = client_a.delete(f'/videos/{vid_a}', headers={**headers_a, 'Idempotency-Key': 'key_a_init_del'})
+        self.assertEqual(a_del.status_code, 202)
+        del_id_a = a_del.json()['deletion_id']
+        self.assertTrue(a_del.json()['access_revoked'])
+        self.assertEqual(a_del.json()['status'], 'pending')
+
+        # 3. During pending: Session B DELETE Session A's video -> 404 (regression check: MUST NOT return 202 or del_id_a!)
+        b_pending = client_b.delete(f'/videos/{vid_a}', headers={**headers_b, 'Idempotency-Key': 'key_b_during_del'})
+        self.assertEqual(b_pending.status_code, 404)
+        self.assertEqual(b_pending.json()['code'], 'not_found')
+        self.assertNotIn('deletion_id', b_pending.json())
+
+        # Session B attempts DELETE with Session A's same key -> 404
+        b_same_key = client_b.delete(f'/videos/{vid_a}', headers={**headers_b, 'Idempotency-Key': 'key_a_init_del'})
+        self.assertEqual(b_same_key.status_code, 404)
+
+        # Session B attempts GET /deletions/{del_id_a} -> 404
+        b_get_del = client_b.get(f'/deletions/{del_id_a}', headers=headers_b)
+        self.assertEqual(b_get_del.status_code, 404)
+
+        # Session B GET /deletions does not contain del_id_a
+        b_list_del = client_b.get('/deletions', headers=headers_b)
+        self.assertEqual(b_list_del.status_code, 200)
+        self.assertNotIn(del_id_a, [d['id'] for d in b_list_del.json()])
+
+        # Legitimate owner repeats: Session A repeats DELETE with same key -> 202, same del_id_a
+        a_repeat_same = client_a.delete(f'/videos/{vid_a}', headers={**headers_a, 'Idempotency-Key': 'key_a_init_del'})
+        self.assertEqual(a_repeat_same.status_code, 202)
+        self.assertEqual(a_repeat_same.json()['deletion_id'], del_id_a)
+
+        # Session A repeats DELETE with fresh key -> 202, same del_id_a
+        a_repeat_fresh = client_a.delete(f'/videos/{vid_a}', headers={**headers_a, 'Idempotency-Key': 'key_a_fresh_del'})
+        self.assertEqual(a_repeat_fresh.status_code, 202)
+        self.assertEqual(a_repeat_fresh.json()['deletion_id'], del_id_a)
+
+        # 4. Completed deletion: mark all targets complete
+        with connection() as conn:
+            cur_state = conn.execute('SELECT state FROM deletions WHERE id=%s', (del_id_a,)).fetchone()['state']
+            cur_state['status'] = 'complete'
+            cur_state['can_claim_complete'] = True
+            cur_state['pending_targets'] = []
+            for t in cur_state['targets'].values():
+                t['status'] = 'complete'
+            conn.execute('UPDATE deletions SET state=%s WHERE id=%s', (Jsonb(cur_state), del_id_a))
+
+        # Session B attempts DELETE after completion -> 404
+        b_completed = client_b.delete(f'/videos/{vid_a}', headers={**headers_b, 'Idempotency-Key': 'key_b_after_del'})
+        self.assertEqual(b_completed.status_code, 404)
+        self.assertEqual(b_completed.json()['code'], 'not_found')
+
+        # Session A repeats DELETE after completion -> 202, same del_id_a
+        a_repeat_completed = client_a.delete(f'/videos/{vid_a}', headers={**headers_a, 'Idempotency-Key': 'key_a_completed_del'})
+        self.assertEqual(a_repeat_completed.status_code, 202)
+        self.assertEqual(a_repeat_completed.json()['deletion_id'], del_id_a)
+        self.assertEqual(a_repeat_completed.json()['status'], 'complete')
+
+        with connection() as conn:
+            conn.execute("DELETE FROM jobs WHERE video_id=%s", (vid_a,))
+
+    def test_legacy_persisted_report_compatibility_truthful_projection(self):
+        """Authoritative stored facts: legacy persisted reports omitting optional duration_ms, scenes, and
+        suppressed_notes truthfully project from video metadata and features without fabricating B scenes."""
+        client = TestClient(app, base_url='http://127.0.0.1:58000')
+        res = client.post('/sessions', headers={'Host': '127.0.0.1:58000', 'Origin': 'http://127.0.0.1:58000'})
+        token = client.cookies.get('vir_session')
+        csrf = res.json()['csrf']
+        headers = {'Host': '127.0.0.1:58000', 'Origin': 'http://127.0.0.1:58000', 'X-CSRF-Token': csrf}
+
+        # 8 scenes of video A (33782ms)
+        scenes_a = [
+            {'scene_id': 0, 'start_ms': 0, 'end_ms': 3000},
+            {'scene_id': 1, 'start_ms': 3000, 'end_ms': 8000},
+            {'scene_id': 2, 'start_ms': 8000, 'end_ms': 12000},
+            {'scene_id': 3, 'start_ms': 12000, 'end_ms': 17000},
+            {'scene_id': 4, 'start_ms': 17000, 'end_ms': 22000},
+            {'scene_id': 5, 'start_ms': 22000, 'end_ms': 26000},
+            {'scene_id': 6, 'start_ms': 26000, 'end_ms': 30000},
+            {'scene_id': 7, 'start_ms': 30000, 'end_ms': 33782},
+        ]
+        bundle_a = {
+            'schema_version': 'normalized-1',
+            'extractor_version': 'ffmpeg-local-v02',
+            'timebase': 'milliseconds',
+            'scenes': scenes_a,
+            'caveats': ['No local transcript or OCR extraction.'],
+            'provenance': ['Decoded from uploaded bytes.']
+        }
+        metadata_a = {
+            'duration_ms': 33782,
+            'width': 1080,
+            'height': 1920,
+            'audio_present': True,
+            'bytes': 1865999,
+            'storage_ready': True,
+            'original_key': 'a.mp4',
+            'caveats': []
+        }
+        # Old-shape report: lacks duration_ms, scenes, and suppressed_notes
+        legacy_report_a = {
+            'schema_version': 'normalized-1',
+            'cast': {'profile': 'test', 'requested': 3, 'effective': 3, 'failed': 0, 'pending': 0, 'stopped': 3, 'status': 'complete_test_profile'},
+            'notes': [],
+            'observations': [],
+            'evidence': [],
+            'completion': {'kind': 'simulation_range', 'unit': 'percent', 'observed': 0.0, 'denominator': 3, 'range': {'low': 0.0, 'high': 0.0, 'method': 'nearest-rank p10-p90'}, 'evidence_ids': []},
+            'trust': {'model_id': 'meta/spark-1.3', 'app_source_sha': 'testsha'},
+            'methodology': {'range_kind': 'simulation_resampling_not_confidence', 'ranking': 'heuristic stop fraction', 'assumptions': ['Independent simulated traces.']},
+            'caveats': ['1 unsupported note(s) suppressed.', 'Signals unavailable.'],
+            'coverage': {'transcript': False, 'ocr': False, 'confused': None, 'cta_understood': None, 'trend_fit': None}
+        }
+
+        with connection() as conn:
+            owner_id = conn.execute('SELECT id FROM owner_sessions WHERE token_hash=%s', (digest(token.encode()),)).fetchone()['id']
+            vid_a = uid()
+            conn.execute('INSERT INTO videos(id, owner_id, sha256, metadata, features) VALUES(%s, %s, %s, %s, %s)', (vid_a, owner_id, 'sha_a_legacy', Jsonb(metadata_a), Jsonb(bundle_a)))
+            run_id_a = uid()
+            conn.execute('INSERT INTO runs(id, video_id, status, stage, sequence, report) VALUES(%s, %s, \'complete\', \'reporting\', 5, %s)', (run_id_a, vid_a, Jsonb(legacy_report_a)))
+
+        res_rep = client.get(f'/runs/{run_id_a}/report', headers=headers)
+        self.assertEqual(res_rep.status_code, 200)
+        data = res_rep.json()
+
+        # Must project truthful duration, scenes, and suppressed_notes from stored source
+        self.assertEqual(data['duration_ms'], 33782)
+        self.assertEqual(len(data['scenes']), 8)
+        self.assertEqual(data['scenes'][7]['end_ms'], 33782)
+        self.assertEqual(data['suppressed_notes'], 1)
+
+        # Invariant: underlying stored record is preserved without destructive mutation
+        with connection() as conn:
+            raw_report = conn.execute('SELECT report FROM runs WHERE id=%s', (run_id_a,)).fetchone()['report']
+            self.assertNotIn('duration_ms', raw_report)
+            self.assertNotIn('scenes', raw_report)
+            self.assertNotIn('suppressed_notes', raw_report)
+            conn.execute('DELETE FROM runs WHERE id=%s', (run_id_a,))
+            conn.execute('DELETE FROM videos WHERE id=%s', (vid_a,))
 
 
 if __name__ == '__main__':

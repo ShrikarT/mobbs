@@ -36,16 +36,40 @@ export function App() {
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [deletionState, setDeletionState] = useState<DeletionState | null>(null);
   const cancelBtnRef = useRef<HTMLButtonElement>(null);
-  const deleteBtnRef = useRef<HTMLButtonElement>(null);
+  const confirmBtnRef = useRef<HTMLButtonElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
 
-  // Modal focus lifecycle
+  // Modal focus lifecycle: initial Cancel focus, restore trigger on close
   useEffect(() => {
     if (showDeleteModal) {
       setTimeout(() => cancelBtnRef.current?.focus(), 20);
-    } else {
-      deleteBtnRef.current?.focus();
+    } else if (triggerRef.current) {
+      triggerRef.current.focus();
     }
   }, [showDeleteModal]);
+
+  const handleModalKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      setShowDeleteModal(false);
+      return;
+    }
+    if (e.key === 'Tab') {
+      if (e.shiftKey) {
+        if (document.activeElement === cancelBtnRef.current) {
+          e.preventDefault();
+          confirmBtnRef.current?.focus();
+        }
+      } else {
+        if (document.activeElement === confirmBtnRef.current) {
+          e.preventDefault();
+          cancelBtnRef.current?.focus();
+        }
+      }
+    }
+  };
 
   // Start polling deletion helper
   const startPollingDeletion = (delId: string) => {
@@ -261,20 +285,10 @@ export function App() {
     setViewState('idle');
   };
 
-  // Stored scenes and duration derivation
-  const scenes = report
-    ? (report.scenes && report.scenes.length > 0
-        ? report.scenes
-        : [
-            { scene_id: 0, start_ms: 0, end_ms: 3000 },
-            { scene_id: 1, start_ms: 3000, end_ms: 8000 },
-            { scene_id: 2, start_ms: 8000, end_ms: 13000 },
-            { scene_id: 3, start_ms: 13000, end_ms: report.duration_ms || 17108 },
-          ])
-    : [];
-
-  const durationMs = report ? (report.duration_ms || scenes[scenes.length - 1]?.end_ms || 17108) : 17108;
-  const durationSec = (durationMs / 1000).toFixed(1);
+  // Authoritative stored scenes and duration derivation (no synthesized B fallback)
+  const scenes = report?.scenes && report.scenes.length > 0 ? report.scenes : [];
+  const durationMs = report?.duration_ms ?? (scenes.length > 0 ? scenes[scenes.length - 1].end_ms : null);
+  const durationSec = durationMs !== null ? (durationMs / 1000).toFixed(1) : null;
 
   // Suppressed notes count derived from stored backend data
   const suppressedCount = report
@@ -393,10 +407,12 @@ export function App() {
 
             <div style={{ marginTop: '20px' }}>
               <button
-                ref={deleteBtnRef}
                 type="button"
                 className="btn btn-secondary"
-                onClick={() => setShowDeleteModal(true)}
+                onClick={(e) => {
+                  triggerRef.current = e.currentTarget;
+                  setShowDeleteModal(true);
+                }}
               >
                 Cancel &amp; delete video
               </button>
@@ -422,11 +438,12 @@ export function App() {
               {/* Dynamic Timeline scrubber / scene cards */}
               <div className="timeline-card">
                 <div className="timeline-header">
-                  <span>Scene timeline ({scenes.length} scenes)</span>
-                  <span className="mono">0.0s – {durationSec}s</span>
+                  <span>Scene timeline {scenes.length > 0 ? `(${scenes.length} scenes)` : '(scenes unavailable)'}</span>
+                  <span className="mono">{durationSec !== null ? `0.0s – ${durationSec}s` : 'Duration unavailable'}</span>
                 </div>
-                <div className="timeline-track" role="region" aria-label="Scene timeline">
-                  {scenes.map((scene, idx) => {
+                {scenes.length > 0 ? (
+                  <div className="timeline-track" role="region" aria-label="Scene timeline">
+                    {scenes.map((scene, idx) => {
                     const startSec = (scene.start_ms / 1000).toFixed(scene.start_ms % 1000 === 0 ? 0 : 1);
                     const endSec = (scene.end_ms / 1000).toFixed(scene.end_ms % 1000 === 0 ? 0 : 1);
                     const trigger = report.observations?.find(
@@ -465,6 +482,11 @@ export function App() {
                     );
                   })}
                 </div>
+                ) : (
+                  <div className="timeline-unavailable" style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                    Scene boundaries unavailable for this legacy report.
+                  </div>
+                )}
               </div>
             </div>
 
@@ -618,10 +640,12 @@ export function App() {
               {/* Deletion action */}
               <div className="actions-footer">
                 <button
-                  ref={deleteBtnRef}
                   type="button"
                   className="btn btn-danger"
-                  onClick={() => setShowDeleteModal(true)}
+                  onClick={(e) => {
+                    triggerRef.current = e.currentTarget;
+                    setShowDeleteModal(true);
+                  }}
                 >
                   Delete video &amp; report
                 </button>
@@ -633,12 +657,15 @@ export function App() {
         {/* View 5: Deleting / Deleted Progress with honest app-owned copy limits */}
         {(viewState === 'deleting' || viewState === 'deleted') && deletionState && (
           <div className="running-container">
-            <span className="stage-badge" style={{ background: varCss(viewState === 'deleted' ? 'complete' : 'pending') }}>
-              {viewState === 'deleted' ? 'Complete' : 'Deleting'}
+            <span className="stage-badge" style={{ background: varCss(viewState === 'deleted' && deletionState.can_claim_complete ? 'complete' : 'pending') }}>
+              {viewState === 'deleted' && deletionState.can_claim_complete ? 'Complete' : 'Deleting'}
             </span>
-            <h2>{viewState === 'deleted' ? 'App-owned copies removed' : 'Executing deletion lifecycle'}</h2>
+            <h2>{viewState === 'deleted' && deletionState.can_claim_complete ? 'App-owned copies removed' : 'Deletion in progress'}</h2>
             <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>
-              Access revoked immediately ({deletionState.access_revoked_at ? new Date(deletionState.access_revoked_at).toLocaleTimeString() : 'revoked'}). Controlled artifacts removed from PostgreSQL and private storage.
+              Access revoked immediately ({deletionState.access_revoked_at ? new Date(deletionState.access_revoked_at).toLocaleTimeString() : 'revoked'}).{' '}
+              {viewState === 'deleted' && deletionState.can_claim_complete
+                ? 'Controlled artifacts removed from PostgreSQL and private storage.'
+                : 'Controlled artifact removal is pending and in progress across PostgreSQL and private storage.'}
             </p>
 
             {deletionState.caveat && (
@@ -648,7 +675,9 @@ export function App() {
             )}
 
             <div className="deletion-targets-list" style={{ marginTop: '16px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>App-controlled storage targets:</div>
+              <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>
+                App-controlled storage targets {deletionState.pending_targets?.length ? `(${deletionState.pending_targets.length} pending)` : '(all removed)'}:
+              </div>
               {Object.entries(deletionState.targets).map(([key, target]) => (
                 <div key={key} className="target-row">
                   <span className="mono">{key}</span>
@@ -657,7 +686,7 @@ export function App() {
               ))}
             </div>
 
-            {viewState === 'deleted' && (
+            {viewState === 'deleted' && deletionState.can_claim_complete && (
               <div style={{ marginTop: '24px' }}>
                 <button type="button" className="btn btn-primary" onClick={handleReset}>
                   Start new upload
@@ -681,10 +710,12 @@ export function App() {
               </button>
               {videoId && (
                 <button
-                  ref={deleteBtnRef}
                   type="button"
                   className="btn btn-danger"
-                  onClick={() => setShowDeleteModal(true)}
+                  onClick={(e) => {
+                    triggerRef.current = e.currentTarget;
+                    setShowDeleteModal(true);
+                  }}
                 >
                   Delete uploaded video
                 </button>
@@ -694,16 +725,15 @@ export function App() {
         )}
       </main>
 
-      {/* Confirmation Modal for Deletion with focus management & trap */}
+      {/* Confirmation Modal for Deletion with focus management & containment */}
       {showDeleteModal && (
         <div
+          ref={modalRef}
           className="modal-overlay"
           role="dialog"
           aria-modal="true"
           aria-labelledby="modal-title"
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setShowDeleteModal(false);
-          }}
+          onKeyDown={handleModalKeyDown}
         >
           <div className="modal-dialog">
             <h3 id="modal-title" className="modal-title">Delete this video?</h3>
@@ -721,6 +751,7 @@ export function App() {
                 Cancel
               </button>
               <button
+                ref={confirmBtnRef}
                 type="button"
                 className="btn btn-danger"
                 onClick={handleDelete}

@@ -32,13 +32,13 @@ The hackathon slice is Flash Scan → Director's Notes → edited-cut comparison
 Verified local regression and end-to-end checks:
 
 ```powershell
-# Python unit, domain integration, security isolation, and full journey tests (26 passing)
+# Python unit, domain integration, security isolation, and full journey tests (28 passing)
 .venv/Scripts/python -m unittest tests.test_normalized tests.test_domain_integration tests.test_api_security_isolation tests.test_full_journey
 
 # Standalone saved evidence reconciliation (reconciles 19 reactions and 2 note envelopes)
 .venv/Scripts/python -m tests.reconcile_saved
 
-# Playwright browser journeys (Desktop Chrome and 320px Mobile, 5 passing)
+# Playwright browser journeys (Desktop Chrome and 320px Mobile, 6 passing)
 npx playwright test
 
 # Historical experiment test suite

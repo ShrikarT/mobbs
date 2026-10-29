@@ -235,9 +235,25 @@ def events(run_id: str,request: Request,after: int=0):
 @app.get('/runs/{run_id}/report')
 def report(run_id: str,request: Request):
     with connection() as conn:
-        row = owned_run(conn,owner(request),run_id)
+        row = conn.execute(
+            'SELECT r.report, r.status, r.stage, v.metadata, v.features FROM runs r JOIN videos v ON v.id=r.video_id WHERE r.id=%s AND v.owner_id=%s AND v.deleted_at IS NULL',
+            (run_id, owner(request))
+        ).fetchone()
+        if not row: raise Denied('not_found')
         if row['report'] is None: return JSONResponse(dict(status=row['status'],stage=row['stage']),status_code=202)
-        return row['report']
+        rep = dict(row['report'])
+        if 'duration_ms' not in rep and row['metadata'] and 'duration_ms' in row['metadata']:
+            rep['duration_ms'] = row['metadata']['duration_ms']
+        if 'scenes' not in rep and row['features'] and 'scenes' in row['features']:
+            rep['scenes'] = row['features']['scenes']
+        if 'suppressed_notes' not in rep:
+            for c in rep.get('caveats', []):
+                if 'unsupported note' in c:
+                    m = re.search(r'(\d+)', c)
+                    if m:
+                        rep['suppressed_notes'] = int(m.group(1))
+                        break
+        return rep
 
 
 @app.delete('/videos/{video_id}',status_code=202)
@@ -248,7 +264,7 @@ def delete(video_id: str,request: Request):
     with connection() as conn:
         conn.execute('SELECT id FROM owner_sessions WHERE id=%s FOR UPDATE',(owner_id,))
         previous = idem(conn,owner_id,'delete',request_key,request_hash)
-        existing = conn.execute('SELECT state FROM deletions WHERE video_id=%s',(video_id,)).fetchone()
+        existing = conn.execute('SELECT state FROM deletions WHERE video_id=%s AND owner_id=%s',(video_id,owner_id)).fetchone()
         if existing:
             state = existing['state']
             if not previous:
