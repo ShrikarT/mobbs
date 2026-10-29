@@ -28,4 +28,7 @@ def settings():
     path = Path(os.environ.get('VIRALIST_RUNTIME', str(Path.home()/'.codex/private-runs/viralist-v02-local/runtime.json')))
     raw = json.loads(path.read_text(encoding='utf-8-sig'))
     fields = ('database_url', 's3_endpoint', 's3_access_key', 's3_secret_key', 's3_bucket', 'provider_evidence_root')
-    return Settings(**{k: raw[k] for k in fields})
+    kwargs = {k: raw[k] for k in fields}
+    if 'origin' in raw:
+        kwargs['origin'] = raw['origin']
+    return Settings(**kwargs)
