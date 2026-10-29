@@ -10,6 +10,8 @@ Real fixture discovery: private stage2-bounded has50 distinct persona IDs,256 ac
 
 First B1 checkpoint `msg_90c589d450a2` (2026-10-29T13:42:56Z), **WORKER-REPORTED only**: migration/legacy3 defaults and manifest immutability, distinct same-video test/Flash resources, queued requested50/pending50/effective0, repeat/key-conflict handling and unsupported-Flash pre-enqueue422. Full50 execution and committed independent verification are still pending; no test totals or journey acceptance inferred. Sole original Antigravity dispatch remains active; no new worker or reassignment.
 
+Continuation snapshot: coordinator preparation through `ace2d6a83ccaaed185281f0315c4325299db1ce3` is documentation only after corrected schema base. Author remains live on the original branch with uncommitted backend/tests; no candidate submitted, review queue empty and submitted corrections0. Read-only diagnostic query on the author's isolated test DB observed a completed Flash run with256 reactions/50 terminal traces and a completed test run with12 reactions/3 terminal traces. This is **unfrozen author-runtime evidence**, not exact-commit acceptance. Subsequent suite runs continue; don't interfere with its queue. Last fleet verdict `live`, outcome `in_progress`, nextAction `none`; zero reclaimable terminal rows. Do not launch a replacement or review a dirty tree. Event-driven coordinator wait is exec session32023 (matching status/question/escalation/worker_done); resume that handle if available, otherwise check the same Run (unacked deliveries replay safely). No worker restart or paid calls.
+
 New integrator migration002 and manifest/report contract are task implementation inputs, not accepted code. Coordinator exercised DDL twice in isolated `viralist_v03_contract`, retained a seeded legacy3-person run and observed manifest-mutation rejection. Before implementation approval, corrected SQL CHECK NULL semantics in `dcb8172`: the full predicate must be TRUE. On fresh isolated `viralist_v03_contract_guard`, applied committed migration twice; legacy3 and valid Flash50 accepted; null requested/profile/seed rejected. The backend candidate must independently verify/review these changes together. No V02 database was migrated.
 
 ## Accepted base and local dependencies
@@ -22,7 +24,7 @@ New integrator migration002 and manifest/report contract are task implementation
 ## Next actions
 
 1. Antigravity has reported queued Flash50/profile/migration checkpoint; complete full50 candidate and obtain committed per-criterion evidence.
-2. Obtain committed backend candidate and independent exact-commit verification; integrate accepted contract/API work.
+2. Obtain committed backend candidate and independent exact-commit verification; [prepared review contract](evidence/v03-backend-review-assignment.md) requires actual candidate SHA before dispatch. Integrate accepted contract/API work only after review.
 3. Dispatch UI and live-backend work only with disjoint files/frozen interfaces (maximum two writers). Live task uses the supplied server credential, canonical cumulative ledger and$30 guard; fresh/cost/latency/p95 claims need actual evidence. Keep20-sample p95 requirement visible; budget is not permission to fabricate a statistic.
 4. Independently prove the complete combined V03 journey, UI/design/error/recovery/deletion and live/performance scope. Do not declare complete at a backend-only or replay-only checkpoint.
 
