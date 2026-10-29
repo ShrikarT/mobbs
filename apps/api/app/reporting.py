@@ -39,6 +39,14 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
 
     # 2. Build whole persona traces for effective personas
     valid_pids = [c['persona_id'] for c in checkpoints if c['status'] in ('stopped', 'complete')]
+    terminal_pids = set(valid_pids)
+    terminal_reactions = [r for r in reactions if r['persona_id'] in terminal_pids]
+    terminal_evidence_by_id = {
+        r['evidence_id']: evidence_by_id[r['evidence_id']]
+        for r in terminal_reactions
+        if r['evidence_id'] in evidence_by_id
+    }
+
     traces = {}
     for pid in valid_pids:
         p_reactions = sorted(reactions_by_pid.get(pid, []), key=lambda x: x['scene_id'])
@@ -140,18 +148,29 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
         stopped = sum(t['stopped_scene'] == sid for t in traces.values())
         continued = entrants - stopped
 
-        scene_evidence_ids = [r['evidence_id'] for r in reactions if r['scene_id'] == sid]
+        scene_evidence_ids = [r['evidence_id'] for r in terminal_reactions if r['scene_id'] == sid]
 
-        surv_observed = (continued / effective * 100.0) if effective > 0 else None
-        surv_range = compute_range(survival_samples[sid]) if effective > 0 else None
-        survival_metric = dict(
-            kind='simulation_range',
-            unit='percent',
-            observed=surv_observed,
-            denominator=effective,
-            range=surv_range,
-            evidence_ids=scene_evidence_ids,
-        )
+        if effective > 0:
+            surv_observed = (continued / effective * 100.0)
+            surv_range = compute_range(survival_samples[sid])
+            survival_metric = dict(
+                kind='simulation_range',
+                unit='percent',
+                observed=surv_observed,
+                denominator=effective,
+                range=surv_range,
+                evidence_ids=scene_evidence_ids,
+            )
+        else:
+            survival_metric = dict(
+                kind='simulation_range',
+                unit='percent',
+                observed=None,
+                denominator=0,
+                range=None,
+                evidence_ids=[],
+                unavailable_reason='no_effective_traces',
+            )
 
         if entrants > 0:
             drop_observed = (stopped / entrants) * 100.0
@@ -162,7 +181,7 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
                 observed=drop_observed,
                 denominator=entrants,
                 range=drop_range,
-                evidence_ids=[r['evidence_id'] for r in reactions if r['scene_id'] == sid and not r['still_watching']],
+                evidence_ids=[r['evidence_id'] for r in terminal_reactions if r['scene_id'] == sid and not r['still_watching']],
             )
         else:
             drop_metric = dict(
@@ -192,21 +211,32 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
         act_pids = {pid for pid, t in traces.items() if act in t['actions']}
         act_ev_ids = [
             r['evidence_id']
-            for r in reactions
+            for r in terminal_reactions
             if any((a['type'] if isinstance(a, dict) else a) == act for a in r.get('actions', []))
         ]
-        obs = (len(act_pids) / effective * 100.0) if effective > 0 else None
-        engagement[act] = dict(
-            kind='observed_rate',
-            unit='percent',
-            observed=obs,
-            denominator=effective,
-            range=compute_range(action_samples[act]) if effective > 0 else None,
-            evidence_ids=act_ev_ids,
-        )
+        if effective > 0:
+            obs = (len(act_pids) / effective * 100.0)
+            engagement[act] = dict(
+                kind='simulation_range',
+                unit='percent',
+                observed=obs,
+                denominator=effective,
+                range=compute_range(action_samples[act]),
+                evidence_ids=act_ev_ids,
+            )
+        else:
+            engagement[act] = dict(
+                kind='simulation_range',
+                unit='percent',
+                observed=None,
+                denominator=0,
+                range=None,
+                evidence_ids=[],
+                unavailable_reason='no_effective_traces',
+            )
 
     engagement['follow'] = dict(
-        kind='observed_rate',
+        kind='simulation_range',
         unit='percent',
         observed=None,
         denominator=effective,
@@ -216,27 +246,49 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
     )
 
     # 7. Scores
-    hook_ev_ids = [r['evidence_id'] for r in reactions if r['scene_id'] == hook_scene_id]
-    hook_obs = (sum(t['stopped_scene'] is None or t['stopped_scene'] > hook_scene_id for t in traces.values()) / effective * 100.0) if effective > 0 else None
-    hook_metric = dict(
-        kind='heuristic_index',
-        unit='percent',
-        observed=hook_obs,
-        denominator=effective,
-        range=compute_range(hook_samples) if effective > 0 else None,
-        evidence_ids=hook_ev_ids,
-    )
+    hook_ev_ids = [r['evidence_id'] for r in terminal_reactions if r['scene_id'] == hook_scene_id]
+    if effective > 0:
+        hook_obs = (sum(t['stopped_scene'] is None or t['stopped_scene'] > hook_scene_id for t in traces.values()) / effective * 100.0)
+        hook_metric = dict(
+            kind='heuristic_index',
+            unit='percent',
+            observed=hook_obs,
+            denominator=effective,
+            range=compute_range(hook_samples),
+            evidence_ids=hook_ev_ids,
+        )
+    else:
+        hook_metric = dict(
+            kind='heuristic_index',
+            unit='percent',
+            observed=None,
+            denominator=0,
+            range=None,
+            evidence_ids=[],
+            unavailable_reason='no_effective_traces',
+        )
 
-    pacing_ev_ids = [r['evidence_id'] for r in reactions if r['scene_id'] == pacing_scene_id]
-    pacing_obs = (sum(t['stopped_scene'] is None or t['stopped_scene'] > pacing_scene_id for t in traces.values()) / effective * 100.0) if effective > 0 else None
-    pacing_metric = dict(
-        kind='heuristic_index',
-        unit='percent',
-        observed=pacing_obs,
-        denominator=effective,
-        range=compute_range(pacing_samples) if effective > 0 else None,
-        evidence_ids=pacing_ev_ids,
-    )
+    pacing_ev_ids = [r['evidence_id'] for r in terminal_reactions if r['scene_id'] == pacing_scene_id]
+    if effective > 0:
+        pacing_obs = (sum(t['stopped_scene'] is None or t['stopped_scene'] > pacing_scene_id for t in traces.values()) / effective * 100.0)
+        pacing_metric = dict(
+            kind='heuristic_index',
+            unit='percent',
+            observed=pacing_obs,
+            denominator=effective,
+            range=compute_range(pacing_samples),
+            evidence_ids=pacing_ev_ids,
+        )
+    else:
+        pacing_metric = dict(
+            kind='heuristic_index',
+            unit='percent',
+            observed=None,
+            denominator=0,
+            range=None,
+            evidence_ids=[],
+            unavailable_reason='no_effective_traces',
+        )
 
     scores = dict(
         hook=hook_metric,
@@ -272,42 +324,93 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
 
     # 8. Completion metric
     completed_pids = {c['persona_id'] for c in checkpoints if c['status'] == 'complete'}
-    comp_obs = (len(completed_pids) / effective * 100.0) if effective > 0 else None
-    completion = dict(
-        kind='simulation_range',
-        unit='percent',
-        observed=comp_obs,
-        denominator=effective,
-        range=compute_range(completion_samples) if effective > 0 else None,
-        evidence_ids=list(evidence_by_id),
-    )
+    if effective > 0:
+        comp_obs = (len(completed_pids) / effective * 100.0)
+        completion = dict(
+            kind='simulation_range',
+            unit='percent',
+            observed=comp_obs,
+            denominator=effective,
+            range=compute_range(completion_samples),
+            evidence_ids=[r['evidence_id'] for r in terminal_reactions],
+        )
+    else:
+        completion = dict(
+            kind='simulation_range',
+            unit='percent',
+            observed=None,
+            denominator=0,
+            range=None,
+            evidence_ids=[],
+            unavailable_reason='no_effective_traces',
+        )
 
     # 9. Notes & Observations
-    observations, notes, suppressed = [], [], 0
+    observations, notes = [], []
+    note_rejections = {
+        'unsupported_trigger': 0,
+        'quote_mismatch': 0,
+        'invalid_time': 0,
+        'invalid_reference': 0,
+        'malformed_candidate': 0,
+    }
     for scene in scenes:
         trigger = stop_trigger(
             f"stop_{scene['scene_id']}",
             scene['scene_id'],
             scene['start_ms'],
             scene['end_ms'],
-            reactions,
+            terminal_reactions,
         )
         if trigger:
             observations.append(trigger)
 
     obs_by_id = {t['id']: t for t in observations}
 
-    note_items = note_envelope['output'].get('notes', []) if isinstance(note_envelope.get('output'), dict) else []
+    note_items = note_envelope['output'].get('notes', []) if (isinstance(note_envelope, dict) and isinstance(note_envelope.get('output'), dict)) else []
     for i, item in enumerate(note_items):
+        if not isinstance(item, dict):
+            note_rejections['malformed_candidate'] += 1
+            continue
         try:
+            start_sec = item.get('start_sec')
+            end_sec = item.get('end_sec')
+            if not isinstance(start_sec, (int, float)) or not isinstance(end_sec, (int, float)):
+                note_rejections['malformed_candidate'] += 1
+                continue
+            start_ms = start_sec * 1000
+            end_ms = end_sec * 1000
+            if start_ms >= end_ms:
+                note_rejections['invalid_time'] += 1
+                continue
+
             candidates = [
                 t for t in observations
-                if t['start_ms'] <= item['start_sec'] * 1000 < item['end_sec'] * 1000 <= t['end_ms']
+                if t['start_ms'] <= start_ms < end_ms <= t['end_ms']
             ]
-            normalized = normalize_note(item, evidence_by_id, candidates[0] if candidates else None, f'n{i}')
+            if not candidates:
+                note_rejections['unsupported_trigger'] += 1
+                continue
+
+            trigger = candidates[0]
+            normalized = normalize_note(item, terminal_evidence_by_id, trigger, f'n{i}')
             notes.append(normalized)
-        except (ValueError, KeyError, TypeError, IndexError):
-            suppressed += 1
+        except ValueError as exc:
+            msg = str(exc)
+            if 'unsupported trigger' in msg or 'note outside trigger' in msg:
+                note_rejections['unsupported_trigger'] += 1
+            elif 'unmatched quote' in msg:
+                note_rejections['quote_mismatch'] += 1
+            elif 'unsupported note time' in msg or 'invalid trigger range' in msg:
+                note_rejections['invalid_time'] += 1
+            elif 'bad evidence references' in msg or 'note does not cite trigger' in msg:
+                note_rejections['invalid_reference'] += 1
+            else:
+                note_rejections['malformed_candidate'] += 1
+        except (KeyError, TypeError, IndexError):
+            note_rejections['malformed_candidate'] += 1
+
+    suppressed = sum(note_rejections.values())
 
     # Rank validated notes by trigger stop fraction descending, then start_ms ascending
     notes.sort(key=lambda n: (-obs_by_id.get(n.get('trigger_id'), {}).get('value', 0.0), n['start_ms']))
@@ -354,6 +457,23 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
         'No causal, virality, reach or audience calibration claim.',
     ]
 
+    checkpoint_pids = {c['persona_id'] for c in checkpoints}
+    uncreated_pids = [pid for pid in manifest.get('persona_ids', []) if pid not in checkpoint_pids]
+    pending_pids = sorted(list({c['persona_id'] for c in checkpoints if c.get('status') == 'active'} | set(uncreated_pids)))
+    failed_pids = sorted(list({c['persona_id'] for c in checkpoints if c.get('status') == 'failed'}))
+
+    coverage = dict(
+        transcript=False,
+        ocr=False,
+        confused=None,
+        cta_understood=None,
+        trend_fit=None,
+        excluded_traces=dict(
+            failed=failed_pids,
+            pending=pending_pids,
+        ),
+    )
+
     return dict(
         schema_version='normalized-1',
         manifest=manifest,
@@ -369,7 +489,8 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
         duration_ms=duration_ms,
         scenes=scenes,
         suppressed_notes=suppressed,
+        note_rejections=note_rejections,
         methodology=methodology,
         caveats=caveats,
-        coverage=dict(transcript=False, ocr=False, confused=None, cta_understood=None, trend_fit=None),
+        coverage=coverage,
     )

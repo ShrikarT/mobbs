@@ -383,7 +383,7 @@ def deletion(deletion_id: str,request: Request):
 def health():
     with connection() as conn:
         rows = {r['version'] for r in conn.execute('SELECT version FROM schema_migrations').fetchall()}
-        assert 1 in rows and 2 in rows
+        assert 1 in rows and 2 in rows and 3 in rows
     Storage().check()
     return {'status': 'ok', 'database': 'postgresql', 'storage': 'private_s3', 'inference': 'recorded_only'}
 

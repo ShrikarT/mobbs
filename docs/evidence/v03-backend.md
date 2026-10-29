@@ -32,7 +32,7 @@ Accepted application prerequisite: `1e140dc3db6bd9d052206cb3ae385b771d39c9dd`; s
 
 ### Criterion 3: Evidence and Events
 - Events endpoint `GET /runs/{run_id}/events`:
-  - Returns 256 SSE frames with strictly monotonic integer sequence 1..256 and no duplicates.
+  - Returns 256 SSE frames with strictly monotonic integer sequence 1..256 and no duplicates (coverage clarification: author test read a completed run; independent review 1 separately verified mid-run streaming and reconnection during processing status).
   - Reconnecting with `Last-Event-ID: {event_100_id}` resumes monotonically from sequence 101 to 256 (156 events returned).
   - Additive event fields present: `payload.actions` and `payload.reason` (quoted justification).
 - Owner-scoped evidence endpoint `GET /runs/{run_id}/evidence/{evidence_id}`:
@@ -61,20 +61,22 @@ Accepted application prerequisite: `1e140dc3db6bd9d052206cb3ae385b771d39c9dd`; s
     - `clarity`, `cta`, `trend`: observed `None` with truthful missing-signal reasons (`confusion_signal_unobserved`, `cta_signal_unobserved`, `grounded_trend_rules_unavailable`).
   - **Notes & Grounded Injection:**
     - Stage 2 historical note candidate for scene 5 (23-28s) has no compatible stop trigger (scene 5 stop rate was 3.3% < 15% threshold) and is properly suppressed: 0 reported notes, `suppressed_notes: 1`.
-    - Grounded note injection test verifies that providing a candidate note matching an active trigger (`stop_0`, scene 0, 22% stop rate) normalizes to open status with quotes, fix, interpretation, evidence_refs, and ranking.
+    - Grounded note injection test verifies that providing a candidate note matching an active trigger (`stop_0`, scene 0, 22% stop rate) normalizes to open status with quotes, fix, interpretation, evidence_refs, and ranking (coverage clarification: author test called `normalize_note` directly; correction 1 added full production aggregation through `build_report`).
   - **Golden Trace Math:**
-    - Hand-calculated 4-persona 2-scene fixture unit test verifies exact sample arithmetic, conditional denominators, and percentile ranking.
+    - Hand-calculated 4-persona 2-scene fixture unit test verifies exact sample arithmetic, conditional denominators, and percentile ranking (coverage clarification: author test verified hand-calculated point values; review 1 verified percentile bounds).
 
 ### Criterion 5: Failure and Recovery
 - Cast status edge cases:
   - 49 stopped/complete, 1 failed -> `incomplete` status.
   - 39 stopped/complete, 11 failed -> `incomplete` status.
   - 0 valid terminal traces (50 failed) -> `failed` status.
+  *(Coverage clarification: author unit tests exercised pure `cast_status` function; real worker/persistence faults are exercised in correction 1 regressions).*
 - Worker crash simulation:
   - Active leased job left unreleased; lease expires in past.
   - Second worker invokes `claim()` and acquires expired job with incremented generation.
   - First worker attempting to fence with stale lease generation raises `LeaseLost`.
   - Checkpoint and reactions resume seamlessly without duplication or event resurrection.
+  *(Coverage clarification: author test simulated crash via SQL lease expiry without process termination; independent review 1 separately exercised actual worker launcher process termination and natural 120s lease wait without SQL edits).*
 
 ### Criterion 6: Privacy and Deletion
 - Two browser sessions: Session 1 (owner) and Session 2 (unrelated).

@@ -357,6 +357,10 @@ class TestCriteria234FullRunEvidenceAndReporting(unittest.TestCase):
         # 4. Notes: 0 reported, 1 suppressed
         self.assertEqual(len(rep['notes']), 0)
         self.assertEqual(rep['suppressed_notes'], 1)
+        self.assertEqual(rep['note_rejections']['unsupported_trigger'], 1)
+        self.assertEqual(sum(rep['note_rejections'].values()), rep['suppressed_notes'])
+        self.assertEqual(rep['coverage']['excluded_traces'], {'failed': [], 'pending': []})
+        self.assertEqual(rep['engagement']['save']['kind'], 'simulation_range')
 
         # 5. Injected valid trigger + candidate note: proves note formatting when grounded
         with connection() as conn:
@@ -384,6 +388,23 @@ class TestCriteria234FullRunEvidenceAndReporting(unittest.TestCase):
         self.assertEqual(norm_note['quotes'][0]['text'], s0_ev['quote'])
         self.assertEqual(norm_note['interpretation'], candidate['finding'])
         self.assertEqual(norm_note['fix'], candidate['suggested_edit'])
+
+        # 6. Call production build_report aggregator with controlled note candidates
+        with connection() as conn:
+            checkpoints = conn.execute("SELECT * FROM checkpoints WHERE run_id=%s ORDER BY persona_id", (self.run_id,)).fetchall()
+            run_row = conn.execute("SELECT * FROM runs WHERE id=%s", (self.run_id,)).fetchone()
+            video_row = conn.execute("SELECT * FROM videos WHERE id=%s", (self.video_id,)).fetchone()
+
+        envelope_with_valid = {
+            'output': {
+                'notes': [candidate]
+            }
+        }
+        agg_rep = build_report(run_row['manifest'], video_row, checkpoints, rows, None, 'test_sha', envelope_with_valid, [])
+        self.assertEqual(len(agg_rep['notes']), 1)
+        self.assertEqual(agg_rep['notes'][0]['trigger_id'], 'stop_0')
+        self.assertEqual(agg_rep['suppressed_notes'], 0)
+        self.assertEqual(agg_rep['note_rejections']['unsupported_trigger'], 0)
 
 
 class TestGoldenTraceMathFixture(unittest.TestCase):
@@ -606,6 +627,436 @@ class TestCriterion6PrivacyAndDeletion(unittest.TestCase):
             with self.assertRaises(Exception) as cm:
                 storage.client.head_object(Bucket=storage.bucket, Key=key)
             self.assertIn('404', str(cm.exception))
+
+
+class TestCorrection1BlockerRegressions(unittest.TestCase):
+    """Focused regression test suite covering the 4 review findings and migration 003."""
+
+    def test_migration_003_manifest_integer_type_guard_and_health(self):
+        """Blocker 2: Schema guard rejects string/null/fractional/bool count and seed; health requires version 3."""
+        # 1. Health endpoint requires version 3
+        client = TestClient(app, base_url='http://127.0.0.1:58000')
+        res = client.get('/health')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()['status'], 'ok')
+
+        with connection() as conn:
+            # 2. Schema versions contain 1, 2, 3
+            versions = {r['version'] for r in conn.execute("SELECT version FROM schema_migrations").fetchall()}
+            self.assertTrue({1, 2, 3}.issubset(versions))
+
+            vid = uid()
+            owner_res = conn.execute("SELECT id FROM owner_sessions LIMIT 1").fetchone()
+            owner_id = owner_res['id']
+            conn.execute(
+                "INSERT INTO videos(id, owner_id, sha256, metadata) VALUES(%s, %s, %s, %s)",
+                (vid, owner_id, 'dummy_sha_m003', Jsonb({'duration_ms': 1000, 'storage_ready': True, 'original_key': 'k', 'bytes': 10, 'caveats': []}))
+            )
+
+            # 3. Valid integer counts and seeds succeed
+            valid_cases = [
+                {'schema_version': 'run-manifest-1', 'profile': 'test', 'provider_mode': 'recorded', 'requested': 3, 'resample_seed': 20261028, 'persona_ids': ['p001', 'p002', 'p003']},
+                {'schema_version': 'run-manifest-1', 'profile': 'flash', 'provider_mode': 'recorded', 'requested': 50, 'resample_seed': 0, 'persona_ids': [f'p{i:03d}' for i in range(1, 51)]},
+            ]
+            for manifest in valid_cases:
+                rid = uid()
+                conn.execute("INSERT INTO runs(id, video_id, manifest) VALUES(%s, %s, %s)", (rid, vid, Jsonb(manifest)))
+                row = conn.execute("SELECT manifest FROM runs WHERE id=%s", (rid,)).fetchone()
+                self.assertEqual(row['manifest']['requested'], manifest['requested'])
+                self.assertEqual(row['manifest']['resample_seed'], manifest['resample_seed'])
+
+            # 4. Invalid count/seed types and values rejected by CheckViolation
+            invalid_cases = [
+                ('string count', {'schema_version': 'run-manifest-1', 'profile': 'test', 'provider_mode': 'recorded', 'requested': '3', 'resample_seed': 20261028, 'persona_ids': ['p001', 'p002', 'p003']}),
+                ('string seed', {'schema_version': 'run-manifest-1', 'profile': 'test', 'provider_mode': 'recorded', 'requested': 3, 'resample_seed': '20261028', 'persona_ids': ['p001', 'p002', 'p003']}),
+                ('fractional count', {'schema_version': 'run-manifest-1', 'profile': 'test', 'provider_mode': 'recorded', 'requested': 3.5, 'resample_seed': 20261028, 'persona_ids': ['p001', 'p002', 'p003']}),
+                ('fractional seed', {'schema_version': 'run-manifest-1', 'profile': 'test', 'provider_mode': 'recorded', 'requested': 3, 'resample_seed': 1.5, 'persona_ids': ['p001', 'p002', 'p003']}),
+                ('null count', {'schema_version': 'run-manifest-1', 'profile': 'test', 'provider_mode': 'recorded', 'requested': None, 'resample_seed': 20261028, 'persona_ids': ['p001', 'p002', 'p003']}),
+                ('null seed', {'schema_version': 'run-manifest-1', 'profile': 'test', 'provider_mode': 'recorded', 'requested': 3, 'resample_seed': None, 'persona_ids': ['p001', 'p002', 'p003']}),
+                ('bool count', {'schema_version': 'run-manifest-1', 'profile': 'test', 'provider_mode': 'recorded', 'requested': True, 'resample_seed': 20261028, 'persona_ids': ['p001', 'p002', 'p003']}),
+                ('bool seed', {'schema_version': 'run-manifest-1', 'profile': 'test', 'provider_mode': 'recorded', 'requested': 3, 'resample_seed': False, 'persona_ids': ['p001', 'p002', 'p003']}),
+                ('negative count', {'schema_version': 'run-manifest-1', 'profile': 'test', 'provider_mode': 'recorded', 'requested': -1, 'resample_seed': 20261028, 'persona_ids': ['p001', 'p002', 'p003']}),
+                ('negative seed', {'schema_version': 'run-manifest-1', 'profile': 'test', 'provider_mode': 'recorded', 'requested': 3, 'resample_seed': -5, 'persona_ids': ['p001', 'p002', 'p003']}),
+            ]
+            for label, manifest in invalid_cases:
+                with self.assertRaises(psycopg.errors.CheckViolation, msg=f"Case {label} should have failed check violation"):
+                    with conn.transaction():
+                        conn.execute("INSERT INTO runs(id, video_id, manifest) VALUES(%s, %s, %s)", (uid(), vid, Jsonb(manifest)))
+
+            # 5. Idempotent repeat application of migration 003
+            m003_path = Path(__file__).resolve().parents[1] / 'migrations/003_manifest_integer_fields.sql'
+            conn.execute(m003_path.read_text(encoding='utf-8'))
+
+    def test_cohort_isolation_three_trace_controlled_fixture(self):
+        """Blocker 1: Terminal-trace cohort determines rates, stop triggers, evidence IDs, and note references."""
+        manifest = {
+            'profile': 'test',
+            'provider_mode': 'recorded',
+            'requested': 3,
+            'resample_seed': 20261028,
+            'persona_ids': ['p001', 'p002', 'p003'],
+        }
+        video = {
+            'metadata': {'duration_ms': 6000},
+            'features': {
+                'scenes': [
+                    {'scene_id': 0, 'start_ms': 0, 'end_ms': 3000},
+                    {'scene_id': 1, 'start_ms': 3000, 'end_ms': 6000},
+                ],
+                'caveats': [],
+            }
+        }
+        # p001 stopped at scene 0, p002 completed scene 1, p003 failed at scene 1 after scene 0 prefix
+        checkpoints = [
+            {'persona_id': 'p001', 'status': 'stopped'},
+            {'persona_id': 'p002', 'status': 'complete'},
+            {'persona_id': 'p003', 'status': 'failed'},
+        ]
+        rows = [
+            # p001 scene 0
+            {
+                'reaction': {'persona_id': 'p001', 'scene_id': 0, 'still_watching': False, 'drop_reason': 'Too slow hook', 'actions': [], 'evidence_id': 'ev_p1_s0'},
+                'evidence': {'id': 'ev_p1_s0', 'persona_id': 'p001', 'scene_id': 0, 'start_ms': 0, 'end_ms': 3000, 'quote': 'Too slow hook', 'still_watching': False},
+            },
+            # p002 scene 0
+            {
+                'reaction': {'persona_id': 'p002', 'scene_id': 0, 'still_watching': True, 'drop_reason': None, 'actions': [{'type': 'like'}], 'evidence_id': 'ev_p2_s0'},
+                'evidence': {'id': 'ev_p2_s0', 'persona_id': 'p002', 'scene_id': 0, 'start_ms': 0, 'end_ms': 3000, 'quote': 'Nice intro', 'still_watching': True},
+            },
+            # p002 scene 1
+            {
+                'reaction': {'persona_id': 'p002', 'scene_id': 1, 'still_watching': True, 'drop_reason': None, 'actions': [{'type': 'save'}], 'evidence_id': 'ev_p2_s1'},
+                'evidence': {'id': 'ev_p2_s1', 'persona_id': 'p002', 'scene_id': 1, 'start_ms': 3000, 'end_ms': 6000, 'quote': 'Great ending', 'still_watching': True},
+            },
+            # p003 scene 0 (valid prefix, took action 'like' and 'share', but failed later)
+            {
+                'reaction': {'persona_id': 'p003', 'scene_id': 0, 'still_watching': True, 'drop_reason': None, 'actions': [{'type': 'like'}, {'type': 'share'}], 'evidence_id': 'ev_p3_s0'},
+                'evidence': {'id': 'ev_p3_s0', 'persona_id': 'p003', 'scene_id': 0, 'start_ms': 0, 'end_ms': 3000, 'quote': 'Loved it', 'still_watching': True},
+            },
+        ]
+        note_envelope = {
+            'output': {
+                'notes': [
+                    # Candidate 1 cites terminal p001's stop trigger -> valid
+                    {
+                        'start_sec': 0.0,
+                        'end_sec': 3.0,
+                        'finding': 'Pacing slow in hook.',
+                        'suggested_edit': 'Do not use synthetic mockups; add immediate visual punch.',
+                        'evidence_ids': ['ev_p1_s0'],
+                        'quotes': ['Too slow hook'],
+                    },
+                    # Candidate 2 cites excluded p003's evidence -> must be rejected as invalid_reference
+                    {
+                        'start_sec': 0.0,
+                        'end_sec': 3.0,
+                        'finding': 'Call to action needed.',
+                        'suggested_edit': 'Do not use synthetic mockups; add share prompt.',
+                        'evidence_ids': ['ev_p3_s0'],
+                        'quotes': ['Loved it'],
+                    },
+                ]
+            }
+        }
+
+        rep = build_report(manifest, video, checkpoints, rows, None, 'test_sha', note_envelope, [])
+
+        # 1. Cast
+        self.assertEqual(rep['cast']['requested'], 3)
+        self.assertEqual(rep['cast']['effective'], 2)
+        self.assertEqual(rep['cast']['failed'], 1)
+        self.assertEqual(rep['cast']['status'], 'incomplete')
+
+        # 2. Excluded traces
+        self.assertEqual(rep['coverage']['excluded_traces'], {'failed': ['p003'], 'pending': []})
+
+        # 3. Retention: scene 0 has 2 entrants (p001, p002), 1 stop (p001) -> 50% stop, NOT 33.33%
+        s0 = rep['retention'][0]
+        self.assertEqual(s0['entrants'], 2)
+        self.assertEqual(s0['stopped'], 1)
+        self.assertEqual(s0['continued'], 1)
+        self.assertEqual(s0['survival']['observed'], 50.0)
+        self.assertEqual(s0['drop_rate']['observed'], 50.0)
+        self.assertEqual(s0['drop_rate']['denominator'], 2)
+        self.assertNotIn('ev_p3_s0', s0['survival']['evidence_ids'])
+        self.assertNotIn('ev_p3_s0', s0['drop_rate']['evidence_ids'])
+
+        # 4. Observation stop trigger: denominator must be 2, numerator 1 -> 50%
+        self.assertEqual(len(rep['observations']), 1)
+        trigger = rep['observations'][0]
+        self.assertEqual(trigger['id'], 'stop_0')
+        self.assertEqual(trigger['numerator'], 1)
+        self.assertEqual(trigger['denominator'], 2)
+        self.assertEqual(trigger['value'], 0.5)
+        self.assertEqual(trigger['evidence_refs'], ['ev_p1_s0'])
+
+        # 5. Engagement: p002 had 'like'; p003 had 'share' but is excluded
+        like = rep['engagement']['like']
+        self.assertEqual(like['observed'], 50.0)
+        self.assertEqual(like['denominator'], 2)
+        self.assertEqual(like['evidence_ids'], ['ev_p2_s0'])
+        self.assertNotIn('ev_p3_s0', like['evidence_ids'])
+
+        share = rep['engagement']['share']
+        self.assertEqual(share['observed'], 0.0)
+        self.assertEqual(share['denominator'], 2)
+        self.assertEqual(share['evidence_ids'], [])
+
+        # 6. Notes: candidate 1 accepted, candidate 2 rejected with invalid_reference
+        self.assertEqual(len(rep['notes']), 1)
+        self.assertEqual(rep['notes'][0]['evidence_refs'], ['ev_p1_s0'])
+        self.assertEqual(rep['suppressed_notes'], 1)
+        self.assertEqual(rep['note_rejections']['invalid_reference'], 1)
+        self.assertEqual(rep['note_rejections']['unsupported_trigger'], 0)
+
+    def test_zero_effective_metrics_contract_and_frozen_kinds(self):
+        """Blocker 3: Zero-effective run emits explicit unavailable_reason, null observed/range, and frozen C5 kinds."""
+        manifest = {
+            'profile': 'test',
+            'provider_mode': 'recorded',
+            'requested': 3,
+            'resample_seed': 20261028,
+            'persona_ids': ['p001', 'p002', 'p003'],
+        }
+        video = {
+            'metadata': {'duration_ms': 6000},
+            'features': {
+                'scenes': [
+                    {'scene_id': 0, 'start_ms': 0, 'end_ms': 3000},
+                    {'scene_id': 1, 'start_ms': 3000, 'end_ms': 6000},
+                ],
+                'caveats': [],
+            }
+        }
+        checkpoints = [
+            {'persona_id': 'p001', 'status': 'failed'},
+            {'persona_id': 'p002', 'status': 'failed'},
+            {'persona_id': 'p003', 'status': 'failed'},
+        ]
+        rep = build_report(manifest, video, checkpoints, [], None, 'test_sha', {}, [])
+
+        self.assertEqual(rep['cast']['effective'], 0)
+        self.assertEqual(rep['cast']['failed'], 3)
+        self.assertEqual(rep['cast']['status'], 'failed')
+        self.assertEqual(rep['coverage']['excluded_traces']['failed'], ['p001', 'p002', 'p003'])
+
+        FROZEN_KINDS = {'observed_count', 'simulation_range', 'heuristic_index', 'hypothetical_reach'}
+
+        # Check completion
+        comp = rep['completion']
+        self.assertIn(comp['kind'], FROZEN_KINDS)
+        self.assertNotEqual(comp['kind'], 'observed_rate')
+        self.assertIsNone(comp['observed'])
+        self.assertIsNone(comp['range'])
+        self.assertEqual(comp['denominator'], 0)
+        self.assertEqual(comp['unavailable_reason'], 'no_effective_traces')
+
+        # Check retention metrics
+        for s in rep['retention']:
+            surv = s['survival']
+            self.assertIn(surv['kind'], FROZEN_KINDS)
+            self.assertNotEqual(surv['kind'], 'observed_rate')
+            self.assertIsNone(surv['observed'])
+            self.assertIsNone(surv['range'])
+            self.assertEqual(surv['denominator'], 0)
+            self.assertEqual(surv['unavailable_reason'], 'no_effective_traces')
+
+            drop = s['drop_rate']
+            self.assertIn(drop['kind'], FROZEN_KINDS)
+            self.assertIsNone(drop['observed'])
+            self.assertEqual(drop['denominator'], 0)
+            self.assertEqual(drop['unavailable_reason'], 'no_scene_entrants')
+
+        # Check engagement metrics
+        for act in ('like', 'share', 'save', 'comment'):
+            m = rep['engagement'][act]
+            self.assertIn(m['kind'], FROZEN_KINDS)
+            self.assertEqual(m['kind'], 'simulation_range')
+            self.assertIsNone(m['observed'])
+            self.assertIsNone(m['range'])
+            self.assertEqual(m['denominator'], 0)
+            self.assertEqual(m['unavailable_reason'], 'no_effective_traces')
+
+        follow = rep['engagement']['follow']
+        self.assertIn(follow['kind'], FROZEN_KINDS)
+        self.assertEqual(follow['kind'], 'simulation_range')
+        self.assertIsNone(follow['observed'])
+        self.assertEqual(follow['unavailable_reason'], 'action_not_observed_by_legacy_provider')
+
+        # Check scores
+        hook = rep['scores']['hook']
+        self.assertIn(hook['kind'], FROZEN_KINDS)
+        self.assertEqual(hook['kind'], 'heuristic_index')
+        self.assertIsNone(hook['observed'])
+        self.assertIsNone(hook['range'])
+        self.assertEqual(hook['denominator'], 0)
+        self.assertEqual(hook['unavailable_reason'], 'no_effective_traces')
+
+        pacing = rep['scores']['pacing']
+        self.assertIn(pacing['kind'], FROZEN_KINDS)
+        self.assertEqual(pacing['kind'], 'heuristic_index')
+        self.assertIsNone(pacing['observed'])
+        self.assertIsNone(pacing['range'])
+        self.assertEqual(pacing['denominator'], 0)
+        self.assertEqual(pacing['unavailable_reason'], 'no_effective_traces')
+
+        self.assertEqual(rep['scores']['clarity']['unavailable_reason'], 'confusion_signal_unobserved')
+        self.assertEqual(rep['scores']['cta']['unavailable_reason'], 'cta_understanding_signal_unobserved')
+        self.assertEqual(rep['scores']['trend']['unavailable_reason'], 'grounded_trend_rules_unavailable')
+
+    def test_aggregator_note_rejections_and_ranking(self):
+        """Blocker 4: Additive note_rejections vocabulary, category counts sum to suppressed_notes, ranking and cap 3."""
+        manifest = {
+            'profile': 'test',
+            'provider_mode': 'recorded',
+            'requested': 2,
+            'resample_seed': 20261028,
+            'persona_ids': ['p001', 'p002'],
+        }
+        video = {
+            'metadata': {'duration_ms': 6000},
+            'features': {
+                'scenes': [
+                    {'scene_id': 0, 'start_ms': 0, 'end_ms': 3000},
+                    {'scene_id': 1, 'start_ms': 3000, 'end_ms': 6000},
+                ],
+                'caveats': [],
+            }
+        }
+        checkpoints = [
+            {'persona_id': 'p001', 'status': 'stopped'},
+            {'persona_id': 'p002', 'status': 'stopped'},
+        ]
+        rows = [
+            {
+                'reaction': {'persona_id': 'p001', 'scene_id': 0, 'still_watching': False, 'drop_reason': 'Quote A', 'actions': [], 'evidence_id': 'ev_1'},
+                'evidence': {'id': 'ev_1', 'persona_id': 'p001', 'scene_id': 0, 'start_ms': 0, 'end_ms': 3000, 'quote': 'Quote A', 'still_watching': False},
+            },
+            {
+                'reaction': {'persona_id': 'p002', 'scene_id': 0, 'still_watching': False, 'drop_reason': 'Quote B', 'actions': [], 'evidence_id': 'ev_2'},
+                'evidence': {'id': 'ev_2', 'persona_id': 'p002', 'scene_id': 0, 'start_ms': 0, 'end_ms': 3000, 'quote': 'Quote B', 'still_watching': False},
+            },
+        ]
+
+        note_envelope = {
+            'output': {
+                'notes': [
+                    # 1. Valid candidate
+                    {
+                        'start_sec': 0.0,
+                        'end_sec': 2.0,
+                        'finding': 'Finding 1',
+                        'suggested_edit': 'Do not use synthetic mockups; fix hook.',
+                        'evidence_ids': ['ev_1'],
+                        'quotes': ['Quote A'],
+                    },
+                    # 2. Quote mismatch
+                    {
+                        'start_sec': 0.0,
+                        'end_sec': 2.0,
+                        'finding': 'Finding 2',
+                        'suggested_edit': 'Do not use synthetic mockups; fix hook.',
+                        'evidence_ids': ['ev_1'],
+                        'quotes': ['Unmatched quote string'],
+                    },
+                    # 3. Invalid time (end <= start)
+                    {
+                        'start_sec': 2.0,
+                        'end_sec': 1.0,
+                        'finding': 'Finding 3',
+                        'suggested_edit': 'Do not use synthetic mockups; fix hook.',
+                        'evidence_ids': ['ev_1'],
+                        'quotes': ['Quote A'],
+                    },
+                    # 4. Invalid reference
+                    {
+                        'start_sec': 0.0,
+                        'end_sec': 2.0,
+                        'finding': 'Finding 4',
+                        'suggested_edit': 'Do not use synthetic mockups; fix hook.',
+                        'evidence_ids': ['non_existent_ev_id'],
+                        'quotes': ['Quote A'],
+                    },
+                    # 5. Unsupported trigger (scene 1 has 0 stops, so no stop_1 trigger exists)
+                    {
+                        'start_sec': 3.5,
+                        'end_sec': 5.5,
+                        'finding': 'Finding 5',
+                        'suggested_edit': 'Do not use synthetic mockups; fix body.',
+                        'evidence_ids': ['ev_1'],
+                        'quotes': ['Quote A'],
+                    },
+                    # 6. Malformed candidate (non-dict candidate)
+                    'not a valid dictionary candidate',
+                ]
+            }
+        }
+
+        rep = build_report(manifest, video, checkpoints, rows, None, 'test_sha', note_envelope, [])
+
+        self.assertEqual(len(rep['notes']), 1)
+        self.assertEqual(rep['suppressed_notes'], 5)
+        expected_rejections = {
+            'unsupported_trigger': 1,
+            'quote_mismatch': 1,
+            'invalid_time': 1,
+            'invalid_reference': 1,
+            'malformed_candidate': 1,
+        }
+        self.assertEqual(rep['note_rejections'], expected_rejections)
+        self.assertEqual(sum(rep['note_rejections'].values()), rep['suppressed_notes'])
+
+
+    def test_real_scheduler_fault_incomplete_run_and_report(self):
+        """Blocker 1 & 5: Real scheduler fault yields incomplete status, excluded trace IDs, and honest reporting."""
+        client = TestClient(app, base_url='http://127.0.0.1:58000')
+        headers = create_session(client)
+
+        up = client.post(
+            '/videos',
+            headers={**headers, 'Content-Type': 'video/mp4', 'Idempotency-Key': f'up_flt_{uid()[:8]}'},
+            content=get_video_a_bytes()
+        )
+        self.assertEqual(up.status_code, 201)
+        vid = up.json()['video_id']
+
+        run_res = client.post(
+            '/runs',
+            headers={**headers, 'Content-Type': 'application/json', 'Idempotency-Key': f'run_flt_{uid()[:8]}'},
+            json={'video_id': vid, 'profile': 'test'}
+        )
+        self.assertEqual(run_res.status_code, 202)
+        run_id = run_res.json()['run_id']
+
+        # Step 1: prep job initializes 3 checkpoints
+        process_once()
+
+        # Step 2: Inject real failure on checkpoint p003
+        with connection() as conn:
+            conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND persona_id='p003'", (run_id,))
+
+        # Step 3: Run worker to report completion
+        steps = 0
+        while steps < 50:
+            worked = process_once()
+            steps += 1
+            if not worked:
+                break
+
+        # Check API run state
+        state = client.get(f'/runs/{run_id}', headers=headers).json()
+        self.assertEqual(state['status'], 'incomplete')
+        self.assertEqual(state['requested'], 3)
+        self.assertEqual(state['effective'], 2)
+        self.assertEqual(state['failed'], 1)
+
+        # Check production report
+        rep = client.get(f'/runs/{run_id}/report', headers=headers).json()
+        self.assertEqual(rep['cast']['status'], 'incomplete')
+        self.assertEqual(rep['cast']['effective'], 2)
+        self.assertEqual(rep['cast']['failed'], 1)
+        self.assertEqual(rep['coverage']['excluded_traces'], {'failed': ['p003'], 'pending': []})
+        self.assertEqual(rep['retention'][0]['entrants'], 2)
 
 
 if __name__ == '__main__':
