@@ -16,6 +16,19 @@ The first live representation is the actual current scene's decoded inline image
 
 Reuse the owner's latest50 candidate working-policy cards from `experiments/behavior/fifty-policies.json`, file SHA256 `66d9649bf11e24fda80bddb721e0783f5c7ef72c0c203f448e70b5a744118ffd`, introduced at `8e84fcdc24e9a566320feea0670140f943983a15`. This is content input, not permission to import/run experiment code. Map source p01..p50 in order to live p001..p050 and record that mapping/card-content hash in the manifest. Test profile uses the first3 and is explicitly small. Keep recorded historical5-archetype/50-instance source separate. Do not splice saved opening-only responses into a full live trace or reuse its outcomes. Disclose50 fictional candidate policies, no representative population/calibrated behavior claim. The prior textual battery's14-policy separated subset is WORKER-REPORTED experimental evidence, not14 human-validated archetypes or proof of50 distinct video behaviors. Preserve an unvalidated-library warning; do not relabel candidate count as grounded archetype count.
 
+## Internal adapter and notes inputs
+
+The accepted recorded interface currently has no run identity and `notes()` takes no arguments. Fresh generation cannot safely infer either from a media hash. Extend it explicitly in the later task:
+
+- Pure live-cast catalog constructs the sealed manifest before enqueue, with no key read or inference. Existing recorded constructor/fault-subclass compatibility remains intact.
+- Fresh adapter construction: `StandardProvider(media_hash,duration_ms,profile,*,lease)`, where `lease` is the actual server-claimed job's immutable identity/generation/video/run tuple. It is never client-supplied or forwarded to the model. Guard admission checks that real lease/fence; an unbound adapter cannot charge an account. `verdict(projection)` returns the existing validated reaction/evidence/envelope/private-bytes/hash tuple.
+- Worker chooses producer by **sealed run manifest mode**, not mutable current configuration. New-run repeat lookup must include video/profile/mode so enabling Standard never returns a recorded run as fresh. Explicit recorded fault factories preserve their old signatures and cannot accidentally opt into Standard.
+- Fresh `notes(note_context)` is called only after all persona work is terminal. Recorded `notes()` remains zero-argument. The fresh context has `schema_version:'note-context-1'`, duration, requested/effective/failed/pending cohort metadata, included/excluded IDs, supported trigger IDs/ranges/fractions and their validated terminal-cohort evidence IDs/quotes. No failed-prefix evidence, secret/config values or invented observations. It is the whole-run aggregation boundary and never enters a persona request.
+- Derive context from the **same terminal-trace selection/detector helper** used by final reporting. Exercise it with the real saved A50 fixture: its unsupported historical23-28s candidate cannot become a supported trigger; include controlled valid/failed-prefix cases. Model wording is constrained to this context, max3 candidates; existing exact quote/time/trigger validator still executes on the result.
+- If there is no supported trigger, skip paid wording and record an explicit deterministic omission/zero calls. Do not fabricate a provider envelope or a successful model receipt. Provider failures retain actual charge/error evidence and cannot masquerade as a measured absence of findings.
+
+This is a frozen input for the subsequent live task, not an expansion of the active B1 correction. No public HTTP request shape or metric enum changes are implied.
+
 ## Durable budget and call lifecycle
 
 Integrator owns the migration; implementation owner owns guard/transport/runtime/tests. Freeze DDL against B1's accepted revision before edits. Use exact decimal monetary values and atomic PostgreSQL reservation; never a process-only counter or JSON file as concurrency authority.
