@@ -4,7 +4,7 @@
 
 Owner authorized V03 local implementation and fresh Standard-provider smoke/benchmarking with a maximum$30 cumulative provider cap (prior tracked$14.69754320 including reserve is carried forward). Accepted V02 integration `1e140dc3db6bd9d052206cb3ae385b771d39c9dd`; current source baseline34ed67e has documentation-only changes. V02 is not being replanned/retested. V04/V05/deployment/publication remain excluded.
 
-Run `run_d3354faa0659` is the bounded V03 namespace; prior V02 run/history remain intact. Antigravity owns first task `task_9d01d4520634` / Dispatch `ctx_4da38f5feed2`, isolated branch `codex/v03-backend` at corrected base `dcb8172f700965aa329a6d154a473173276e0fb8`; verified startup receipt accepted. First task: immutable3/50 run manifests, hash-bound actual50-trace provider ingestion, production scheduling/events, retention/engagement report data and preservation checks. [Frozen first-slice contract](docs/contracts/flash.v1.md), [dispatch record](docs/evidence/v03-backend-dispatch.md). Then independent exact-commit review/integration; subsequent UI and live-provider/budget/concurrency work can use separate owners only once this shared interface is accepted/frozen. Whole V03 includes the approved full scope and live/cost/latency evidence, not just this first task. No fresh call until the durable guard is independently reviewed and a bounded stage is ready.
+Run `run_d3354faa0659` is the bounded V03 namespace; prior V02 run/history remain intact. Antigravity's first task `task_9d01d4520634` / Dispatch `ctx_4da38f5feed2` submitted clean **`cf71ac85cc88630bdc18d397564dd62c3f9679fa`** on `codex/v03-backend`; terminal released, **WORKER-REPORTED only**. Independent read-only Codex review `task_190031ae9b43` / `ctx_04be79a61d66`, frozen `codex/v03-backend-review` at that SHA, startup receipt pending. Scope: immutable3/50 manifests, actual50 archived traces, production jobs/events/evidence and report math/preservation. [First-slice contract](docs/contracts/flash.v1.md), [author dispatch](docs/evidence/v03-backend-dispatch.md), [review contract](docs/evidence/v03-backend-review-assignment.md). Zero submitted corrections. Integrate only after independent acceptance; UI and live-provider/budget/concurrency owners wait for accepted/frozen shared interface. Whole V03 remains the full approved goal; no fresh call until reviewed durable guard and bounded stage.
 
 Historical V02: final candidate1ce2abe integrated/journey-verified at1e140dc; [proof](docs/evidence/v02-integrated-journey.md). Its two failed corrections and narrow claim repair remain recorded. New V03 task budgets start at zero because this is a different owner-approved milestone, not a renamed V02 correction.
 
@@ -59,7 +59,7 @@ flowchart LR
  D --> R[Owner-authorized publication]
 ```
 
-Critical path: V00 → V01 → V02 → V03 → V04 → V06 → V07. V05 joins before complete demo acceptance. Start with one implementation worker; V04/V05 can overlap only after a frozen contract and disjoint ownership receipt. V03-B1 is the sole current implementation dispatch; V04/V05 remain unauthorized in this milestone.
+Critical path: V00 → V01 → V02 → V03 → V04 → V06 → V07. V05 joins before complete demo acceptance. Start with one implementation worker; V04/V05 can overlap only after a frozen contract and disjoint ownership receipt. V03-B1 is submitted and under independent review; no current implementation writer. V04/V05 remain unauthorized in this milestone.
 
 ## Definition of Ready and Done
 
