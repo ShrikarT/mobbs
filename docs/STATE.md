@@ -1,14 +1,14 @@
 # Current state - 2026-10-29
 
-## V03 in progress - first backend slice READY for Antigravity
+## V03 in progress - first backend slice assigned to Antigravity
 
 Owner approved local V03 execution and fresh Standard-provider smoke/benchmarking with **maximum$30 cumulative provider spend**, carrying forward prior estimate$13.38427320 plus uncertain reserve$1.31327 = tracked$14.69754320. Tracked headroom$15.30245680; no new paid calls yet. A temporary credential is configured privately for the later live worker, never in Git/task messages. New live dispatch waits for the reviewed durable guard and bounded stage; ordinary implementation requires no further approval. No V04/V05/marketing/deployment/publication scope.
 
-Run `run_d3354faa0659` is V03's bounded namespace; previous `run_eb62638ed3eb` remains intact. Start one Antigravity owner in `C:/Users/Shrikar/orca/workspaces/viralist/codex-v03-backend` / `codex/v03-backend`; exact base/Task/Dispatch will be captured immediately after launch. [Assignment](evidence/v03-backend-assignment.md), [frozen interface](contracts/flash.v1.md). Zero V03 submitted corrections; two unsuccessful corrections trigger reassessment. Current whole-goal scope includes backend, interactive UI, live provider/budget/concurrency/recovery, scenario and measured performance; first recorded task is not milestone completion.
+Run `run_d3354faa0659` is V03's bounded namespace; previous `run_eb62638ed3eb` remains intact. One Antigravity owner works in `C:/Users/Shrikar/orca/workspaces/viralist/codex-v03-backend` / `codex/v03-backend`: Task `task_9d01d4520634`, Dispatch `ctx_4da38f5feed2`, terminal `term_b9d7cff5-120c-4f2e-b340-76c578b637a5`. Exact base `dcb8172f700965aa329a6d154a473173276e0fb8`; [assignment](evidence/v03-backend-assignment.md), [dispatch/receipt](evidence/v03-backend-dispatch.md), [frozen interface](contracts/flash.v1.md). Updated receipt independently checked and accepted before implementation. Zero V03 submitted corrections; two unsuccessful corrections trigger reassessment. Current whole-goal scope includes backend, interactive UI, live provider/budget/concurrency/recovery, scenario and measured performance; first recorded task is not milestone completion.
 
 Real fixture discovery: private stage2-bounded has50 distinct persona IDs,256 accepted original scene responses/50 stops; all257 response envelopes normalized using actual current code. Its one model note is unsupported and remains suppressed. No response cloning or threshold weakening. Full Flash note-generation verification remains part of live work; empty and supported-note cases need honest UI. See contract for hashes and source limits.
 
-New integrator migration002 and manifest/report contract are task implementation inputs, not accepted code. Coordinator exercised DDL twice in isolated `viralist_v03_contract`, retained a seeded legacy3-person run and observed manifest-mutation rejection. The backend candidate must independently verify/review these changes together. No V02 database was migrated.
+New integrator migration002 and manifest/report contract are task implementation inputs, not accepted code. Coordinator exercised DDL twice in isolated `viralist_v03_contract`, retained a seeded legacy3-person run and observed manifest-mutation rejection. Before implementation approval, corrected SQL CHECK NULL semantics in `dcb8172`: the full predicate must be TRUE. On fresh isolated `viralist_v03_contract_guard`, applied committed migration twice; legacy3 and valid Flash50 accepted; null requested/profile/seed rejected. The backend candidate must independently verify/review these changes together. No V02 database was migrated.
 
 ## Accepted base and local dependencies
 
@@ -19,7 +19,7 @@ New integrator migration002 and manifest/report contract are task implementation
 
 ## Next actions
 
-1. Verify startup receipt, actual unique branch/base and contracts before edits; checkpoint real queued Flash50 plus migration/legacy profile identity.
+1. Antigravity implementation authorized after verified clean corrected startup receipt; await checkpoint real queued Flash50 plus migration/legacy profile identity.
 2. Obtain committed backend candidate and independent exact-commit verification; integrate accepted contract/API work.
 3. Dispatch UI and live-backend work only with disjoint files/frozen interfaces (maximum two writers). Live task uses the supplied server credential, canonical cumulative ledger and$30 guard; fresh/cost/latency/p95 claims need actual evidence. Keep20-sample p95 requirement visible; budget is not permission to fabricate a statistic.
 4. Independently prove the complete combined V03 journey, UI/design/error/recovery/deletion and live/performance scope. Do not declare complete at a backend-only or replay-only checkpoint.
