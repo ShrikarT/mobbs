@@ -19,6 +19,7 @@ class TestDomainIntegration(unittest.TestCase):
         self.store.check()
         self.owner_id = uid()
         with connection() as conn:
+            conn.execute("DELETE FROM jobs WHERE status IN ('queued', 'leased')")
             conn.execute(
                 "INSERT INTO owner_sessions(id, token_hash, csrf_hash, expires_at) "
                 "VALUES(%s, %s, %s, now() + interval '24 hours')",

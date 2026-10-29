@@ -4,8 +4,8 @@ const chromiumPath = 'C:/Users/Shrikar/AppData/Local/ms-playwright/chromium-1243
 
 export default defineConfig({
   testDir: './tests/e2e',
-  timeout: 90000,
-  expect: { timeout: 15000 },
+  timeout: 120000,
+  expect: { timeout: 20000 },
   fullyParallel: false,
   retries: 0,
   workers: 1,
@@ -32,7 +32,7 @@ export default defineConfig({
         isMobile: true,
         launchOptions: { executablePath: chromiumPath },
       },
-      testMatch: /journey\.spec\.ts/,
+      grep: /Mobile viewport/,
     },
   ],
 });

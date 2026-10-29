@@ -26,7 +26,7 @@ export interface VideoItem {
 export interface RunState {
   run_id: string;
   video_id: string;
-  status: 'queued' | 'processing' | 'complete' | 'failed';
+  status: 'queued' | 'processing' | 'simulating' | 'complete' | 'incomplete' | 'failed';
   stage: 'queued' | 'decoding' | 'simulating' | 'reporting' | 'report' | 'failed';
   error_code?: string | null;
   sequence: number;
@@ -109,6 +109,9 @@ export interface TrustManifest {
 
 export interface ReportData {
   schema_version: string;
+  duration_ms?: number;
+  scenes?: { scene_id: number; start_ms: number; end_ms: number }[];
+  suppressed_notes?: number;
   cast: {
     profile: string;
     requested: number;

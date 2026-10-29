@@ -117,6 +117,9 @@ def report_data(video, checkpoints, rows, provider, source, note_envelope, recei
         prompt_sha256=content_hash({'projection':'current-frame-and-own-prior-v02'}),usage_ledger=receipts)
     return dict(schema_version='normalized-1',cast=cast,notes=notes[:3],observations=observations,
         evidence=list(evidence.values()),completion=metric,trust=trust,
+        duration_ms=video['metadata']['duration_ms'],
+        scenes=video['features']['scenes'],
+        suppressed_notes=suppressed,
         methodology=dict(range_kind='simulation_resampling_not_confidence',ranking='heuristic stop fraction',
             assumptions=['Independent simulated traces; not real viewers.','Internal cast variability omits model bias and real audience mismatch.']),
         caveats=video['features']['caveats']+[f'{suppressed} unsupported note(s) suppressed.',

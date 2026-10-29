@@ -115,5 +115,115 @@ class TestApiSecurityIsolation(unittest.TestCase):
         self.assertEqual(res.json()['code'], 'maximum_size_200000000_bytes')
 
 
+
+    def test_idempotency_binding_on_existing_run_counterexample(self):
+        """Reproduction fix: POST /runs with fresh key on existing run records binding; reuse with different video returns 409."""
+        client = TestClient(app, base_url='http://127.0.0.1:58000')
+        res = client.post('/sessions', headers={'Host': '127.0.0.1:58000', 'Origin': 'http://127.0.0.1:58000'})
+        token = client.cookies.get('vir_session')
+        csrf = res.json()['csrf']
+        headers = {'Host': '127.0.0.1:58000', 'Origin': 'http://127.0.0.1:58000', 'X-CSRF-Token': csrf}
+
+        with connection() as conn:
+            owner_id = conn.execute('SELECT id FROM owner_sessions WHERE token_hash=%s', (digest(token.encode()),)).fetchone()['id']
+            vid_b = uid()
+            vid_a = uid()
+            conn.execute('INSERT INTO videos(id, owner_id, sha256, metadata) VALUES(%s, %s, %s, %s)', (vid_b, owner_id, 'sha_b', Jsonb({'duration_ms': 17108, 'storage_ready': True, 'original_key': 'b.mp4', 'bytes': 100, 'caveats': []})))
+            conn.execute('INSERT INTO videos(id, owner_id, sha256, metadata) VALUES(%s, %s, %s, %s)', (vid_a, owner_id, 'sha_a', Jsonb({'duration_ms': 33782, 'storage_ready': True, 'original_key': 'a.mp4', 'bytes': 100, 'caveats': []})))
+
+        # 1. Create run for owned B with initial key
+        res1 = client.post('/runs', headers={**headers, 'Idempotency-Key': 'key_initial_12345678'}, json={'video_id': vid_b, 'profile': 'test'})
+        self.assertEqual(res1.status_code, 202)
+        run_b_id = res1.json()['run_id']
+
+        # 2. POST /runs for owned B with fresh key K (existing-run path)
+        res2 = client.post('/runs', headers={**headers, 'Idempotency-Key': 'key_fresh_k_12345678'}, json={'video_id': vid_b, 'profile': 'test'})
+        self.assertEqual(res2.status_code, 202)
+        self.assertEqual(res2.json()['run_id'], run_b_id)
+
+        # 3. Reuse key K with owned A -> MUST return 409 Conflict
+        res3 = client.post('/runs', headers={**headers, 'Idempotency-Key': 'key_fresh_k_12345678'}, json={'video_id': vid_a, 'profile': 'test'})
+        self.assertEqual(res3.status_code, 409)
+        self.assertEqual(res3.json()['code'], 'idempotency_body_changed')
+
+    def test_idempotency_binding_on_delete_counterexample_and_stable_repeat(self):
+        """Reproduction fix: DELETE B with key D binds canonical request; reuse D with A returns 409; repeat B is stable."""
+        client = TestClient(app, base_url='http://127.0.0.1:58000')
+        res = client.post('/sessions', headers={'Host': '127.0.0.1:58000', 'Origin': 'http://127.0.0.1:58000'})
+        token = client.cookies.get('vir_session')
+        csrf = res.json()['csrf']
+        headers = {'Host': '127.0.0.1:58000', 'Origin': 'http://127.0.0.1:58000', 'X-CSRF-Token': csrf}
+
+        with connection() as conn:
+            owner_id = conn.execute('SELECT id FROM owner_sessions WHERE token_hash=%s', (digest(token.encode()),)).fetchone()['id']
+            vid_b = uid()
+            vid_a = uid()
+            conn.execute('INSERT INTO videos(id, owner_id, sha256, metadata) VALUES(%s, %s, %s, %s)', (vid_b, owner_id, 'sha_b', Jsonb({'duration_ms': 17108, 'storage_ready': True, 'original_key': 'b.mp4', 'bytes': 100, 'caveats': []})))
+            conn.execute('INSERT INTO videos(id, owner_id, sha256, metadata) VALUES(%s, %s, %s, %s)', (vid_a, owner_id, 'sha_a', Jsonb({'duration_ms': 33782, 'storage_ready': True, 'original_key': 'a.mp4', 'bytes': 100, 'caveats': []})))
+
+        # 1. DELETE B using key D
+        res1 = client.delete(f'/videos/{vid_b}', headers={**headers, 'Idempotency-Key': 'key_del_d_12345678'})
+        self.assertEqual(res1.status_code, 202)
+        del_b_id = res1.json()['deletion_id']
+        self.assertTrue(res1.json()['access_revoked'])
+
+        # 2. Repeated DELETE B with same key D -> returns 202 and same deletion ID
+        res2 = client.delete(f'/videos/{vid_b}', headers={**headers, 'Idempotency-Key': 'key_del_d_12345678'})
+        self.assertEqual(res2.status_code, 202)
+        self.assertEqual(res2.json()['deletion_id'], del_b_id)
+
+        # 3. Repeated DELETE B with different key D2 -> returns 202 and same deletion ID
+        res3 = client.delete(f'/videos/{vid_b}', headers={**headers, 'Idempotency-Key': 'key_del_d2_87654321'})
+        self.assertEqual(res3.status_code, 202)
+        self.assertEqual(res3.json()['deletion_id'], del_b_id)
+
+        # 4. Reuse key D with owned A -> MUST return 409 Conflict
+        res4 = client.delete(f'/videos/{vid_a}', headers={**headers, 'Idempotency-Key': 'key_del_d_12345678'})
+        self.assertEqual(res4.status_code, 409)
+        self.assertEqual(res4.json()['code'], 'idempotency_body_changed')
+
+    def test_list_deletions_and_incomplete_report_and_sse_events(self):
+        """Test GET /deletions recovery, incomplete report HTTP 200, and SSE named events."""
+        client = TestClient(app, base_url='http://127.0.0.1:58000')
+        res = client.post('/sessions', headers={'Host': '127.0.0.1:58000', 'Origin': 'http://127.0.0.1:58000'})
+        token = client.cookies.get('vir_session')
+        csrf = res.json()['csrf']
+        headers = {'Host': '127.0.0.1:58000', 'Origin': 'http://127.0.0.1:58000', 'X-CSRF-Token': csrf}
+
+        with connection() as conn:
+            owner_id = conn.execute('SELECT id FROM owner_sessions WHERE token_hash=%s', (digest(token.encode()),)).fetchone()['id']
+            vid = uid()
+            conn.execute('INSERT INTO videos(id, owner_id, sha256, metadata) VALUES(%s, %s, %s, %s)', (vid, owner_id, 'sha_test', Jsonb({'duration_ms': 17108, 'storage_ready': True, 'original_key': 'test.mp4', 'bytes': 100, 'caveats': []})))
+            run_id = uid()
+            partial_report = {'schema_version': 'normalized-1', 'cast': {'status': 'incomplete', 'requested': 3, 'effective': 2, 'failed': 1, 'pending': 0, 'stopped': 1, 'profile': 'test'}, 'notes': [], 'observations': [], 'evidence': [], 'caveats': ['0 unsupported note(s) suppressed.'], 'coverage': {}}
+            conn.execute('INSERT INTO runs(id, video_id, status, stage, sequence, report) VALUES(%s, %s, \'incomplete\', \'reporting\', 2, %s)', (run_id, vid, Jsonb(partial_report)))
+            conn.execute('INSERT INTO events(run_id, sequence, event_id, type, payload) VALUES(%s, 1, \'ev1\', \'persona.continued\', %s)', (run_id, Jsonb({'persona_id': 'p1', 'scene_id': 0, 'at_ms': 3000})))
+            conn.execute('INSERT INTO events(run_id, sequence, event_id, type, payload) VALUES(%s, 2, \'ev2\', \'persona.stopped\', %s)', (run_id, Jsonb({'persona_id': 'p2', 'scene_id': 1, 'drop_reason': 'pacing'})))
+
+        # Incomplete report returns HTTP 200
+        rep_res = client.get(f'/runs/{run_id}/report', headers=headers)
+        self.assertEqual(rep_res.status_code, 200)
+        self.assertEqual(rep_res.json()['cast']['status'], 'incomplete')
+
+        # SSE emits named events
+        events_res = client.get(f'/runs/{run_id}/events', headers=headers)
+        self.assertEqual(events_res.status_code, 200)
+        self.assertIn('event: persona.continued', events_res.text)
+        self.assertIn('event: persona.stopped', events_res.text)
+        self.assertIn('id: ev1', events_res.text)
+        self.assertIn('id: ev2', events_res.text)
+
+        # Deletion and GET /deletions
+        del_res = client.delete(f'/videos/{vid}', headers={**headers, 'Idempotency-Key': 'key_del_list_123'})
+        self.assertEqual(del_res.status_code, 202)
+        list_res = client.get('/deletions', headers=headers)
+        self.assertEqual(list_res.status_code, 200)
+        dels = list_res.json()
+        self.assertTrue(len(dels) >= 1)
+        self.assertEqual(dels[0]['video_id'], vid)
+        with connection() as conn:
+            conn.execute("DELETE FROM jobs WHERE video_id=%s", (vid,))
+
+
 if __name__ == '__main__':
     unittest.main()

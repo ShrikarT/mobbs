@@ -5,7 +5,7 @@
   --bg-selection: #e3eee8;
   --text-primary: #17211f;
   --text-muted: #53615b;
-  --text-subtle: #798782;
+  --text-subtle: #485651;
   --border-subtle: #ded9cd;
   --border-strong: #c2baa8;
   --action-green: #175b43;
@@ -270,6 +270,18 @@ a, button, input {
   transition: width 0.3s ease;
 }
 
+.progress-bar.indeterminate {
+  width: 100%;
+  background: linear-gradient(90deg, var(--bg-subtle) 0%, var(--action-green) 50%, var(--bg-subtle) 100%);
+  background-size: 200% 100%;
+  animation: indeterminate 1.8s infinite linear;
+}
+
+@keyframes indeterminate {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 .event-ticker {
   margin-top: 24px;
   max-height: 160px;
@@ -364,6 +376,11 @@ a, button, input {
 
 .timeline-segment:hover {
   background: rgba(0,0,0,0.04);
+}
+
+.timeline-segment:focus-visible {
+  outline: 2px solid var(--action-green);
+  outline-offset: -2px;
 }
 
 .timeline-segment.has-trigger {
@@ -646,7 +663,15 @@ a, button, input {
 
 @media (max-width: 639px) {
   .app-header {
-    padding: 0 16px;
+    height: auto;
+    min-height: 56px;
+    padding: 8px 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .brand-group {
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .brand-title {
     font-size: 16px;
@@ -660,6 +685,25 @@ a, button, input {
   .trust-details dl {
     grid-template-columns: 1fr;
     gap: 4px;
+  }
+}
+
+@media (max-width: 360px) {
+  .app-header {
+    padding: 6px 10px;
+  }
+  .brand-group {
+    gap: 6px;
+  }
+  .brand-title {
+    font-size: 15px;
+  }
+  .badge-recorded {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+  .session-badge {
+    font-size: 11px;
   }
 }
 

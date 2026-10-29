@@ -8,6 +8,7 @@ import {
   requestDelete,
   fetchDeletion,
   listVideos,
+  listDeletions,
 } from './api';
 import { SessionResponse, RunState, ReportData, DeletionState, NoteItem } from './types';
 
@@ -25,7 +26,7 @@ export function App() {
   const [runId, setRunId] = useState<string | null>(null);
   const [runState, setRunState] = useState<RunState | null>(null);
   const [report, setReport] = useState<ReportData | null>(null);
-  const [events, setEvents] = useState<Array<{ id: string; type: string; summary: string }>>([]);
+  const [events, setEvents] = useState<Array<{ id: string; sequence?: number; type: string; summary: string }>>([]);
 
   // Selected note for player seeking & highlight
   const [selectedNote, setSelectedNote] = useState<NoteItem | null>(null);
@@ -34,20 +35,70 @@ export function App() {
   // Deletion modal & tracking
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [deletionState, setDeletionState] = useState<DeletionState | null>(null);
+  const cancelBtnRef = useRef<HTMLButtonElement>(null);
+  const deleteBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Initialize session on mount
+  // Modal focus lifecycle
+  useEffect(() => {
+    if (showDeleteModal) {
+      setTimeout(() => cancelBtnRef.current?.focus(), 20);
+    } else {
+      deleteBtnRef.current?.focus();
+    }
+  }, [showDeleteModal]);
+
+  // Start polling deletion helper
+  const startPollingDeletion = (delId: string) => {
+    const delInterval = setInterval(async () => {
+      try {
+        const cur = await fetchDeletion(delId);
+        setDeletionState(cur);
+        if (cur.status === 'complete' && cur.can_claim_complete) {
+          clearInterval(delInterval);
+          setViewState('deleted');
+        }
+      } catch (err: any) {
+        if (err.status === 401 || err.status === 404) {
+          clearInterval(delInterval);
+          setErrorMessage('Deletion tracking unavailable or session expired.');
+          setViewState('error');
+        }
+      }
+    }, 1000);
+  };
+
+  // Initialize session on mount and restore durable state across reload
   useEffect(() => {
     ensureSession()
-      .then((data) => {
+      .then(async (data) => {
         setSession(data);
-        // Check if there is an existing video in this session
-        listVideos().then((vids) => {
-          if (vids.length > 0 && vids[0].run_id) {
-            setVideoId(vids[0].id);
-            setRunId(vids[0].run_id);
-            setViewState('processing');
+
+        // Check for any pending deletion first
+        try {
+          const dels = await listDeletions();
+          const pendingDel = dels.find((d) => d.state?.status === 'pending');
+          if (pendingDel) {
+            setDeletionState(pendingDel.state);
+            setViewState('deleting');
+            startPollingDeletion(pendingDel.id);
+            return;
           }
-        }).catch(() => {});
+        } catch {}
+
+        // Check if there is an existing video in this session
+        try {
+          const vids = await listVideos();
+          if (vids.length > 0) {
+            setVideoId(vids[0].id);
+            if (vids[0].run_id) {
+              setRunId(vids[0].run_id);
+              setViewState('processing');
+            } else {
+              setErrorMessage('Uploaded video found without an active run.');
+              setViewState('error');
+            }
+          }
+        } catch {}
       })
       .catch((err) => {
         setSessionError(err.message || 'Session initialization failed');
@@ -65,7 +116,8 @@ export function App() {
         if (!isMounted) return;
         setRunState(state);
 
-        if (state.status === 'complete') {
+        // Surface report for complete OR incomplete terminal state
+        if (state.status === 'complete' || state.status === 'incomplete') {
           const repResult = await fetchReport(runId);
           if (repResult.ready && repResult.report) {
             setReport(repResult.report);
@@ -81,31 +133,56 @@ export function App() {
           clearInterval(interval);
         }
       } catch (err: any) {
-        // Keep retrying on transient error
+        if (err.status === 401) {
+          setSessionError('Session expired. Please start a new session.');
+          setViewState('error');
+          clearInterval(interval);
+        } else if (err.status === 404) {
+          setErrorMessage('Run not found or was deleted.');
+          setViewState('error');
+          clearInterval(interval);
+        }
       }
     }, 1000);
 
-    // Also connect to SSE events stream
+    // Connect to SSE events stream with cursor and named event handlers
     let eventSource: EventSource | null = null;
     try {
-      eventSource = new EventSource(`/runs/${runId}/events`);
-      eventSource.onmessage = (e) => {
+      const lastSeq = events.length > 0 ? Math.max(...events.map((e) => e.sequence || 0)) : 0;
+      eventSource = new EventSource(`/runs/${runId}/events${lastSeq ? `?after=${lastSeq}` : ''}`);
+
+      const handleEvent = (e: MessageEvent) => {
         try {
           const parsed = JSON.parse(e.data);
-          if (parsed && parsed.type) {
-            setEvents((prev) => [
-              ...prev,
-              {
-                id: parsed.event_id || String(Date.now()),
-                type: parsed.type,
-                summary: parsed.type.startsWith('persona.')
-                  ? `Persona ${parsed.payload.persona_id} scene ${parsed.payload.scene_id} at ${parsed.payload.at_ms}ms`
-                  : parsed.type,
-              },
-            ]);
+          if (parsed && (parsed.event_id || parsed.type)) {
+            const eid = parsed.event_id || String(Date.now());
+            setEvents((prev) => {
+              if (prev.some((item) => item.id === eid)) return prev;
+              const summary = parsed.type === 'persona.continued'
+                ? `Persona ${parsed.payload.persona_id} scene ${parsed.payload.scene_id}: continued (${parsed.payload.at_ms}ms)`
+                : parsed.type === 'persona.stopped'
+                ? `Persona ${parsed.payload.persona_id} scene ${parsed.payload.scene_id}: stopped (${parsed.payload.drop_reason || 'dropout'})`
+                : parsed.type === 'run.snapshot'
+                ? `Snapshot through sequence ${parsed.payload.through_sequence}`
+                : parsed.type;
+              return [
+                ...prev,
+                {
+                  id: eid,
+                  sequence: parsed.sequence,
+                  type: parsed.type,
+                  summary,
+                },
+              ].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+            });
           }
         } catch {}
       };
+
+      eventSource.addEventListener('persona.continued', handleEvent);
+      eventSource.addEventListener('persona.stopped', handleEvent);
+      eventSource.addEventListener('run.snapshot', handleEvent);
+      eventSource.addEventListener('message', handleEvent);
     } catch {}
 
     return () => {
@@ -117,17 +194,27 @@ export function App() {
 
   // Handle file upload
   const handleUpload = async (file: File) => {
-    if (!session) return;
+    let currentSession = session;
+    if (!currentSession) {
+      try {
+        currentSession = await ensureSession();
+        setSession(currentSession);
+      } catch (err: any) {
+        setErrorMessage(err.message || 'Session initialization failed');
+        setViewState('error');
+        return;
+      }
+    }
     setErrorMessage(null);
     setViewState('uploading');
     setStatusMessage('Validating and uploading video...');
 
     try {
-      const up = await uploadVideo(file, session.csrf);
+      const up = await uploadVideo(file, currentSession.csrf);
       setVideoId(up.video_id);
       setStatusMessage('Video accepted. Queueing durable analysis...');
 
-      const run = await startRun(up.video_id, session.csrf);
+      const run = await startRun(up.video_id, currentSession.csrf);
       setRunId(run.run_id);
       setViewState('processing');
     } catch (err: any) {
@@ -155,21 +242,7 @@ export function App() {
     try {
       const del = await requestDelete(videoId, session.csrf);
       setDeletionState(del);
-
-      // Poll deletion until complete
-      const delId = del.deletion_id;
-      const delInterval = setInterval(async () => {
-        try {
-          const cur = await fetchDeletion(delId);
-          setDeletionState(cur);
-          if (cur.status === 'complete' && cur.can_claim_complete) {
-            clearInterval(delInterval);
-            setViewState('deleted');
-          }
-        } catch {
-          clearInterval(delInterval);
-        }
-      }, 1000);
+      startPollingDeletion(del.deletion_id);
     } catch (err: any) {
       setErrorMessage(err.message || 'Deletion failed');
       setViewState('error');
@@ -188,9 +261,33 @@ export function App() {
     setViewState('idle');
   };
 
+  // Stored scenes and duration derivation
+  const scenes = report
+    ? (report.scenes && report.scenes.length > 0
+        ? report.scenes
+        : [
+            { scene_id: 0, start_ms: 0, end_ms: 3000 },
+            { scene_id: 1, start_ms: 3000, end_ms: 8000 },
+            { scene_id: 2, start_ms: 8000, end_ms: 13000 },
+            { scene_id: 3, start_ms: 13000, end_ms: report.duration_ms || 17108 },
+          ])
+    : [];
+
+  const durationMs = report ? (report.duration_ms || scenes[scenes.length - 1]?.end_ms || 17108) : 17108;
+  const durationSec = (durationMs / 1000).toFixed(1);
+
+  // Suppressed notes count derived from stored backend data
+  const suppressedCount = report
+    ? (report.suppressed_notes !== undefined
+        ? report.suppressed_notes
+        : (report.caveats?.find((c) => c.includes('unsupported note'))?.match(/(\d+)/)?.[1]
+            ? parseInt(RegExp.$1, 10)
+            : 0))
+    : 0;
+
   return (
     <div>
-      {/* 56px utility header */}
+      {/* 56px utility header with responsive wrap at 320px */}
       <header className="app-header">
         <div className="brand-group">
           <span className="brand-title">Viralist / Evidence desk</span>
@@ -261,8 +358,8 @@ export function App() {
             <span className="stage-badge">Ingest</span>
             <h2>Uploading media</h2>
             <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>{statusMessage}</p>
-            <div className="progress-track">
-              <div className="progress-bar" style={{ width: '40%' }}></div>
+            <div className="progress-track" role="progressbar" aria-label="Uploading media" aria-busy="true">
+              <div className="progress-bar indeterminate"></div>
             </div>
           </div>
         )}
@@ -273,26 +370,14 @@ export function App() {
             <span className="stage-badge">{runState?.stage || 'decoding'}</span>
             <h2>Analyzing audience retention</h2>
             <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>
-              Simulating cast: 3 requested · {runState?.effective ?? 0} finished · {runState?.pending ?? 3} active
+              Stage: <strong className="mono">{runState?.stage || 'decoding'}</strong> · Cast: 3 requested · {runState?.effective ?? 0} finished · {runState?.pending ?? 3} active
             </p>
-            <div className="progress-track">
-              <div
-                className="progress-bar"
-                style={{
-                  width:
-                    runState?.stage === 'decoding'
-                      ? '30%'
-                      : runState?.stage === 'simulating'
-                      ? '70%'
-                      : runState?.stage === 'reporting'
-                      ? '90%'
-                      : '50%',
-                }}
-              ></div>
+            <div className="progress-track" role="progressbar" aria-label="Analyzing audience retention" aria-busy="true">
+              <div className="progress-bar indeterminate"></div>
             </div>
 
             <div className="event-ticker">
-              <strong>Persisted simulation events:</strong>
+              <strong>Persisted simulation events ({events.length}):</strong>
               {events.length === 0 ? (
                 <div className="event-item" style={{ color: 'var(--text-muted)' }}>
                   Awaiting scene checkpoints...
@@ -305,13 +390,24 @@ export function App() {
                 ))
               )}
             </div>
+
+            <div style={{ marginTop: '20px' }}>
+              <button
+                ref={deleteBtnRef}
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowDeleteModal(true)}
+              >
+                Cancel &amp; delete video
+              </button>
+            </div>
           </div>
         )}
 
-        {/* View 4: Completed Report Workbench */}
-        {viewState === 'ready' && report && videoId && (
+        {/* View 4: Report Workbench */}
+        {viewState === 'ready' && report && (
           <div className="workbench-grid">
-            {/* Left: Video Player & Timeline */}
+            {/* Left: Video player & interactive timeline */}
             <div className="player-column">
               <div className="video-container">
                 <video
@@ -323,60 +419,51 @@ export function App() {
                 />
               </div>
 
-              {/* Timeline scrubber / scene cards */}
+              {/* Dynamic Timeline scrubber / scene cards */}
               <div className="timeline-card">
                 <div className="timeline-header">
-                  <span>Scene timeline</span>
-                  <span className="mono">0.0s – {(report.observations[0]?.end_ms || 17108) / 1000}s</span>
+                  <span>Scene timeline ({scenes.length} scenes)</span>
+                  <span className="mono">0.0s – {durationSec}s</span>
                 </div>
                 <div className="timeline-track" role="region" aria-label="Scene timeline">
-                  {/* Scene 0: 0-3s Hook */}
-                  <div
-                    className="timeline-segment"
-                    style={{ flex: 3 }}
-                    onClick={() => {
-                      if (videoRef.current) videoRef.current.currentTime = 0;
-                    }}
-                    title="0s - 3s (Hook)"
-                  >
-                    0–3s
-                  </div>
-                  {/* Scene 1: 3-8s Stop Trigger */}
-                  <div
-                    className={`timeline-segment has-trigger ${
-                      selectedNote && selectedNote.start_ms === 3000 ? 'active-note' : ''
-                    }`}
-                    style={{ flex: 5 }}
-                    onClick={() => {
-                      if (videoRef.current) videoRef.current.currentTime = 3.0;
-                      if (report.notes[0]) setSelectedNote(report.notes[0]);
-                    }}
-                    title="3s - 8s (Stop trigger detected: >=15% drop)"
-                  >
-                    3–8s (Drop)
-                  </div>
-                  {/* Scene 2: 8-13s */}
-                  <div
-                    className="timeline-segment"
-                    style={{ flex: 5 }}
-                    onClick={() => {
-                      if (videoRef.current) videoRef.current.currentTime = 8.0;
-                    }}
-                    title="8s - 13s"
-                  >
-                    8–13s
-                  </div>
-                  {/* Scene 3: 13-17.1s */}
-                  <div
-                    className="timeline-segment"
-                    style={{ flex: 4.1 }}
-                    onClick={() => {
-                      if (videoRef.current) videoRef.current.currentTime = 13.0;
-                    }}
-                    title="13s - 17.1s"
-                  >
-                    13–17.1s
-                  </div>
+                  {scenes.map((scene, idx) => {
+                    const startSec = (scene.start_ms / 1000).toFixed(scene.start_ms % 1000 === 0 ? 0 : 1);
+                    const endSec = (scene.end_ms / 1000).toFixed(scene.end_ms % 1000 === 0 ? 0 : 1);
+                    const trigger = report.observations?.find(
+                      (o: any) => o.scene_id === scene.scene_id || (o.start_ms <= scene.start_ms && o.end_ms >= scene.end_ms)
+                    );
+                    const hasTrigger = Boolean(trigger);
+                    const isSelected = selectedNote && selectedNote.start_ms <= scene.end_ms && selectedNote.end_ms >= scene.start_ms;
+                    const flexVal = Math.max(1, (scene.end_ms - scene.start_ms) / 1000);
+
+                    const seekToThis = () => {
+                      if (videoRef.current) videoRef.current.currentTime = scene.start_ms / 1000;
+                      if (hasTrigger && report.notes.length > 0) {
+                        setSelectedNote(report.notes[0]);
+                      }
+                    };
+
+                    return (
+                      <div
+                        key={scene.scene_id ?? idx}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Scene ${idx + 1}: ${startSec}s to ${endSec}s${hasTrigger ? ' (Drop trigger detected)' : ''}`}
+                        className={`timeline-segment ${hasTrigger ? 'has-trigger' : ''} ${isSelected ? 'active-note' : ''}`}
+                        style={{ flex: flexVal }}
+                        onClick={seekToThis}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            seekToThis();
+                          }
+                        }}
+                        title={`${startSec}s - ${endSec}s${hasTrigger ? ' (Stop trigger detected: >=15% drop)' : ''}`}
+                      >
+                        {startSec}–{endSec}s{hasTrigger ? ' (Drop)' : ''}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -386,8 +473,14 @@ export function App() {
               <div className="report-header">
                 <h2 className="verdict-title">Executive finding</h2>
                 <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
-                  Audience retention simulation with 3 individual persona traces.
+                  Audience retention simulation with {report.cast.effective} individual persona traces.
                 </p>
+
+                {report.cast.failed > 0 && report.cast.effective < report.cast.requested && (
+                  <div className="suppressed-note-alert" style={{ borderColor: 'var(--caution)', background: 'var(--caution-tint)', color: 'var(--caution)', marginTop: '8px' }}>
+                    <strong>Incomplete run:</strong> {report.cast.effective} effective, {report.cast.failed} failed of {report.cast.requested} requested viewers.
+                  </div>
+                )}
 
                 <div className="metrics-summary">
                   <div className="metric-pill">
@@ -400,6 +493,11 @@ export function App() {
                       <span className="mono" style={{ color: 'var(--text-muted)' }}>
                         {' '}[{report.completion.range.low.toFixed(0)}%–{report.completion.range.high.toFixed(0)}%]
                       </span>
+                    )}
+                    {report.completion.range?.method && (
+                      <div className="metric-method mono" style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Range method: {report.completion.range.method}
+                      </div>
                     )}
                   </div>
                   <div className="metric-pill">
@@ -415,7 +513,7 @@ export function App() {
                 </h3>
 
                 {report.notes.length === 0 ? (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>No supported edit found.</p>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '16px' }}>No supported edit found.</p>
                 ) : (
                   report.notes.map((note) => (
                     <div
@@ -454,7 +552,7 @@ export function App() {
 
                 {/* Honest report of suppressed notes */}
                 <div className="suppressed-note-alert">
-                  <strong>Notice:</strong> 1 unsupported candidate note was suppressed by the deterministic stop-fraction detector.
+                  <strong>Notice:</strong> {suppressedCount} unsupported candidate {suppressedCount === 1 ? 'note was' : 'notes were'} suppressed by the deterministic stop-fraction detector.
                   Only findings backed by observed dropout triggers are surfaced.
                 </div>
               </div>
@@ -470,18 +568,49 @@ export function App() {
                       <dt>Model ID:</dt>
                       <dd>{report.trust.model_ids.join(', ')}</dd>
                       <dt>Provider version:</dt>
-                      <dd>{report.trust.reported_versions[0] || 'not provided'}</dd>
+                      <dd>{report.trust.reported_versions?.[0] || 'not provided'}</dd>
+                      <dt>Training cutoff:</dt>
+                      <dd>{report.trust.training_cutoff || 'not provided'}</dd>
+                      <dt>Range method:</dt>
+                      <dd className="mono">{report.completion.range?.method || report.methodology?.range_kind}</dd>
+                      <dt>Ranking rule:</dt>
+                      <dd>{report.methodology?.ranking || 'heuristic stop fraction'}</dd>
                       <dt>Source commit:</dt>
                       <dd className="mono">{report.trust.app_source_sha || report.trust.source_sha}</dd>
                       <dt>Media SHA-256:</dt>
                       <dd className="mono">{report.trust.media_sha256}</dd>
                     </dl>
-                    <strong>Methodology &amp; caveats:</strong>
-                    <ul style={{ paddingLeft: '16px', marginTop: '6px' }}>
-                      {report.caveats.map((c, i) => (
-                        <li key={i}>{c}</li>
-                      ))}
-                    </ul>
+
+                    {report.methodology?.assumptions && report.methodology.assumptions.length > 0 && (
+                      <div style={{ marginTop: '10px' }}>
+                        <strong>Methodology assumptions:</strong>
+                        <ul style={{ paddingLeft: '16px', marginTop: '4px' }}>
+                          {report.methodology.assumptions.map((a: string, i: number) => (
+                            <li key={i}>{a}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {report.trust.limitations && report.trust.limitations.length > 0 && (
+                      <div style={{ marginTop: '10px' }}>
+                        <strong>Simulation limitations:</strong>
+                        <ul style={{ paddingLeft: '16px', marginTop: '4px' }}>
+                          {report.trust.limitations.map((lim: string, i: number) => (
+                            <li key={i}>{lim}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: '10px' }}>
+                      <strong>Caveats:</strong>
+                      <ul style={{ paddingLeft: '16px', marginTop: '4px' }}>
+                        {report.caveats.map((c, i) => (
+                          <li key={i}>{c}</li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 </details>
               </div>
@@ -489,13 +618,7 @@ export function App() {
               {/* Deletion action */}
               <div className="actions-footer">
                 <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => window.location.reload()}
-                >
-                  Reload (test persistence)
-                </button>
-                <button
+                  ref={deleteBtnRef}
                   type="button"
                   className="btn btn-danger"
                   onClick={() => setShowDeleteModal(true)}
@@ -507,18 +630,25 @@ export function App() {
           </div>
         )}
 
-        {/* View 5: Deleting / Deleted Progress */}
+        {/* View 5: Deleting / Deleted Progress with honest app-owned copy limits */}
         {(viewState === 'deleting' || viewState === 'deleted') && deletionState && (
           <div className="running-container">
             <span className="stage-badge" style={{ background: varCss(viewState === 'deleted' ? 'complete' : 'pending') }}>
               {viewState === 'deleted' ? 'Complete' : 'Deleting'}
             </span>
-            <h2>{viewState === 'deleted' ? 'All data permanently removed' : 'Executing deletion lifecycle'}</h2>
+            <h2>{viewState === 'deleted' ? 'App-owned copies removed' : 'Executing deletion lifecycle'}</h2>
             <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>
-              Access revoked immediately. Controlled artifacts are removed from database and private storage.
+              Access revoked immediately ({deletionState.access_revoked_at ? new Date(deletionState.access_revoked_at).toLocaleTimeString() : 'revoked'}). Controlled artifacts removed from PostgreSQL and private storage.
             </p>
 
-            <div className="deletion-targets-list">
+            {deletionState.caveat && (
+              <div className="deletion-caveat" style={{ marginTop: '12px', padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', fontSize: '13px', color: 'var(--text-muted)' }}>
+                <strong>Scope &amp; caveat:</strong> {deletionState.caveat}
+              </div>
+            )}
+
+            <div className="deletion-targets-list" style={{ marginTop: '16px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>App-controlled storage targets:</div>
               {Object.entries(deletionState.targets).map(([key, target]) => (
                 <div key={key} className="target-row">
                   <span className="mono">{key}</span>
@@ -537,7 +667,7 @@ export function App() {
           </div>
         )}
 
-        {/* View 6: Error State */}
+        {/* View 6: Error State with usable recovery and delete action */}
         {viewState === 'error' && (
           <div className="running-container">
             <span className="stage-badge" style={{ background: 'var(--error-tint)', color: 'var(--error)' }}>
@@ -545,18 +675,36 @@ export function App() {
             </span>
             <h2>Operation failed</h2>
             <p style={{ color: 'var(--error)', marginTop: '8px' }}>{errorMessage}</p>
-            <div style={{ marginTop: '24px' }}>
+            <div style={{ marginTop: '24px', display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button type="button" className="btn btn-primary" onClick={handleReset}>
                 Try again
               </button>
+              {videoId && (
+                <button
+                  ref={deleteBtnRef}
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={() => setShowDeleteModal(true)}
+                >
+                  Delete uploaded video
+                </button>
+              )}
             </div>
           </div>
         )}
       </main>
 
-      {/* Confirmation Modal for Deletion */}
+      {/* Confirmation Modal for Deletion with focus management & trap */}
       {showDeleteModal && (
-        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setShowDeleteModal(false);
+          }}
+        >
           <div className="modal-dialog">
             <h3 id="modal-title" className="modal-title">Delete this video?</h3>
             <p className="modal-body">
@@ -565,6 +713,7 @@ export function App() {
             </p>
             <div className="modal-footer">
               <button
+                ref={cancelBtnRef}
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => setShowDeleteModal(false)}

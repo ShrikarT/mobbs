@@ -17,7 +17,9 @@ export async function ensureSession(): Promise<SessionResponse> {
     },
   });
   if (!res.ok) {
-    throw new Error(`Failed to initialize session: HTTP ${res.status}`);
+    const err: any = new Error(`Failed to initialize session: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
   }
   return res.json();
 }
@@ -26,7 +28,11 @@ export async function listVideos(): Promise<VideoItem[]> {
   const res = await fetch('/videos', {
     headers: { 'Accept': 'application/json' },
   });
-  if (!res.ok) throw new Error(`Failed to list videos: HTTP ${res.status}`);
+  if (!res.ok) {
+    const err: any = new Error(`Failed to list videos: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
 
@@ -45,8 +51,10 @@ export async function uploadVideo(
     body: blob,
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ code: `HTTP_${res.status}` }));
-    throw new Error(err.code || err.message || `Upload failed: HTTP ${res.status}`);
+    const errObj = await res.json().catch(() => ({ code: `HTTP_${res.status}` }));
+    const err: any = new Error(errObj.code || errObj.message || `Upload failed: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
   }
   return res.json();
 }
@@ -66,8 +74,10 @@ export async function startRun(
     body: JSON.stringify({ video_id: videoId, profile: 'test' }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ code: `HTTP_${res.status}` }));
-    throw new Error(err.code || err.message || `Run creation failed: HTTP ${res.status}`);
+    const errObj = await res.json().catch(() => ({ code: `HTTP_${res.status}` }));
+    const err: any = new Error(errObj.code || errObj.message || `Run creation failed: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
   }
   return res.json();
 }
@@ -76,7 +86,11 @@ export async function fetchRun(runId: string): Promise<RunState> {
   const res = await fetch(`/runs/${runId}`, {
     headers: { 'Accept': 'application/json' },
   });
-  if (!res.ok) throw new Error(`Failed to fetch run: HTTP ${res.status}`);
+  if (!res.ok) {
+    const err: any = new Error(`Failed to fetch run: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
 
@@ -89,7 +103,9 @@ export async function fetchReport(runId: string): Promise<{ ready: boolean; repo
     return { ready: false, stage: body.stage };
   }
   if (!res.ok) {
-    throw new Error(`Report fetch failed: HTTP ${res.status}`);
+    const err: any = new Error(`Report fetch failed: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
   }
   const report = await res.json();
   return { ready: true, report };
@@ -108,8 +124,10 @@ export async function requestDelete(
     },
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ code: `HTTP_${res.status}` }));
-    throw new Error(err.code || err.message || `Deletion failed: HTTP ${res.status}`);
+    const errObj = await res.json().catch(() => ({ code: `HTTP_${res.status}` }));
+    const err: any = new Error(errObj.code || errObj.message || `Deletion failed: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
   }
   return res.json();
 }
@@ -118,6 +136,18 @@ export async function fetchDeletion(deletionId: string): Promise<DeletionState> 
   const res = await fetch(`/deletions/${deletionId}`, {
     headers: { 'Accept': 'application/json' },
   });
-  if (!res.ok) throw new Error(`Failed to fetch deletion status: HTTP ${res.status}`);
+  if (!res.ok) {
+    const err: any = new Error(`Failed to fetch deletion status: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+export async function listDeletions(): Promise<{ id: string; video_id: string; state: DeletionState }[]> {
+  const res = await fetch('/deletions', {
+    headers: { 'Accept': 'application/json' },
+  });
+  if (!res.ok) return [];
   return res.json();
 }

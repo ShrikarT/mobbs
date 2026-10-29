@@ -191,7 +191,10 @@ def start_run(body: RunBody,request: Request):
         if previous: return previous
         if not video['metadata'].get('storage_ready'): return error('upload_not_ready',409)
         existing = conn.execute('SELECT id,status FROM runs WHERE video_id=%s ORDER BY created_at DESC LIMIT 1',(body.video_id,)).fetchone()
-        if existing: return dict(run_id=existing['id'],status=existing['status'])
+        if existing:
+            result = dict(run_id=existing['id'],status=existing['status'])
+            idem(conn,owner_id,'run',request_key,body_hash,result)
+            return result
         run_id = uid()
         conn.execute('INSERT INTO runs(id,video_id) VALUES(%s,%s)',(run_id,body.video_id))
         conn.execute("INSERT INTO jobs(id,video_id,run_id,kind) VALUES(%s,%s,%s,'analysis')",(uid(),body.video_id,run_id))
@@ -240,8 +243,32 @@ def report(run_id: str,request: Request):
 @app.delete('/videos/{video_id}',status_code=202)
 def delete(video_id: str,request: Request):
     owner_id = owner(request,True)
-    key(request)
-    with connection() as conn: return request_deletion(conn,owner_id,video_id)
+    request_key = key(request)
+    request_hash = digest(f'delete:{video_id}'.encode())
+    with connection() as conn:
+        conn.execute('SELECT id FROM owner_sessions WHERE id=%s FOR UPDATE',(owner_id,))
+        previous = idem(conn,owner_id,'delete',request_key,request_hash)
+        existing = conn.execute('SELECT state FROM deletions WHERE video_id=%s',(video_id,)).fetchone()
+        if existing:
+            state = existing['state']
+            if not previous:
+                idem(conn,owner_id,'delete',request_key,request_hash,state)
+            return state
+        if previous: return previous
+        state = request_deletion(conn,owner_id,video_id)
+        idem(conn,owner_id,'delete',request_key,request_hash,state)
+        return state
+
+
+@app.get('/deletions')
+def list_deletions(request: Request):
+    owner_id = owner(request)
+    with connection() as conn:
+        rows = conn.execute(
+            'SELECT id, video_id, state FROM deletions WHERE owner_id=%s ORDER BY (state->>\'access_revoked_at\') DESC LIMIT 10',
+            (owner_id,)
+        ).fetchall()
+        return [dict(id=r['id'],video_id=r['video_id'],state=r['state']) for r in rows]
 
 
 @app.get('/deletions/{deletion_id}')
