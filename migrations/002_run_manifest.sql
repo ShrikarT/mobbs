@@ -4,7 +4,7 @@ ALTER TABLE runs ADD COLUMN IF NOT EXISTS manifest jsonb NOT NULL DEFAULT
 
 DO $$ BEGIN
  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='runs_manifest_shape' AND conrelid='runs'::regclass) THEN
-  ALTER TABLE runs ADD CONSTRAINT runs_manifest_shape CHECK (
+  ALTER TABLE runs ADD CONSTRAINT runs_manifest_shape CHECK ((
    manifest ?& ARRAY['schema_version','profile','provider_mode','requested','persona_ids','resample_seed']
    AND manifest->>'schema_version'='run-manifest-1'
    AND manifest->>'profile' IN ('test','flash')
@@ -13,7 +13,7 @@ DO $$ BEGIN
    AND jsonb_typeof(manifest->'persona_ids')='array'
    AND jsonb_array_length(manifest->'persona_ids')=(manifest->>'requested')::integer
    AND (manifest->>'resample_seed')::bigint >= 0
-  );
+  ) IS TRUE);
  END IF;
 END $$;
 
