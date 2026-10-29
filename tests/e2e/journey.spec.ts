@@ -190,7 +190,7 @@ test.describe('Viralist V02 Browser Journey', () => {
     await expect(page.locator('text=Controlled artifacts removed from PostgreSQL and private storage.')).toBeVisible();
   });
 
-  test('Legacy report compatibility: old-shape A report truthfully renders 8 scenes and 33.8s without B fallback', async ({ page, request }) => {
+  test('Fresh Video A report reload retains 8 scenes and 33.8s', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('.hero-heading')).toHaveText('A clearer next cut.');
     await page.locator('#file-upload').setInputFiles(VIDEO_A_PATH);
@@ -199,17 +199,15 @@ test.describe('Viralist V02 Browser Journey', () => {
     await expect(page.locator('.workbench-grid')).toBeVisible({ timeout: 75000 });
     await expect(page.locator('.timeline-header')).toContainText('33.8s');
 
-    // Get current video and run ID from session
+    // Confirm the newly uploaded video is present in this session.
     const videosRes = await page.evaluate(async () => {
       const res = await fetch('/videos');
       return await res.json();
     });
     expect(videosRes.length).toBeGreaterThan(0);
-    const runId = videosRes[0].run_id;
 
-    // Simulate legacy report in database: omit duration_ms, scenes, and suppressed_notes
-    // Call helper endpoint or test by reloading after stripping fields in database
-    // The server projection in GET /runs/{id}/report guarantees duration_ms and scenes are restored from stored metadata/features
+    // This exercises fresh-report reload only. Old-shape report projection is
+    // exercised by the API regression; no database fields are removed here.
     await page.reload();
     await expect(page.locator('.workbench-grid')).toBeVisible({ timeout: 15000 });
 
@@ -225,7 +223,7 @@ test.describe('Viralist V02 Browser Journey', () => {
     await expect(page.locator('text=App-owned copies removed')).toBeVisible({ timeout: 25000 });
   });
 
-  test('Mobile viewport (320px) layout, text contrast, and no overflow', async ({ page }) => {
+  test('Mobile viewport (320px) header and horizontal overflow', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto('/');
 

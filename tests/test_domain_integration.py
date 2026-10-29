@@ -35,8 +35,8 @@ class TestDomainIntegration(unittest.TestCase):
             )
         return vid
 
-    def test_concurrent_idempotent_run_requests(self):
-        """(1) Concurrent same-owner idempotent run requests."""
+    def test_sequential_idempotent_run_key_binding(self):
+        """(1) Sequential same-owner key reuse and changed-body conflict."""
         vid = self._create_video()
         req_key = 'idem_key_12345678'
         body_hash_1 = digest(b'{"video_id":"' + vid.encode() + b'","profile":"test"}')

@@ -23,7 +23,7 @@ This is a local restricted application, with paid inference disabled.
 
 Test a short product demo with a simulated audience, inspect timestamped editing notes, and compare your next cut.
 
-**Status: local V02 slice complete, updated 29 October 2026.** Real local upload, durable PostgreSQL worker, hash-bound recorded 3-person Meta adapter simulation, supported Director's Note with concrete fix and suppressed note disclosure, persistent reloadable workbench UI, and complete deletion lifecycle.
+**Local V02 recorded-inference slice; acceptance is tracked in `docs/STATE.md`.** Real local upload, durable PostgreSQL worker, hash-bound recorded 3-person Meta adapter simulation, supported Director's Note with concrete fix and suppressed note disclosure, persistent reloadable workbench UI, and complete deletion lifecycle.
 
 Start with [the planning handoff](docs/START_HERE.md), [the product brief](docs/PROJECT_BRIEF.md), and [the delivery plan](PLAN.md). Current evidence and next actions are in [STATE](docs/STATE.md). Operating rules are in [AGENTS](AGENTS.md).
 
