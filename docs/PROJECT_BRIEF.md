@@ -29,7 +29,7 @@ The owner subsequently requested strengthening and testing all fifty, explicitly
 | Demo slice | Flash, top three evidence-backed Director's Notes, paired A/B, Thumbnail Lab, visible simulation provenance, private uploads/deletion | Supplied §0.2 plus privacy invariants |
 | Event | Meta Global AI Developer Hackathon; Indie; Build for Your World | Public event verified; entrant selection only supplied |
 | Deadline | 2026-11-04 21:00 America/New_York = 2026-11-05 07:30 Asia/Kolkata | Public event date/time; timezone conversion checked locally |
-| Budget | $150 credits owner-confirmed; latest explicit $15 cumulative ceiling; $13.38427320 usage-based estimate plus $1.31327 unknown-charge reserve; tracked maximum $14.69754320 | Chained ledgers through fifty-policy follow-up; billing balance not independently inspected |
+| Budget | $150 credits historically owner-confirmed; latest explicit $30 cumulative ceiling for V03; $13.38427320 usage-based estimate plus $1.31327 unknown-charge reserve; tracked maximum $14.69754320 before new calls | Owner's 2026-10-29 maximum$30 grant supersedes historical$15; chained ledgers through fifty-policy follow-up; billing balance not independently inspected |
 | Muse Image access | Four generated images returned by API; intended generator | Live experiment 2026-10-28; quality caveats in evidence |
 | Repo/tracker | `ShrikarT/viralist`; local origin configured; PLAN.md until GitHub task migration | Owner selected; GitHub connector verified public/empty on 2026-10-28; no push |
 | Input assets | Two supplied videos tested independently; they are different products, not matched A/B cuts. TokenTree excluded. | Live inspection 2026-10-28; matched demo pair still needed |
