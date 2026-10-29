@@ -33,7 +33,7 @@
 
 ## Verification and recovery
 
-- Commands verified here: `git rev-parse --show-toplevel`, `git status --short`, `git diff --check`, `node --version`, `python --version`, `ffmpeg -version`, `ffprobe -version`. No application commands exist yet.
+- Build, test and local startup commands/private prerequisites are in `README.md`. For exact verified commands, running checkout and recovery details, read `docs/evidence/v02-integrated-journey.md`; do not assume the coordinator checkout is the running artifact.
 - After UI changes, run the real app and use the `browse` skill (`--local` for localhost, `--remote` for hosted). Report path, environment, console/network findings and exact gaps. Use Playwright for repeatable journeys once scaffolded.
 - Mocks may replace external providers, not the production scheduler, authorization, persistence or report renderer being verified. Provider smoke tests and deployed journeys have separate acceptance gates.
 - Re-read `docs/STATE.md` after compaction. Update it at milestone/transfer boundaries with commit, ownership, changed files, checks, failures and next permitted step. Never turn an author summary into acceptance evidence.

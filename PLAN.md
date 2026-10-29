@@ -1,8 +1,12 @@
 # Viralist delivery plan
 
-## Current execution: V02
+## Current execution: V02 complete within approved local scope
 
-**Specific evidence-only reassessment after correction2:** frozen1b322d5 has independently verified functional fixes, but still overstates legacy browser and historical coverage. [Review/observations/reassessment](docs/evidence/v02-correction-2-review.md). Parent correction count2, no reset/third broad correction. Codex coordinator owns narrow `task_16bbdf64e247` [claim/label repair](docs/evidence/v02-evidence-record-assignment.md) in isolated `codex-v02-evidence-record`, base1b322d5; explicit exception after two unsuccessful evidence corrections. Production behavior remains frozen. Independent Antigravity verifies the final claim-only commit, then coordinator integrates and checks combined real journey. No application acceptance/integration/release yet.
+**INTEGRATED / JOURNEY-VERIFIED:** exact `1e140dc3db6bd9d052206cb3ae385b771d39c9dd`; accepted candidate `1ce2abefdd7780a4fc7fd5080d5bb2d47655d4d6`. [Combined actual UI/restart/isolation/deletion proof](docs/evidence/v02-integrated-journey.md). Three-person hash-bound recorded inference, not full Flash or live-provider acceptance. No release/deployment/app push. No active workers.
+
+Two unsuccessful submitted corrections triggered [specific evidence-only reassessment](docs/evidence/v02-correction-2-review.md), then a bounded Codex claim repair and [independent Antigravity acceptance](docs/evidence/v02-evidence-record-review.md). Parent count remains2; no third broad patch loop. Next V03 needs separately authorized live provider/full-Flash evidence; no new paid calls are authorized. PLAN remains the canonical local ledger, VIR-PLAN; GitHub Issues migration is not performed.
+
+The following checkpoint paragraphs preserve historical states; this current block and STATE control present acceptance.
 
 ### Historical checkpoints (superseded by current state above)
 
@@ -37,7 +41,7 @@ Prerequisite ownership is explicit: independent reviewer accepts/rejects the cor
 
 ## Gates and dependency graph
 
-No product task is READY yet. Local V02 implementation authority exists; its correction acceptance and immutable dispatch baseline remain pending. Later tasks require their own prerequisites/authority. At dispatch, coordinator records exact `base_sha`, `prerequisite_shas`, reviewer/evidence links, checkout, branch, owned files and permitted spend in STATE/the canonical issue. Symbolic IDs or `main` are not accepted prerequisite SHAs.
+V02 is locally JOURNEY-VERIFIED at the integration commit above. V03 still requires its separately authorized live-provider/full-Flash evidence gates; no new paid call or implementation dispatch is authorized here.
 
 ```mermaid
 flowchart LR
@@ -108,6 +112,7 @@ Author “implemented” advances only to WORKER-REPORTED. Independent exact-com
 
 ## V02 — one complete thin user journey
 
+- Current state: JOURNEY-VERIFIED locally at `1e140dc3db6bd9d052206cb3ae385b771d39c9dd`; [revision-specific evidence](docs/evidence/v02-integrated-journey.md). Accepted schema prerequisite715be0e. The original task criteria below are preserved; full-Flash/live-provider gates are not accepted by this thin-slice completion.
 - Behavior: owned upload → durable analysis → a small visibly labeled test cast → one supported note → delete; refresh survives processing.
 - Preconditions: coordinator-recorded accepted V00-R1 correction SHA for saved-adapter/schema feasibility plus bounded offline evidence at `a2c90b5e99109d79a8ebbf2249aab0960838666a`; no full-V01 acceptance implied. Owner authorized local stack/limits and implementation. This is a test-profile slice, not completed Flash.
 - Interface: C1–C5/C8, normalized-1 fixture and `contracts/normalized.py`; future app imports the same production converter exercised in correction tests. Preserve replay/live identity and exact media binding.
@@ -115,7 +120,7 @@ Author “implemented” advances only to WORKER-REPORTED. Independent exact-com
 - Acceptance: clean environment installs using committed manifests; server rejects invalid media before model dispatch; real owned clip runs through production worker/adapter to evidence-linked note; reload preserves run; another session cannot read it; delete revokes it and removes controlled objects. Record exact commands in README only after running them.
 - Mocks: external model outcomes may be emulated for error tests; actual persistent PostgreSQL, worker, session checks, storage and report path must run. Exact-media recorded responses may exercise the real local adapter under recorded-evidence labeling. Fresh live inference/provider smoke remains a separate unfulfilled acceptance claim requiring new authority; no new paid calls are authorized. Never mock production scheduler, session checks or persistence to prove them.
 - Non-goals/invariants: no elaborate graph, payments, calibrated scores or public share. Source/code-in-window evidence starts here, distinct from planning documents.
-- Risk/review: high, roughly 1–2 focused days; reviewer checks transactional recovery and actual path. Pending exact-SHA correction acceptance and coordinator runtime dispatch, no further broad readiness review; one coupled implementation writer.
+- Review: completed independent functional review, separate claim-repair acceptance and combined exact-commit journey verification; see current evidence. No new broad readiness review or writer is active.
 - Stop: satisfy thin-slice tests at frozen SHA or report exact failure; two failed corrections require redesign.
 
 ## V03 — Flash, transparent report and live evidence view

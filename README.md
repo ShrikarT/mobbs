@@ -1,6 +1,6 @@
 # Viralist
 
-Local V02 development (Windows, Python 3.10.2 / Node 26.7.0):
+Local V02 development (Windows, Python 3.10.2 / Node 26.7.0). Run the worker and API in separate terminals using the same private configuration:
 
 ```powershell
 python -m venv .venv
@@ -29,7 +29,7 @@ Start with [the planning handoff](docs/START_HERE.md), [the product brief](docs/
 
 The hackathon slice is Flash Scan → Director's Notes → edited-cut comparison → Thumbnail Lab, for Instagram Reels. Outputs describe a simulation; they do not predict real-world reach or reproduce Instagram's algorithm. The full product roadmap remains sequenced after this slice.
 
-Verified local regression and end-to-end checks:
+Verified local regression and end-to-end checks (exact revisions and limits are in [the integrated journey record](docs/evidence/v02-integrated-journey.md)):
 
 ```powershell
 # Python unit, domain integration, security isolation, and full journey tests (28 passing)
