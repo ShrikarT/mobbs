@@ -1,12 +1,14 @@
 # Viralist delivery plan
 
-## Current execution: V02 complete within approved local scope
+## Current execution: V03 in progress
 
-**INTEGRATED / JOURNEY-VERIFIED:** exact `1e140dc3db6bd9d052206cb3ae385b771d39c9dd`; accepted candidate `1ce2abefdd7780a4fc7fd5080d5bb2d47655d4d6`. [Combined actual UI/restart/isolation/deletion proof](docs/evidence/v02-integrated-journey.md). Three-person hash-bound recorded inference, not full Flash or live-provider acceptance. No release/deployment/app push. No active workers.
+Owner authorized V03 local implementation and fresh Standard-provider smoke/benchmarking with a maximum$30 cumulative provider cap (prior tracked$14.69754320 including reserve is carried forward). Accepted V02 integration `1e140dc3db6bd9d052206cb3ae385b771d39c9dd`; current source baseline34ed67e has documentation-only changes. V02 is not being replanned/retested. V04/V05/deployment/publication remain excluded.
 
-Two unsuccessful submitted corrections triggered [specific evidence-only reassessment](docs/evidence/v02-correction-2-review.md), then a bounded Codex claim repair and [independent Antigravity acceptance](docs/evidence/v02-evidence-record-review.md). Parent count remains2; no third broad patch loop. Next V03 needs separately authorized live provider/full-Flash evidence; no new paid calls are authorized. PLAN remains the canonical local ledger, VIR-PLAN; GitHub Issues migration is not performed.
+Run `run_d3354faa0659` is the bounded V03 namespace; prior V02 run/history remain intact. Start one Antigravity implementation owner. First task: immutable3/50 run manifests, hash-bound actual50-trace provider ingestion, production scheduling/events, retention/engagement report data and preservation checks. [Frozen first-slice contract](docs/contracts/flash.v1.md). Then independent exact-commit review/integration; subsequent UI and live-provider/budget/concurrency work can use separate owners only once this shared interface is accepted/frozen. Whole V03 includes the approved full scope and live/cost/latency evidence, not just this first task. No fresh call until the durable guard is independently reviewed and a bounded stage is ready.
 
-The following checkpoint paragraphs preserve historical states; this current block and STATE control present acceptance.
+Historical V02: final candidate1ce2abe integrated/journey-verified at1e140dc; [proof](docs/evidence/v02-integrated-journey.md). Its two failed corrections and narrow claim repair remain recorded. New V03 task budgets start at zero because this is a different owner-approved milestone, not a renamed V02 correction.
+
+The following checkpoint paragraphs are archival, not current authority.
 
 ### Historical checkpoints (superseded by current state above)
 
@@ -41,7 +43,7 @@ Prerequisite ownership is explicit: independent reviewer accepts/rejects the cor
 
 ## Gates and dependency graph
 
-V02 is locally JOURNEY-VERIFIED at the integration commit above. V03 still requires its separately authorized live-provider/full-Flash evidence gates; no new paid call or implementation dispatch is authorized here.
+V02 is locally JOURNEY-VERIFIED. V03 implementation and bounded fresh provider testing are now authorized as described above; performance and budget claims require actual new evidence. No V04/V05/release task is dispatched.
 
 ```mermaid
 flowchart LR
