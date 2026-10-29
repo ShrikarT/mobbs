@@ -2,7 +2,7 @@
 
 ## Current execution: V02
 
-**Correction1 reviewed ? REVISE:** exact `a834fc27c5e3ab3dc0bf8e0de5d05e76bd5b49a6`, [independent observations/five remaining blockers](docs/evidence/v02-correction-1-review.md). One unsuccessful correction submission. Antigravity owns [correction2](docs/evidence/v02-correction-2-assignment.md) at clean basea834 in isolated `codex-v02-correction-2`; task `task_a6e621b6cfdd` / dispatch `ctx_6f86c9e9538b`, startup receipt verified/accepted before edits; sole implementation active. A second unsuccessful submission requires specific reassessment, no rename/reset. No app REVIEW-ACCEPTED/INTEGRATED/JOURNEY-VERIFIED/release. Separate Codex review capacity failure settled/released; coordinator supplied read-only independent checks, no implementation substitution.
+**Specific evidence-only reassessment after correction2:** frozen1b322d5 has independently verified functional fixes, but still overstates legacy browser and historical coverage. [Review/observations/reassessment](docs/evidence/v02-correction-2-review.md). Parent correction count2, no reset/third broad correction. Codex coordinator owns narrow `task_16bbdf64e247` [claim/label repair](docs/evidence/v02-evidence-record-assignment.md) in isolated `codex-v02-evidence-record`, base1b322d5; explicit exception after two unsuccessful evidence corrections. Production behavior remains frozen. Independent Antigravity verifies the final claim-only commit, then coordinator integrates and checks combined real journey. No application acceptance/integration/release yet.
 
 ### Historical checkpoints (superseded by current state above)
 
