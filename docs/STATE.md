@@ -1,6 +1,14 @@
-# Current state — 2026-10-28
+# Current state — 2026-10-29
 
-## V02 implementation — active checkpoint
+## Role-allocation policy and V02 recovery — current
+
+- Owner permanently defaults implementation to **Antigravity**; Codex owns architecture/orchestration/integration/quality and justified complex implementation exceptions. Temporary Antigravity rate/credit limits block its task unless owner explicitly authorizes reassignment. Shared AGENTS, ORCA-HANDOFF and orchestration coordinator instructions are updated; existing engineering/verification rules are preserved. [Current V02 continuation contract](evidence/v02-assignment.md) applies the policy.
+- Original V02 execution task `task_bae0a4436ee6` in Run `run_eb62638ed3eb` is preserved. Old Codex dispatch `ctx_ffecf3a90ed0` was already marked failed by Orca recovery at 2026-10-29 00:59:36 UTC; worker-show reports terminal missing and worker-read reports identity changed. Coordinator did not interrupt a live writer or infer exit from timeout. No Codex implementation worker retains active ownership.
+- Original worktree `codex-v02-journey` and runnable checkpoint `bbd7a8308db596e7790ba8894df0f5819c00552c` remain preserved. Its remaining dirty tracked patch/six untracked source files were backed up privately and committed unchanged as `f81cecddec4212842f2728c56731138caa95cd24`; additive recovery-document correction gives base `c9390ee96e7ad54989011e5756807dd76ee916fa`. Compileall and diff formatting checks passed; app behavior remains unverified. Recovery is not a failed review-correction round.
+- Antigravity continuation checkout prepared at `C:/Users/Shrikar/orca/workspaces/viralist/codex-v02-antigravity`, branch `codex/v02-antigravity`, clean committed base `c9390ee96e7ad54989011e5756807dd76ee916fa`. Accepted schema prerequisite remains `715be0ee31f8ed3229e64b75853aff624c3f449c`; no app checkpoint has been REVIEW-ACCEPTED. Retry dispatch/startup receipt pending. One implementation writer maximum at this stage; independent implementation review still required; zero submitted implementation correction rounds.
+- Next: retry the same failed V02 task with Antigravity, require reading the immutable revised assignment and verify receipt before edits. Recheck only specific local app/PG/S3 services after host recovery and continue the full approved journey. No planning/readiness restart, new paid calls, deployment or publication. Original spend ledger/uncertain reserve unchanged.
+
+## Historical V02 Codex implementation checkpoint (superseded above)
 
 - Latest owner attachment explicitly authorizes local V02 with the approved stack and MP4 <=60s / <=200MB. No new paid provider calls, deployment or publication. Planning is complete; no architecture/upload approval remains pending.
 - V00-R1 correction submission 1 `715be0ee31f8ed3229e64b75853aff624c3f449c` is **REVIEW-ACCEPTED**, then fast-forwarded into coordinator branch `codex/orchestration-readiness` without code changes. Independent Antigravity review task `task_436abf78d22b` / dispatch `ctx_cb461cd2c9a7` accepted all four original blockers at 18:04 UTC. [Report](evidence/v00-correction-review.md); [correction](evidence/v00-correction-1.md). Both correction author/reviewer terminals settled and released; worktrees preserved. One correction submission, zero unsuccessful rounds.
