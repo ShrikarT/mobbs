@@ -6,6 +6,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 
+winget_links = str(Path.home() / 'AppData/Local/Microsoft/WinGet/Links')
+if os.path.isdir(winget_links) and winget_links not in os.environ.get('PATH', ''):
+    os.environ['PATH'] = winget_links + os.pathsep + os.environ.get('PATH', '')
+
 
 @dataclass(frozen=True)
 class Settings:

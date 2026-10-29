@@ -1,3 +1,9 @@
+import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { App } from './App';
 import './style.css';
-createRoot(document.getElementById('root')!).render(<main><p>Viralist / Local evidence desk</p><h1>A clearer next cut.</h1><p>Private upload and three simulated viewers. Recorded inference only.</p></main>);
+
+const rootEl = document.getElementById('root');
+if (rootEl) {
+  createRoot(rootEl).render(<App />);
+}
