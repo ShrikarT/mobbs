@@ -8,6 +8,8 @@ Run `run_d3354faa0659` is V03's bounded namespace; previous `run_eb62638ed3eb` r
 
 Real fixture discovery: private stage2-bounded has50 distinct persona IDs,256 accepted original scene responses/50 stops; all257 response envelopes normalized using actual current code. Its one model note is unsupported and remains suppressed. No response cloning or threshold weakening. Full Flash note-generation verification remains part of live work; empty and supported-note cases need honest UI. See contract for hashes and source limits.
 
+First B1 checkpoint `msg_90c589d450a2` (2026-10-29T13:42:56Z), **WORKER-REPORTED only**: migration/legacy3 defaults and manifest immutability, distinct same-video test/Flash resources, queued requested50/pending50/effective0, repeat/key-conflict handling and unsupported-Flash pre-enqueue422. Full50 execution and committed independent verification are still pending; no test totals or journey acceptance inferred. Sole original Antigravity dispatch remains active; no new worker or reassignment.
+
 New integrator migration002 and manifest/report contract are task implementation inputs, not accepted code. Coordinator exercised DDL twice in isolated `viralist_v03_contract`, retained a seeded legacy3-person run and observed manifest-mutation rejection. Before implementation approval, corrected SQL CHECK NULL semantics in `dcb8172`: the full predicate must be TRUE. On fresh isolated `viralist_v03_contract_guard`, applied committed migration twice; legacy3 and valid Flash50 accepted; null requested/profile/seed rejected. The backend candidate must independently verify/review these changes together. No V02 database was migrated.
 
 ## Accepted base and local dependencies
@@ -19,7 +21,7 @@ New integrator migration002 and manifest/report contract are task implementation
 
 ## Next actions
 
-1. Antigravity implementation authorized after verified clean corrected startup receipt; await checkpoint real queued Flash50 plus migration/legacy profile identity.
+1. Antigravity has reported queued Flash50/profile/migration checkpoint; complete full50 candidate and obtain committed per-criterion evidence.
 2. Obtain committed backend candidate and independent exact-commit verification; integrate accepted contract/API work.
 3. Dispatch UI and live-backend work only with disjoint files/frozen interfaces (maximum two writers). Live task uses the supplied server credential, canonical cumulative ledger and$30 guard; fresh/cost/latency/p95 claims need actual evidence. Keep20-sample p95 requirement visible; budget is not permission to fabricate a statistic.
 4. Independently prove the complete combined V03 journey, UI/design/error/recovery/deletion and live/performance scope. Do not declare complete at a backend-only or replay-only checkpoint.
