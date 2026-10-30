@@ -639,6 +639,7 @@ class TestCorrection1BlockerRegressions(unittest.TestCase):
         res = client.get('/health')
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.json()['status'], 'ok')
+        create_session(client)
 
         with connection() as conn:
             # 2. Schema versions contain 1, 2, 3

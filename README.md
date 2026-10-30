@@ -46,6 +46,24 @@ npx playwright test
 
 # Historical experiment test suite
 python -m unittest discover -s experiments -p 'test_*.py' -v
+`
+
+### V03 UI Workbench Execution & End-to-End Verification
+
+To run and verify the V03-U1 Flash evidence workbench environment:
+
+`powershell
+# 1. Bootstrap isolated V03 database and private runtime config:
+.venv/Scripts/python scripts/v03_ui_setup.py
+
+# 2. Build the frontend web application:
+npm run build
+
+# 3. Start the supervised API server and worker daemon on http://127.0.0.1:58003:
+.venv/Scripts/python scripts/v03_ui_runner.py
+
+# 4. In a separate terminal, execute the isolated V03 Playwright browser suite:
+npx playwright test --config playwright.v03.config.ts
 ```
 
 The current paid runner is `experiments/meta_pipeline.py`; it requires explicit stage, private output paths and a cumulative prior-spend ledger. Its scale stage requires a passing inspected small-stage gate at the same revision. Credentials use private stdin or `MODEL_API_KEY`; media, raw responses and keys stay outside Git. Do not run a paid stage simply to inspect evidence.

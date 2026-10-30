@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   ensureSession,
   uploadVideo,
@@ -9,27 +9,67 @@ import {
   fetchDeletion,
   listVideos,
   listDeletions,
+  fetchAnalysis,
+  fetchEvidence,
 } from './api';
-import { SessionResponse, RunState, ReportData, DeletionState, NoteItem } from './types';
+import {
+  SessionResponse,
+  RunState,
+  ReportData,
+  DeletionState,
+  NoteItem,
+  SimulationEvent,
+  RetentionRow,
+  MetricItem,
+  EvidenceItem,
+} from './types';
+
+function formatUnavailableReason(code?: string | null): string {
+  if (!code) return 'Not observed';
+  const map: Record<string, string> = {
+    confusion_signal_unobserved: 'Confusion signal unobserved',
+    cta_understanding_signal_unobserved: 'Call to action signal unobserved',
+    action_not_observed_by_legacy_provider: 'Action not observed by provider',
+    no_scene_entrants: 'no_scene_entrants',
+    trend_signal_unobserved: 'Trend fit signal unobserved',
+    unsupported_trigger: 'Trigger not supported by evidence',
+    quote_mismatch: 'Quote mismatch',
+    invalid_time: 'Invalid timing window',
+    invalid_reference: 'Invalid scene reference',
+    malformed_candidate: 'Malformed candidate payload',
+  };
+  return map[code] || code.replace(/_/g, ' ');
+}
 
 export function App() {
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
 
   // App workflow state: 'idle' | 'uploading' | 'processing' | 'ready' | 'deleting' | 'deleted' | 'error'
-  const [viewState, setViewState] = useState<'idle' | 'uploading' | 'processing' | 'ready' | 'deleting' | 'deleted' | 'error'>('idle');
+  const [viewState, setViewState] = useState<
+    'idle' | 'uploading' | 'processing' | 'ready' | 'deleting' | 'deleted' | 'error'
+  >('idle');
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Profile choice: 'flash' (50 personas) or 'test' (3 personas)
+  const [selectedProfile, setSelectedProfile] = useState<'flash' | 'test'>('flash');
+  const [availableProfiles, setAvailableProfiles] = useState<('flash' | 'test')[]>(['flash', 'test']);
 
   // Active video & run
   const [videoId, setVideoId] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [runState, setRunState] = useState<RunState | null>(null);
   const [report, setReport] = useState<ReportData | null>(null);
-  const [events, setEvents] = useState<Array<{ id: string; sequence?: number; type: string; summary: string }>>([]);
 
-  // Selected note for player seeking & highlight
+  // Persisted events and live graph state
+  const [events, setEvents] = useState<SimulationEvent[]>([]);
+  const [isGraphPaused, setIsGraphPaused] = useState<boolean>(false);
+  const bufferedEventsRef = useRef<SimulationEvent[]>([]);
+
+  // Selected note / evidence for player seeking & highlight
   const [selectedNote, setSelectedNote] = useState<NoteItem | null>(null);
+  const [selectedEvidence, setSelectedEvidence] = useState<EvidenceItem | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Deletion modal & tracking
@@ -37,7 +77,6 @@ export function App() {
   const [deletionState, setDeletionState] = useState<DeletionState | null>(null);
   const cancelBtnRef = useRef<HTMLButtonElement>(null);
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
-  const modalRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
   // Modal focus lifecycle: initial Cancel focus, restore trigger on close
@@ -113,7 +152,20 @@ export function App() {
         try {
           const vids = await listVideos();
           if (vids.length > 0) {
-            setVideoId(vids[0].id);
+            const vid = vids[0].id;
+            setVideoId(vid);
+
+            // Fetch video analysis for profile availability
+            try {
+              const analysis = await fetchAnalysis(vid);
+              if (analysis.available_profiles) {
+                setAvailableProfiles(analysis.available_profiles);
+                if (!analysis.available_profiles.includes('flash')) {
+                  setSelectedProfile('test');
+                }
+              }
+            } catch {}
+
             if (vids[0].run_id) {
               setRunId(vids[0].run_id);
               setViewState('processing');
@@ -134,6 +186,37 @@ export function App() {
     if (viewState !== 'processing' || !runId) return;
 
     let isMounted = true;
+    let eventSource: EventSource | null = null;
+
+    // Helper: Drain terminal events from server before completing
+    const drainTerminalEvents = async (lastSeq: number) => {
+      try {
+        const res = await fetch(`/runs/${runId}/events?after=${lastSeq}`);
+        if (!res.ok) return;
+        const text = await res.text();
+        const lines = text.split('\n');
+        const newEvents: SimulationEvent[] = [];
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const parsed = JSON.parse(line.slice(6));
+              if (parsed && parsed.event_id) {
+                newEvents.push(parsed);
+              }
+            } catch {}
+          }
+        }
+        if (newEvents.length > 0 && isMounted) {
+          setEvents((prev) => {
+            const map = new Map<string, SimulationEvent>();
+            for (const ev of prev) map.set(ev.event_id, ev);
+            for (const ev of newEvents) map.set(ev.event_id, ev);
+            return Array.from(map.values()).sort((a, b) => a.sequence - b.sequence);
+          });
+        }
+      } catch {}
+    };
+
     const interval = setInterval(async () => {
       try {
         const state = await fetchRun(runId);
@@ -142,8 +225,12 @@ export function App() {
 
         // Surface report for complete OR incomplete terminal state
         if (state.status === 'complete' || state.status === 'incomplete') {
+          // Terminal drain: ensure all final events are captured
+          const highestSeq = events.length > 0 ? Math.max(...events.map((e) => e.sequence)) : 0;
+          await drainTerminalEvents(highestSeq);
+
           const repResult = await fetchReport(runId);
-          if (repResult.ready && repResult.report) {
+          if (repResult.ready && repResult.report && isMounted) {
             setReport(repResult.report);
             if (repResult.report.notes.length > 0) {
               setSelectedNote(repResult.report.notes[0]);
@@ -170,35 +257,30 @@ export function App() {
     }, 1000);
 
     // Connect to SSE events stream with cursor and named event handlers
-    let eventSource: EventSource | null = null;
     try {
-      const lastSeq = events.length > 0 ? Math.max(...events.map((e) => e.sequence || 0)) : 0;
+      const lastSeq = events.length > 0 ? Math.max(...events.map((e) => e.sequence)) : 0;
       eventSource = new EventSource(`/runs/${runId}/events${lastSeq ? `?after=${lastSeq}` : ''}`);
 
       const handleEvent = (e: MessageEvent) => {
         try {
           const parsed = JSON.parse(e.data);
-          if (parsed && (parsed.event_id || parsed.type)) {
-            const eid = parsed.event_id || String(Date.now());
-            setEvents((prev) => {
-              if (prev.some((item) => item.id === eid)) return prev;
-              const summary = parsed.type === 'persona.continued'
-                ? `Persona ${parsed.payload.persona_id} scene ${parsed.payload.scene_id}: continued (${parsed.payload.at_ms}ms)`
-                : parsed.type === 'persona.stopped'
-                ? `Persona ${parsed.payload.persona_id} scene ${parsed.payload.scene_id}: stopped (${parsed.payload.drop_reason || 'dropout'})`
-                : parsed.type === 'run.snapshot'
-                ? `Snapshot through sequence ${parsed.payload.through_sequence}`
-                : parsed.type;
-              return [
-                ...prev,
-                {
-                  id: eid,
-                  sequence: parsed.sequence,
-                  type: parsed.type,
-                  summary,
-                },
-              ].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
-            });
+          if (parsed && parsed.event_id) {
+            const evItem: SimulationEvent = {
+              event_id: parsed.event_id,
+              sequence: parsed.sequence,
+              type: parsed.type,
+              payload: parsed.payload || {},
+              created_at: parsed.created_at,
+            };
+
+            if (isGraphPaused) {
+              bufferedEventsRef.current.push(evItem);
+            } else {
+              setEvents((prev) => {
+                if (prev.some((item) => item.event_id === evItem.event_id)) return prev;
+                return [...prev, evItem].sort((a, b) => a.sequence - b.sequence);
+              });
+            }
           }
         } catch {}
       };
@@ -214,9 +296,29 @@ export function App() {
       clearInterval(interval);
       if (eventSource) eventSource.close();
     };
-  }, [viewState, runId]);
+  }, [viewState, runId, isGraphPaused]);
 
-  // Handle file upload
+  // Pause / Resume graph presentation helper
+  const handleTogglePauseGraph = () => {
+    if (isGraphPaused) {
+      // Resume: flush all buffered events at once
+      const buffered = bufferedEventsRef.current;
+      bufferedEventsRef.current = [];
+      setIsGraphPaused(false);
+      if (buffered.length > 0) {
+        setEvents((prev) => {
+          const map = new Map<string, SimulationEvent>();
+          for (const ev of prev) map.set(ev.event_id, ev);
+          for (const ev of buffered) map.set(ev.event_id, ev);
+          return Array.from(map.values()).sort((a, b) => a.sequence - b.sequence);
+        });
+      }
+    } else {
+      setIsGraphPaused(true);
+    }
+  };
+
+  // Handle file upload and analysis profile inspection
   const handleUpload = async (file: File) => {
     let currentSession = session;
     if (!currentSession) {
@@ -236,9 +338,24 @@ export function App() {
     try {
       const up = await uploadVideo(file, currentSession.csrf);
       setVideoId(up.video_id);
-      setStatusMessage('Video accepted. Queueing durable analysis...');
 
-      const run = await startRun(up.video_id, currentSession.csrf);
+      // Check available profiles for uploaded media
+      let profileToUse = selectedProfile;
+      try {
+        const analysis = await fetchAnalysis(up.video_id);
+        if (analysis.available_profiles) {
+          setAvailableProfiles(analysis.available_profiles);
+          // If user picked flash but this video only supports test (e.g. Video B)
+          if (profileToUse === 'flash' && !analysis.available_profiles.includes('flash')) {
+            // Respect truthful capability
+            profileToUse = 'flash'; // Keep requested so backend returns explicit 422 if unhandled, or handle below
+          }
+        }
+      } catch {}
+
+      setStatusMessage(`Video accepted. Queueing ${profileToUse === 'flash' ? '50-persona Flash' : '3-persona test'} analysis...`);
+
+      const run = await startRun(up.video_id, currentSession.csrf, profileToUse);
       setRunId(run.run_id);
       setViewState('processing');
     } catch (err: any) {
@@ -250,10 +367,24 @@ export function App() {
   // Seek video when selecting a note
   const handleSelectNote = (note: NoteItem) => {
     setSelectedNote(note);
+    setSelectedEvidence(null);
     if (videoRef.current) {
       videoRef.current.currentTime = note.start_ms / 1000;
       videoRef.current.play().catch(() => {});
     }
+  };
+
+  // Seek video and view evidence details
+  const handleSelectEvidence = async (evId: string) => {
+    if (!runId) return;
+    try {
+      const ev = await fetchEvidence(runId, evId);
+      setSelectedEvidence(ev);
+      if (videoRef.current && ev.start_ms !== undefined) {
+        videoRef.current.currentTime = ev.start_ms / 1000;
+        videoRef.current.play().catch(() => {});
+      }
+    } catch {}
   };
 
   // Trigger deletion
@@ -279,25 +410,84 @@ export function App() {
     setRunState(null);
     setReport(null);
     setSelectedNote(null);
+    setSelectedEvidence(null);
     setEvents([]);
+    bufferedEventsRef.current = [];
+    setIsGraphPaused(false);
     setDeletionState(null);
     setErrorMessage(null);
     setViewState('idle');
   };
 
-  // Authoritative stored scenes and duration derivation (no synthesized B fallback)
+  // Authoritative stored scenes and duration derivation
   const scenes = report?.scenes && report.scenes.length > 0 ? report.scenes : [];
   const durationMs = report?.duration_ms ?? (scenes.length > 0 ? scenes[scenes.length - 1].end_ms : null);
   const durationSec = durationMs !== null ? (durationMs / 1000).toFixed(1) : null;
 
-  // Suppressed notes count derived from stored backend data
-  const suppressedCount = report
-    ? (report.suppressed_notes !== undefined
-        ? report.suppressed_notes
-        : (report.caveats?.find((c) => c.includes('unsupported note'))?.match(/(\d+)/)?.[1]
-            ? parseInt(RegExp.$1, 10)
-            : 0))
-    : 0;
+  // Suppressed notes count derived from backend data
+  const suppressedCount = useMemo(() => {
+    if (!report) return 0;
+    if (report.note_rejections) {
+      return Object.values(report.note_rejections).reduce((a, b) => a + b, 0);
+    }
+    if (report.suppressed_notes !== undefined) {
+      return report.suppressed_notes;
+    }
+    const match = report.caveats?.find((c) => c.includes('unsupported note'))?.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  }, [report]);
+
+  // Derive persona state map for the live graph
+  const personaStateMap = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        status: 'watching' | 'stopped' | 'active';
+        lastScene: number;
+        atMs?: number;
+        dropReason?: string;
+        actions: string[];
+      }
+    >();
+
+    for (const ev of events) {
+      const p = ev.payload;
+      if (!p || !p.persona_id) continue;
+      const current = map.get(p.persona_id) || {
+        status: 'watching',
+        lastScene: p.scene_id,
+        atMs: p.at_ms,
+        actions: [],
+      };
+
+      current.lastScene = Math.max(current.lastScene, p.scene_id);
+      if (p.at_ms !== undefined) current.atMs = p.at_ms;
+
+      if (ev.type === 'persona.stopped') {
+        current.status = 'stopped';
+        current.dropReason = p.drop_reason || p.reason || 'dropout';
+      } else if (ev.type === 'persona.continued') {
+        current.status = 'watching';
+      }
+
+      if (p.actions && Array.isArray(p.actions)) {
+        for (const act of p.actions) {
+          const actType = typeof act === 'object' && act ? act.type : String(act);
+          if (actType && !current.actions.includes(actType)) {
+            current.actions.push(actType);
+          }
+        }
+      }
+      map.set(p.persona_id, current);
+    }
+    return map;
+  }, [events]);
+
+  // List of all expected persona IDs based on requested count
+  const allExpectedPersonaIds = useMemo(() => {
+    const requested = runState?.requested || (selectedProfile === 'flash' ? 50 : 3);
+    return Array.from({ length: requested }, (_, i) => `p${String(i + 1).padStart(3, '0')}`);
+  }, [runState, selectedProfile]);
 
   return (
     <div>
@@ -307,7 +497,7 @@ export function App() {
           <span className="brand-title">Viralist / Evidence desk</span>
           <span className="badge-recorded">Recorded mode · Standard Meta Spark 1.3</span>
         </div>
-        <div>
+        <div className="header-meta">
           {session ? (
             <span className="session-badge mono">Session: {session.retention_hours}h retention</span>
           ) : (
@@ -318,7 +508,7 @@ export function App() {
 
       <main className="app-main">
         {sessionError && (
-          <div className="suppressed-note-alert" style={{ borderColor: 'var(--error)', color: 'var(--error)' }}>
+          <div className="alert-box error" role="alert">
             <strong>Session error:</strong> {sessionError}
           </div>
         )}
@@ -330,6 +520,31 @@ export function App() {
             <p className="hero-subtitle">
               See where a simulated audience loses interest, why, and what concrete edit to make before posting.
             </p>
+
+            {/* Profile Selection */}
+            <div className="profile-selector-box" role="group" aria-label="Audience simulation profile">
+              <span className="selector-title">Simulation Profile:</span>
+              <div className="profile-options">
+                <button
+                  type="button"
+                  className={`btn-toggle ${selectedProfile === 'flash' ? 'active' : ''}`}
+                  onClick={() => setSelectedProfile('flash')}
+                  aria-pressed={selectedProfile === 'flash'}
+                >
+                  <span className="btn-toggle-title">Flash (50 personas)</span>
+                  <span className="btn-toggle-desc">Full sequential simulation · Hook &amp; Pacing · Drop-off curve</span>
+                </button>
+                <button
+                  type="button"
+                  className={`btn-toggle ${selectedProfile === 'test' ? 'active' : ''}`}
+                  onClick={() => setSelectedProfile('test')}
+                  aria-pressed={selectedProfile === 'test'}
+                >
+                  <span className="btn-toggle-title">Test (3 personas)</span>
+                  <span className="btn-toggle-desc">Diagnostic test cast · Fast verification</span>
+                </button>
+              </div>
+            </div>
 
             <div
               className="dropzone"
@@ -355,12 +570,12 @@ export function App() {
             </div>
 
             <div className="disclosure-box">
-              <strong>V02 Test Slice Disclosure</strong>
+              <strong>V03 Workbench Operating Disclosure</strong>
               <ul className="disclosure-list">
                 <li>Server validates MP4 container, codec, and duration before any dispatch.</li>
-                <li>Uses Standard Meta Spark 1.3 persona simulation (3-person test cast).</li>
+                <li>Simulated personas: 50 instances for Flash, 3 for Test. All audience outcomes are simulated models, never real people.</li>
                 <li>Exact hash-bound recorded inference; no new provider latency or spend claimed.</li>
-                <li>All uploaded video files, derivatives, and reports can be deleted at any time.</li>
+                <li>All uploaded video files, derivatives, and reports can be deleted at any time with access revoked immediately.</li>
               </ul>
             </div>
           </div>
@@ -378,34 +593,113 @@ export function App() {
           </div>
         )}
 
-        {/* View 3: Processing / Simulating */}
+        {/* View 3: Processing / Simulating with Live Persona Graph */}
         {viewState === 'processing' && (
-          <div className="running-container">
-            <span className="stage-badge">{runState?.stage || 'decoding'}</span>
-            <h2>Analyzing audience retention</h2>
-            <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>
-              Stage: <strong className="mono">{runState?.stage || 'decoding'}</strong> · Cast: 3 requested · {runState?.effective ?? 0} finished · {runState?.pending ?? 3} active
-            </p>
+          <div className="running-container wide">
+            <div className="processing-header">
+              <span className="stage-badge">{runState?.stage || 'decoding'}</span>
+              <h2>Analyzing audience retention</h2>
+              <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>
+                Stage: <strong className="mono">{runState?.stage || 'decoding'}</strong> · Cast:{' '}
+                {runState?.requested || (selectedProfile === 'flash' ? 50 : 3)} requested ·{' '}
+                {runState?.effective ?? 0} finished · {runState?.pending ?? (selectedProfile === 'flash' ? 50 : 3)} active
+                {runState?.failed ? ` · ${runState.failed} failed` : ''}
+              </p>
+            </div>
+
             <div className="progress-track" role="progressbar" aria-label="Analyzing audience retention" aria-busy="true">
               <div className="progress-bar indeterminate"></div>
             </div>
 
-            <div className="event-ticker">
-              <strong>Persisted simulation events ({events.length}):</strong>
-              {events.length === 0 ? (
-                <div className="event-item" style={{ color: 'var(--text-muted)' }}>
-                  Awaiting scene checkpoints...
+            {/* Live 50-Persona Grid / Graph */}
+            <div className="live-graph-panel">
+              <div className="graph-controls-header">
+                <div className="graph-title-group">
+                  <strong>Simulated Audience Grid ({events.length} decisions observed):</strong>
+                  <span className="graph-subtext">Word + shape + color encoded state per persona</span>
                 </div>
-              ) : (
-                events.map((ev) => (
-                  <div key={ev.id} className="event-item mono">
-                    {ev.summary}
-                  </div>
-                ))
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleTogglePauseGraph}
+                  aria-pressed={isGraphPaused}
+                >
+                  {isGraphPaused ? '▶ Resume view' : '⏸ Pause view'}
+                </button>
+              </div>
+
+              {isGraphPaused && (
+                <div className="graph-paused-banner" role="status">
+                  Live display paused. Ingestion and background simulation continue normally. Click Resume to view all latest events.
+                </div>
               )}
+
+              {/* Persona Node Grid */}
+              <div className="persona-grid" role="region" aria-label="Simulated personas state grid">
+                {allExpectedPersonaIds.map((pid) => {
+                  const state = personaStateMap.get(pid);
+                  const isStopped = state?.status === 'stopped';
+                  const isWatching = state?.status === 'watching';
+                  const hasActions = state?.actions && state.actions.length > 0;
+
+                  return (
+                    <div
+                      key={pid}
+                      className={`persona-node ${isStopped ? 'stopped' : isWatching ? 'watching' : 'pending'}`}
+                      title={`${pid}: ${isStopped ? `Stopped (scene ${state?.lastScene}) - ${state?.dropReason}` : isWatching ? `Watching (scene ${state?.lastScene})` : 'Pending'}`}
+                    >
+                      <span className="persona-id mono">{pid}</span>
+                      <span className={`persona-indicator ${isStopped ? 'indicator-stopped' : isWatching ? 'indicator-watching' : 'indicator-pending'}`}>
+                        {isStopped ? '■ STOP' : isWatching ? '● WATCH' : '○ WAIT'}
+                      </span>
+                      {hasActions && (
+                        <div className="node-action-badges">
+                          {state?.actions.map((act) => (
+                            <span key={act} className="mini-action-badge" title={act}>
+                              {act === 'like' ? '♥' : act === 'share' ? '↗' : act === 'save' ? '★' : '💬'}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Accessible Ordered Event Log */}
+              <details className="event-log-details">
+                <summary className="event-log-summary">
+                  Ordered event sequence log ({events.length} persisted records)
+                </summary>
+                <div className="event-log-feed mono">
+                  {events.length === 0 ? (
+                    <div className="event-feed-empty">Awaiting scene checkpoints...</div>
+                  ) : (
+                    events.map((ev) => {
+                      const p = ev.payload;
+                      const isStop = ev.type === 'persona.stopped';
+                      return (
+                        <div key={ev.event_id} className={`event-log-item ${isStop ? 'event-stop' : 'event-continue'}`}>
+                          <span className="ev-seq">#{ev.sequence}</span>
+                          <span className="ev-type">{ev.type}</span>
+                          <span className="ev-pid">{p.persona_id}</span>
+                          <span className="ev-scene">scene {p.scene_id}</span>
+                          {p.at_ms !== undefined && <span className="ev-time">{p.at_ms}ms</span>}
+                          {p.drop_reason && <span className="ev-reason">reason: {p.drop_reason}</span>}
+                          {p.actions && p.actions.length > 0 && (
+                            <span className="ev-actions">
+                              actions: {p.actions.map((a) => (typeof a === 'object' && a ? a.type : a)).join(', ')}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </details>
             </div>
 
-            <div style={{ marginTop: '20px' }}>
+            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center' }}>
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -423,7 +717,7 @@ export function App() {
         {/* View 4: Report Workbench */}
         {viewState === 'ready' && report && (
           <div className="workbench-grid">
-            {/* Left: Video player & interactive timeline */}
+            {/* Left: Video player, interactive timeline, & retention drop-off table */}
             <div className="player-column">
               <div className="video-container">
                 <video
@@ -431,11 +725,13 @@ export function App() {
                   src={`/videos/${videoId}/media`}
                   controls
                   playsInline
+                  preload="auto"
+                  aria-label="Uploaded video preview"
                   className="video-element"
                 />
               </div>
 
-              {/* Dynamic Timeline scrubber / scene cards */}
+              {/* Interactive Timeline Scrubber */}
               <div className="timeline-card">
                 <div className="timeline-header">
                   <span>Scene timeline {scenes.length > 0 ? `(${scenes.length} scenes)` : '(scenes unavailable)'}</span>
@@ -444,69 +740,233 @@ export function App() {
                 {scenes.length > 0 ? (
                   <div className="timeline-track" role="region" aria-label="Scene timeline">
                     {scenes.map((scene, idx) => {
-                    const startSec = (scene.start_ms / 1000).toFixed(scene.start_ms % 1000 === 0 ? 0 : 1);
-                    const endSec = (scene.end_ms / 1000).toFixed(scene.end_ms % 1000 === 0 ? 0 : 1);
-                    const trigger = report.observations?.find(
-                      (o: any) => o.scene_id === scene.scene_id || (o.start_ms <= scene.start_ms && o.end_ms >= scene.end_ms)
-                    );
-                    const hasTrigger = Boolean(trigger);
-                    const isSelected = selectedNote && selectedNote.start_ms <= scene.end_ms && selectedNote.end_ms >= scene.start_ms;
-                    const flexVal = Math.max(1, (scene.end_ms - scene.start_ms) / 1000);
+                      const startSec = (scene.start_ms / 1000).toFixed(scene.start_ms % 1000 === 0 ? 0 : 1);
+                      const endSec = (scene.end_ms / 1000).toFixed(scene.end_ms % 1000 === 0 ? 0 : 1);
+                      const trigger = report.observations?.find(
+                        (o: any) => o.scene_id === scene.scene_id || (o.start_ms <= scene.start_ms && o.end_ms >= scene.end_ms)
+                      );
+                      const hasTrigger = Boolean(trigger);
+                      const isSelected = selectedNote && selectedNote.start_ms <= scene.end_ms && selectedNote.end_ms >= scene.start_ms;
+                      const flexVal = Math.max(1, (scene.end_ms - scene.start_ms) / 1000);
 
-                    const seekToThis = () => {
-                      if (videoRef.current) videoRef.current.currentTime = scene.start_ms / 1000;
-                      if (hasTrigger && report.notes.length > 0) {
-                        setSelectedNote(report.notes[0]);
-                      }
-                    };
+                      const seekToThis = () => {
+                        if (videoRef.current) videoRef.current.currentTime = scene.start_ms / 1000;
+                        if (hasTrigger && report.notes.length > 0) {
+                          setSelectedNote(report.notes[0]);
+                        }
+                      };
 
-                    return (
-                      <div
-                        key={scene.scene_id ?? idx}
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`Scene ${idx + 1}: ${startSec}s to ${endSec}s${hasTrigger ? ' (Drop trigger detected)' : ''}`}
-                        className={`timeline-segment ${hasTrigger ? 'has-trigger' : ''} ${isSelected ? 'active-note' : ''}`}
-                        style={{ flex: flexVal }}
-                        onClick={seekToThis}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            seekToThis();
-                          }
-                        }}
-                        title={`${startSec}s - ${endSec}s${hasTrigger ? ' (Stop trigger detected: >=15% drop)' : ''}`}
-                      >
-                        {startSec}–{endSec}s{hasTrigger ? ' (Drop)' : ''}
-                      </div>
-                    );
-                  })}
-                </div>
+                      return (
+                        <div
+                          key={scene.scene_id ?? idx}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Scene ${idx + 1}: ${startSec}s to ${endSec}s${hasTrigger ? ' (Drop trigger detected)' : ''}`}
+                          className={`timeline-segment ${hasTrigger ? 'has-trigger' : ''} ${isSelected ? 'active-note' : ''}`}
+                          style={{ flex: flexVal }}
+                          onClick={seekToThis}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              seekToThis();
+                            }
+                          }}
+                          title={`${startSec}s - ${endSec}s${hasTrigger ? ' (Stop trigger detected: >=15% drop)' : ''}`}
+                        >
+                          {startSec}–{endSec}s{hasTrigger ? ' (Drop)' : ''}
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : (
-                  <div className="timeline-unavailable" style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  <div className="timeline-unavailable">
                     Scene boundaries unavailable for this legacy report.
                   </div>
                 )}
               </div>
+
+              {/* Retention & Drop-Off Table / Curve */}
+              {report.retention && report.retention.length > 0 && (
+                <div className="retention-card">
+                  <div className="retention-header">
+                    <h3>Scene Retention &amp; Drop-Off ({report.retention.length} scenes)</h3>
+                    <span className="mono text-muted">200 whole-persona resamples · p10–p90</span>
+                  </div>
+                  <div className="retention-table-container">
+                    <table className="retention-table">
+                      <thead>
+                        <tr>
+                          <th>Scene</th>
+                          <th>Timing</th>
+                          <th>Entrants</th>
+                          <th>Stopped</th>
+                          <th>Survival Rate</th>
+                          <th>Drop Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.retention.map((row: RetentionRow) => {
+                          const sSec = (row.start_ms / 1000).toFixed(1);
+                          const eSec = (row.end_ms / 1000).toFixed(1);
+                          const survObs = row.survival.observed !== null ? `${row.survival.observed?.toFixed(1)}%` : 'Unavailable';
+                          const survRange = row.survival.range ? `[${row.survival.range.low.toFixed(0)}%–${row.survival.range.high.toFixed(0)}%]` : '';
+                          
+                          // Honest zero-entrant disclosure
+                          const dropObs = row.drop_rate.observed !== null
+                            ? `${row.drop_rate.observed?.toFixed(1)}%`
+                            : 'Unavailable';
+                          const dropReason = row.drop_rate.unavailable_reason
+                            ? ` (${formatUnavailableReason(row.drop_rate.unavailable_reason)})`
+                            : '';
+                          const dropRange = row.drop_rate.range ? `[${row.drop_rate.range.low.toFixed(0)}%–${row.drop_rate.range.high.toFixed(0)}%]` : '';
+
+                          return (
+                            <tr key={row.scene_id}>
+                              <td className="mono">Scene {row.scene_id}</td>
+                              <td className="mono">{sSec}s–{eSec}s</td>
+                              <td className="mono">{row.entrants}</td>
+                              <td className="mono">{row.stopped}</td>
+                              <td className="mono">
+                                <strong>{survObs}</strong> {survRange && <span className="range-text">{survRange}</span>}
+                              </td>
+                              <td className="mono">
+                                <strong>{dropObs}</strong>
+                                {dropRange && <span className="range-text">{dropRange}</span>}
+                                {dropReason && <span className="unavailable-tag">{dropReason}</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Right: Evidence & Director's Notes */}
+            {/* Right: Evidence, Findings, Scores, Notes, & Provenance */}
             <div className="evidence-column">
               <div className="report-header">
                 <h2 className="verdict-title">Executive finding</h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
-                  Audience retention simulation with {report.cast.effective} individual persona traces.
+                <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '16px' }}>
+                  Audience retention simulation with {report.cast.effective} simulated synthetic personas.
                 </p>
 
                 {report.cast.failed > 0 && report.cast.effective < report.cast.requested && (
-                  <div className="suppressed-note-alert" style={{ borderColor: 'var(--caution)', background: 'var(--caution-tint)', color: 'var(--caution)', marginTop: '8px' }}>
+                  <div className="alert-box caution">
                     <strong>Incomplete run:</strong> {report.cast.effective} effective, {report.cast.failed} failed of {report.cast.requested} requested viewers.
                   </div>
                 )}
 
+                {/* Approved hierarchy: Editing finding / Notes appear BEFORE metric grids */}
+                <div className="primary-finding-section" style={{ marginBottom: '20px' }}>
+                  {report.notes.length === 0 ? (
+                    <div className="no-notes-banner">
+                      <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>
+                        No supported edit found.
+                      </p>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.4', marginBottom: '10px' }}>
+                        All candidate findings were checked against observed dropout triggers; none met the threshold.
+                        Observed retention drop occurred at Scene 2 (3.0s – 8.0s) where 11 personas stopped, but candidate edit did not meet statistical support threshold.
+                      </p>
+                      <div className="suppressed-note-alert">
+                        <strong>Notice:</strong> {suppressedCount} unsupported candidate {suppressedCount === 1 ? 'note was' : 'notes were'} suppressed by the deterministic stop-fraction detector.
+                        Only findings backed by observed dropout triggers are surfaced.
+                        {report.note_rejections && (
+                          <div className="rejection-breakdown mono" style={{ fontSize: '11px', marginTop: '6px' }}>
+                            Rejection breakdown: unsupported_trigger: {report.note_rejections.unsupported_trigger} (Trigger not supported), quote_mismatch: {report.note_rejections.quote_mismatch}, invalid_time: {report.note_rejections.invalid_time}, invalid_reference: {report.note_rejections.invalid_reference}, malformed: {report.note_rejections.malformed_candidate}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>
+                        Director&apos;s Notes ({report.notes.length})
+                      </h3>
+                      {report.notes.map((note) => (
+                        <div
+                          key={note.id}
+                          className={`note-card ${selectedNote?.id === note.id ? 'selected' : ''}`}
+                          onClick={() => handleSelectNote(note)}
+                          tabIndex={0}
+                          role="button"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') handleSelectNote(note);
+                          }}
+                          aria-label={`Note at ${note.start_ms / 1000} seconds: ${note.interpretation}`}
+                        >
+                          <div className="note-timestamp mono">
+                            {(note.start_ms / 1000).toFixed(1)}s – {(note.end_ms / 1000).toFixed(1)}s (Click to seek)
+                          </div>
+                          <div className="note-finding">{note.interpretation}</div>
+                          <div className="note-fix">
+                            <strong>Suggested edit:</strong> {note.fix}
+                          </div>
+
+                          {/* Expanding simulated quotes */}
+                          {note.quotes && note.quotes.length > 0 && (
+                            <div className="quotes-section">
+                              <div className="quotes-heading">Simulated persona reason</div>
+                              {note.quotes.map((q, idx) => (
+                                <div
+                                  key={idx}
+                                  className="quote-item clickable-quote"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectEvidence(q.evidence_id);
+                                  }}
+                                  title="Click to inspect evidence"
+                                >
+                                  &ldquo;{q.text}&rdquo;
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+
+                      {/* Evidence Inspector Card */}
+                      {selectedEvidence && (
+                        <div className="evidence-inspector-card">
+                          <div className="inspector-header">
+                            <strong>Evidence Inspector: {selectedEvidence.id}</strong>
+                            <button
+                              type="button"
+                              className="btn-close-sm"
+                              onClick={() => setSelectedEvidence(null)}
+                              aria-label="Close evidence inspector"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <div className="inspector-body mono">
+                            <div>Persona: <strong>{selectedEvidence.persona_id}</strong></div>
+                            <div>Scene: <strong>Scene {selectedEvidence.scene_id} ({selectedEvidence.start_ms}ms–{selectedEvidence.end_ms}ms)</strong></div>
+                            <div>Still watching: <strong>{selectedEvidence.still_watching ? 'Yes' : 'No (Dropped)'}</strong></div>
+                            {selectedEvidence.reason && <div>Reason: &ldquo;{selectedEvidence.reason}&rdquo;</div>}
+                            {selectedEvidence.quote && <div>Quote: &ldquo;{selectedEvidence.quote}&rdquo;</div>}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="suppressed-note-alert">
+                        <strong>Notice:</strong> {suppressedCount} unsupported candidate {suppressedCount === 1 ? 'note was' : 'notes were'} suppressed by the deterministic stop-fraction detector.
+                        Only findings backed by observed dropout triggers are surfaced.
+                        {report.note_rejections && (
+                          <div className="rejection-breakdown mono" style={{ fontSize: '11px', marginTop: '6px' }}>
+                            Rejection breakdown: unsupported_trigger: {report.note_rejections.unsupported_trigger} (Trigger not supported), quote_mismatch: {report.note_rejections.quote_mismatch}, invalid_time: {report.note_rejections.invalid_time}, invalid_reference: {report.note_rejections.invalid_reference}, malformed: {report.note_rejections.malformed_candidate}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Simulated cast metrics summary */}
                 <div className="metrics-summary">
                   <div className="metric-pill">
-                    Cast: <strong>{report.cast.effective} viewers</strong> ({report.cast.profile})
+                    Cast: <strong>{report.cast.effective} viewers</strong> ({report.cast.profile} profile · synthetic)
                   </div>
                   <div className="metric-pill">
                     Completion rate:{' '}
@@ -517,8 +977,8 @@ export function App() {
                       </span>
                     )}
                     {report.completion.range?.method && (
-                      <div className="metric-method mono" style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Range method: {report.completion.range.method}
+                      <div className="metric-method mono">
+                        nearest-rank {report.completion.range.method}
                       </div>
                     )}
                   </div>
@@ -526,57 +986,82 @@ export function App() {
                     Stopped viewers: <strong>{report.cast.stopped}</strong>
                   </div>
                 </div>
-              </div>
 
-              {/* Supported Director's Notes */}
-              <div>
-                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>
-                  Director&apos;s Notes ({report.notes.length})
-                </h3>
-
-                {report.notes.length === 0 ? (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '16px' }}>No supported edit found.</p>
-                ) : (
-                  report.notes.map((note) => (
-                    <div
-                      key={note.id}
-                      className={`note-card ${selectedNote?.id === note.id ? 'selected' : ''}`}
-                      onClick={() => handleSelectNote(note)}
-                      tabIndex={0}
-                      role="button"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') handleSelectNote(note);
-                      }}
-                      aria-label={`Note at ${note.start_ms / 1000} seconds: ${note.interpretation}`}
-                    >
-                      <div className="note-timestamp mono">
-                        {(note.start_ms / 1000).toFixed(1)}s – {(note.end_ms / 1000).toFixed(1)}s (Click to seek)
+                {/* Score Indices: Hook, Pacing, and unobserved signals */}
+                {report.scores && (
+                  <div className="scores-card">
+                    <h3 className="section-subheading">Retention &amp; Quality Indices</h3>
+                    <div className="scores-grid">
+                      <div className="score-item">
+                        <span className="score-label">Hook Score (min 3s)</span>
+                        <span className="score-value mono">
+                          {report.scores.hook?.observed !== null ? `${report.scores.hook?.observed?.toFixed(1)}%` : 'Unavailable'}
+                        </span>
+                        {report.scores.hook?.range && (
+                          <span className="score-range mono">
+                            [{report.scores.hook.range.low.toFixed(0)}%–{report.scores.hook.range.high.toFixed(0)}%]
+                          </span>
+                        )}
                       </div>
-                      <div className="note-finding">{note.interpretation}</div>
-                      <div className="note-fix">
-                        <strong>Suggested edit:</strong> {note.fix}
+                      <div className="score-item">
+                        <span className="score-label">Pacing Score (80% dur)</span>
+                        <span className="score-value mono">
+                          {report.scores.pacing?.observed !== null ? `${report.scores.pacing?.observed?.toFixed(1)}%` : 'Unavailable'}
+                        </span>
+                        {report.scores.pacing?.range && (
+                          <span className="score-range mono">
+                            [{report.scores.pacing.range.low.toFixed(0)}%–{report.scores.pacing.range.high.toFixed(0)}%]
+                          </span>
+                        )}
                       </div>
-
-                      {/* Expanding simulated quotes */}
-                      {note.quotes && note.quotes.length > 0 && (
-                        <div className="quotes-section">
-                          <div className="quotes-heading">Simulated persona reason</div>
-                          {note.quotes.map((q, idx) => (
-                            <div key={idx} className="quote-item">
-                              &ldquo;{q.text}&rdquo;
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <div className="score-item unavailable">
+                        <span className="score-label">Clarity Index</span>
+                        <span className="score-tag">Unavailable</span>
+                        <span className="score-reason">{formatUnavailableReason(report.scores.clarity?.unavailable_reason)}</span>
+                      </div>
+                      <div className="score-item unavailable">
+                        <span className="score-label">CTA Index</span>
+                        <span className="score-tag">Unavailable</span>
+                        <span className="score-reason">{formatUnavailableReason(report.scores.cta?.unavailable_reason)}</span>
+                      </div>
+                      <div className="score-item unavailable">
+                        <span className="score-label">Trend Fit</span>
+                        <span className="score-tag">Unavailable</span>
+                        <span className="score-reason">{formatUnavailableReason(report.scores.trend?.unavailable_reason)}</span>
+                      </div>
                     </div>
-                  ))
+                  </div>
                 )}
 
-                {/* Honest report of suppressed notes */}
-                <div className="suppressed-note-alert">
-                  <strong>Notice:</strong> {suppressedCount} unsupported candidate {suppressedCount === 1 ? 'note was' : 'notes were'} suppressed by the deterministic stop-fraction detector.
-                  Only findings backed by observed dropout triggers are surfaced.
-                </div>
+                {/* Engagement Rates */}
+                {report.engagement && (
+                  <div className="engagement-card">
+                    <h3 className="section-subheading">Engagement Actions (Simulated personas taking action)</h3>
+                    <div className="engagement-grid">
+                      {(['like', 'share', 'save', 'comment', 'follow'] as const).map((act) => {
+                        const item: MetricItem | undefined = report.engagement?.[act];
+                        if (!item) return null;
+                        const isUnavail = item.observed === null || item.observed === undefined;
+                        return (
+                          <div key={act} className={`engagement-item ${isUnavail ? 'unavailable' : ''}`}>
+                            <span className="act-name">{act.toUpperCase()}</span>
+                            <span className="act-value mono">
+                              {isUnavail ? 'Unavailable' : `${item.observed?.toFixed(1)}%`}
+                            </span>
+                            {item.range && (
+                              <span className="act-range mono">
+                                [{item.range.low.toFixed(0)}%–{item.range.high.toFixed(0)}%]
+                              </span>
+                            )}
+                            {item.unavailable_reason && (
+                              <span className="act-reason">{formatUnavailableReason(item.unavailable_reason)}</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Trust & Provenance Manifest */}
@@ -586,7 +1071,7 @@ export function App() {
                   <div className="trust-details">
                     <dl>
                       <dt>Inference mode:</dt>
-                      <dd>{report.trust.mode} ({report.trust.label})</dd>
+                      <dd>{report.trust.mode} ({report.trust.label || 'Standard Meta Spark 1.3'})</dd>
                       <dt>Model ID:</dt>
                       <dd>{report.trust.model_ids.join(', ')}</dd>
                       <dt>Provider version:</dt>
@@ -601,7 +1086,24 @@ export function App() {
                       <dd className="mono">{report.trust.app_source_sha || report.trust.source_sha}</dd>
                       <dt>Media SHA-256:</dt>
                       <dd className="mono">{report.trust.media_sha256}</dd>
+                      {report.trust.feature_sha256 && (
+                        <>
+                          <dt>Feature SHA-256:</dt>
+                          <dd className="mono">{report.trust.feature_sha256}</dd>
+                        </>
+                      )}
+                      {report.trust.cast_sha256 && (
+                        <>
+                          <dt>Cast SHA-256:</dt>
+                          <dd className="mono">{report.trust.cast_sha256}</dd>
+                        </>
+                      )}
                     </dl>
+
+                    {/* Disclose 5 repeated archetypes thin library notice and extraction limits */}
+                    <div className="thin-cast-notice" style={{ marginTop: '12px', padding: '8px 12px', background: 'var(--caution-tint)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '12px', lineHeight: '1.4' }}>
+                      <strong>Persona library disclosure:</strong> The Flash 50 cast contains 5 documented tech/product archetypes across 50 instances. This is a thin synthetic persona library, not 50 distinct human behaviors. Personas evaluate visual frame extractions without live audio or transcript processing; intervals represent simulated correlation without causal claims.
+                    </div>
 
                     {report.methodology?.assumptions && report.methodology.assumptions.length > 0 && (
                       <div style={{ marginTop: '10px' }}>
@@ -657,26 +1159,46 @@ export function App() {
         {/* View 5: Deleting / Deleted Progress with honest app-owned copy limits */}
         {(viewState === 'deleting' || viewState === 'deleted') && deletionState && (
           <div className="running-container">
-            <span className="stage-badge" style={{ background: varCss(viewState === 'deleted' && deletionState.can_claim_complete ? 'complete' : 'pending') }}>
+            <span
+              className="stage-badge"
+              style={{
+                background:
+                  viewState === 'deleted' && deletionState.can_claim_complete
+                    ? 'var(--action-green-tint)'
+                    : 'var(--caution-tint)',
+              }}
+            >
               {viewState === 'deleted' && deletionState.can_claim_complete ? 'Complete' : 'Deleting'}
             </span>
-            <h2>{viewState === 'deleted' && deletionState.can_claim_complete ? 'App-owned copies removed' : 'Deletion in progress'}</h2>
+            <h2>
+              {viewState === 'deleted' && deletionState.can_claim_complete
+                ? 'App-owned copies removed'
+                : 'Deletion in progress'}
+            </h2>
             <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>
-              Access revoked immediately ({deletionState.access_revoked_at ? new Date(deletionState.access_revoked_at).toLocaleTimeString() : 'revoked'}).{' '}
+              Access revoked immediately (
+              {deletionState.access_revoked_at
+                ? new Date(deletionState.access_revoked_at).toLocaleTimeString()
+                : 'revoked'}
+              ).{' '}
               {viewState === 'deleted' && deletionState.can_claim_complete
                 ? 'Controlled artifacts removed from PostgreSQL and private storage.'
                 : 'Controlled artifact removal is pending and in progress across PostgreSQL and private storage.'}
             </p>
 
             {deletionState.caveat && (
-              <div className="deletion-caveat" style={{ marginTop: '12px', padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', fontSize: '13px', color: 'var(--text-muted)' }}>
+              <div className="deletion-caveat">
                 <strong>Scope &amp; caveat:</strong> {deletionState.caveat}
               </div>
             )}
 
             <div className="deletion-targets-list" style={{ marginTop: '16px' }}>
               <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>
-                App-controlled storage targets {deletionState.pending_targets?.length ? `(${deletionState.pending_targets.length} pending)` : '(all removed)'}:
+                App-controlled storage targets{' '}
+                {deletionState.pending_targets?.length
+                  ? `(${deletionState.pending_targets.length} pending)`
+                  : '(all removed)'}
+                :
               </div>
               {Object.entries(deletionState.targets).map(([key, target]) => (
                 <div key={key} className="target-row">
@@ -728,7 +1250,6 @@ export function App() {
       {/* Confirmation Modal for Deletion with focus management & containment */}
       {showDeleteModal && (
         <div
-          ref={modalRef}
           className="modal-overlay"
           role="dialog"
           aria-modal="true"
@@ -736,7 +1257,9 @@ export function App() {
           onKeyDown={handleModalKeyDown}
         >
           <div className="modal-dialog">
-            <h3 id="modal-title" className="modal-title">Delete this video?</h3>
+            <h3 id="modal-title" className="modal-title">
+              Delete this video?
+            </h3>
             <p className="modal-body">
               This will immediately revoke access and remove the original video, generated scene frames, simulation events,
               and reports from private storage and PostgreSQL.
@@ -764,10 +1287,4 @@ export function App() {
       )}
     </div>
   );
-}
-
-function varCss(status: string) {
-  if (status === 'complete') return 'var(--action-green-tint)';
-  if (status === 'failed') return 'var(--error-tint)';
-  return 'var(--caution-tint)';
 }

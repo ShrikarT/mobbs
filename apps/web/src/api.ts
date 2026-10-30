@@ -1,4 +1,12 @@
-import { SessionResponse, RunState, ReportData, DeletionState, VideoItem } from './types';
+import {
+  SessionResponse,
+  RunState,
+  ReportData,
+  DeletionState,
+  VideoItem,
+  AnalysisResponse,
+  EvidenceItem,
+} from './types';
 
 export function makeIdempotencyKey(prefix = 'idem'): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -59,9 +67,23 @@ export async function uploadVideo(
   return res.json();
 }
 
+export async function fetchAnalysis(videoId: string): Promise<AnalysisResponse> {
+  const res = await fetch(`/videos/${videoId}/analysis`, {
+    headers: { 'Accept': 'application/json' },
+  });
+  if (!res.ok) {
+    const errObj = await res.json().catch(() => ({ code: `HTTP_${res.status}` }));
+    const err: any = new Error(errObj.code || errObj.message || `Failed to fetch analysis: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
 export async function startRun(
   videoId: string,
   csrf: string,
+  profile: 'flash' | 'test' = 'flash',
   key = makeIdempotencyKey('run')
 ): Promise<{ run_id: string; status: string }> {
   const res = await fetch('/runs', {
@@ -71,7 +93,7 @@ export async function startRun(
       'X-CSRF-Token': csrf,
       'Idempotency-Key': key,
     },
-    body: JSON.stringify({ video_id: videoId, profile: 'test' }),
+    body: JSON.stringify({ video_id: videoId, profile }),
   });
   if (!res.ok) {
     const errObj = await res.json().catch(() => ({ code: `HTTP_${res.status}` }));
@@ -88,6 +110,18 @@ export async function fetchRun(runId: string): Promise<RunState> {
   });
   if (!res.ok) {
     const err: any = new Error(`Failed to fetch run: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+export async function fetchEvidence(runId: string, evidenceId: string): Promise<EvidenceItem> {
+  const res = await fetch(`/runs/${runId}/evidence/${evidenceId}`, {
+    headers: { 'Accept': 'application/json' },
+  });
+  if (!res.ok) {
+    const err: any = new Error(`Failed to fetch evidence: HTTP ${res.status}`);
     err.status = res.status;
     throw err;
   }
@@ -148,6 +182,10 @@ export async function listDeletions(): Promise<{ id: string; video_id: string; s
   const res = await fetch('/deletions', {
     headers: { 'Accept': 'application/json' },
   });
-  if (!res.ok) return [];
+  if (!res.ok) {
+    const err: any = new Error(`Failed to list deletions: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
