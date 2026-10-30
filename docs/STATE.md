@@ -1,4 +1,4 @@
-# Current state - 2026-10-29
+# Current state - 2026-10-30
 
 ## V03 remains in progress
 
@@ -13,12 +13,12 @@ Provider cap: **$30 cumulative maximum**. Historical usage estimate$13.38427320 
 - First candidate `cf71ac85cc88630bdc18d397564dd62c3f9679fa` was REVISEd for four P2s: partial-trace evidence/detector cohorts, JSON integer manifest types, metric enum/absence reasons, discarded note rejection reasons. [Full independent evidence](evidence/v03-backend-review-1.md). Its actual recorded50 HTTP path,256 units/events, real process loss/recovery/API restart, faults, owner isolation and S3 deletion passed; those are exact-cf71ac8 component evidence, not blanket acceptance of7439b6c.
 - [Correction contract](evidence/v03-backend-correction-1-assignment.md): one terminal-trace cohort, additive coverage.excluded_traces and note_rejections, frozen C5 kinds, explicit unavailability. Root SQL prerequisite `5e50dababc291190b8b93d039746c70ea3914b04` directly follows cf71ac8 and adds003 only; candidate7439b6c includes it. Root owns serialized SQL under original scope. Committed003 applied twice in fresh isolated DB: legacy3/Flash50 unchanged,10 invalid cases rejected, seed0/immutability preserved. Root author check is not independent acceptance.
 
-Active read-only Codex recheck:
+Interrupted read-only recheck, final decision being recovered:
 
 - Run **`run_d3354faa0659`**, Task **`task_51e4e10a717d`**, Dispatch **`ctx_1bf7991cc623`**, terminal `term_81d28f05-e6bc-4b61-a93b-95bb8d3c8c49`.
 - Tree `C:/Users/Shrikar/orca/workspaces/viralist/codex-v03-backend-correction-1-review`, branch `codex/v03-backend-correction-1-review`, exact clean7439b6c. Private report/runtime `C:/Users/Shrikar/.codex/viralist-v03-backend-r1-review/`; isolated DB `viralist_v03_backend_r1_review`, bucket `viralist-v03-backend-r1-review`, API58002.
 - [Full recheck assignment](evidence/v03-backend-correction-1-review-assignment.md), immutable sourcea43af90, delivered in actual Task spec; dependencies correction task/first review. Startup receipt `msg_7dfa6bb8101a` verified against actual root/branch/HEAD/clean status, approved `msg_537d2caeebdc` at15:21:40Z; delivery acknowledged. Same approval recovered through normal followup `msg_710fa0ea0c0a` after reviewer lost its ask-output handle; no replacement dispatch or scope change. Escalation delivery `delivery_e6f1f3a5d051` processed/acknowledged.
-- No implementation workers active; one candidate under review. No source edits during review. No helpers/keys/paid calls. Reviewer checks four fixes and root003 plus applicable real report/HTTP/fault/deletion preservation; previous120s lease recovery is labeled prior evidence, not repeated merely for totals. Inspect new author's session-revocation wording against actual resource-only revocation.
+- Runtime restarted to `aa4abc56-fe13-45cc-8d79-9dcc4360278f`; run resumed under coordinator `term_f78fff4e-acc3-4d51-938a-ca1e77bb0766`, consumer generation2. Old review Dispatch positively failed during recovery (terminal no longer live), released; Task51e is ready. No code-review failure/correction increment. Full private independent driver actually completed exit0 with all fault/deletion results; report remains a draft. [Recovery contract](evidence/v03-backend-r1-review-recovery.md) requires finalizing the same Task from preserved evidence with only necessary narrow checks, not repeating the completed full run. Replacement Dispatch not launched yet; original source remains clean7439b6c. No implementation workers or candidate edits.
 
 ## Preserved source and environment
 
@@ -30,7 +30,7 @@ Active read-only Codex recheck:
 
 ## Next permitted actions
 
-1. Wait/check the **same active recheck Dispatch** for its exact-commit decision. Process settlement, release/reuse its terminal, then acknowledge delivery. Original exec waits32023/40392/46481 and launch20703 are completed; do not poll them as current jobs.
+1. Resume ready review Task51e with the same frozen placement and recovery contract; verify startup receipt, then obtain the independent final decision. Do not reuse old failed lifecycle IDs. Original exec waits32023/40392/46481/17942 and launch20703 are completed; do not poll them as current jobs.
 2. If ACCEPT, preserve full independent report, integrate7439b6c through this coordinator only and verify the new combined committed revision. If REVISE, send one numbered batch to Antigravity, increment unsuccessful correction count appropriately and preserve the two-failure limit. Do not edit candidate or invent acceptance.
 3. After accepted/frozen backend, dispatch UI and live-backend work with disjoint ownership/interfaces/resources, maximum two implementation workers, Antigravity default. No dependent dispatch before prerequisite acceptance.
 4. [Live Standard contract](contracts/live-standard.v1.md) and [Reels scenario arithmetic](contracts/reels-scenario.v1.md) are subsequent inputs, not implemented capabilities. Fresh calls require one canonical pinned ledger, reviewed guard, authorized bounded stage; retain at least20 valid fresh full-path attempts for p95, actual cost/latency/60s evidence and truthful limits.
