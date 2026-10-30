@@ -20,9 +20,11 @@ def connection():
 def migrate():
     with connection() as conn:
         conn.execute('SELECT pg_advisory_xact_lock(733029)')
-        conn.execute((ROOT/'migrations/001_initial.sql').read_text())
+        migration_files = sorted((ROOT / 'migrations').glob('*.sql'))
+        for mf in migration_files:
+            conn.execute(mf.read_text(encoding='utf-8'))
 
 
 if __name__ == '__main__':
     migrate()
-    print('Migration 001 applied')
+    print('Migrations applied')

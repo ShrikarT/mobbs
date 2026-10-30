@@ -35,6 +35,9 @@ Verified local regression and end-to-end checks (exact revisions and limits are 
 # Python unit, domain integration, security isolation, and full journey tests (28 passing)
 .venv/Scripts/python -m unittest tests.test_normalized tests.test_domain_integration tests.test_api_security_isolation tests.test_full_journey
 
+# V03 Flash 50-persona backend suite (manifest, SSE events, report resampling, failure, deletion, 9 passing)
+.venv/Scripts/python -m unittest tests.test_v03_flash_backend
+
 # Standalone saved evidence reconciliation (reconciles 19 reactions and 2 note envelopes)
 .venv/Scripts/python -m tests.reconcile_saved
 

@@ -135,7 +135,18 @@ def videos(request: Request):
 def analysis(video_id: str,request: Request):
     with connection() as conn:
         v = owned_video(conn,owner(request),video_id)
-        return dict(video_id=v['id'],metadata={k:v['metadata'][k] for k in ('duration_ms','width','height','audio_present','bytes','caveats')},features=v['features'])
+        profiles = []
+        try:
+            RecordedProvider(v['sha256'], v['metadata']['duration_ms'], profile='test')
+            profiles.append('test')
+        except Exception:
+            pass
+        try:
+            RecordedProvider(v['sha256'], v['metadata']['duration_ms'], profile='flash')
+            profiles.append('flash')
+        except Exception:
+            pass
+        return dict(video_id=v['id'],metadata={k:v['metadata'][k] for k in ('duration_ms','width','height','audio_present','bytes','caveats')},features=v['features'],available_profiles=profiles)
 
 
 @app.get('/videos/{video_id}/media')
@@ -182,7 +193,8 @@ class RunBody(BaseModel):
 @app.post('/runs',status_code=202)
 def start_run(body: RunBody,request: Request):
     owner_id,request_key = owner(request,True),key(request)
-    if body.profile != 'test': return error('only_three_person_test_profile_available',422)
+    if body.profile not in ('test', 'flash'):
+        return error('profile_must_be_test_or_flash', 422)
     body_hash = digest(body.model_dump_json().encode())
     with connection() as conn:
         conn.execute('SELECT id FROM owner_sessions WHERE id=%s FOR UPDATE',(owner_id,))
@@ -190,14 +202,42 @@ def start_run(body: RunBody,request: Request):
         previous = idem(conn,owner_id,'run',request_key,body_hash)
         if previous: return previous
         if not video['metadata'].get('storage_ready'): return error('upload_not_ready',409)
-        existing = conn.execute('SELECT id,status FROM runs WHERE video_id=%s ORDER BY created_at DESC LIMIT 1',(body.video_id,)).fetchone()
+
+        # Unsupported recorded flash must fail explicitly before enqueue
+        if body.profile == 'flash':
+            try:
+                RecordedProvider(video['sha256'], video['metadata']['duration_ms'], profile=body.profile)
+            except ProviderUnavailable:
+                return error('recorded_evidence_unavailable_for_this_upload', 422)
+
+        existing = conn.execute(
+            "SELECT id,status FROM runs WHERE video_id=%s AND manifest->>'profile'=%s ORDER BY created_at DESC LIMIT 1",
+            (body.video_id, body.profile)
+        ).fetchone()
         if existing:
             result = dict(run_id=existing['id'],status=existing['status'])
             idem(conn,owner_id,'run',request_key,body_hash,result)
             return result
+
+        if body.profile == 'flash':
+            requested = 50
+            persona_ids = [f'p{i:03d}' for i in range(1, 51)]
+        else:
+            requested = 3
+            persona_ids = ['p001', 'p002', 'p003']
+
+        manifest = dict(
+            schema_version='run-manifest-1',
+            profile=body.profile,
+            provider_mode='recorded',
+            requested=requested,
+            persona_ids=persona_ids,
+            resample_seed=20261028
+        )
+
         run_id = uid()
-        conn.execute('INSERT INTO runs(id,video_id) VALUES(%s,%s)',(run_id,body.video_id))
-        conn.execute("INSERT INTO jobs(id,video_id,run_id,kind) VALUES(%s,%s,%s,'analysis')",(uid(),body.video_id,run_id))
+        conn.execute('INSERT INTO runs(id,video_id,manifest) VALUES(%s,%s,%s)', (run_id, body.video_id, Jsonb(manifest)))
+        conn.execute("INSERT INTO jobs(id,video_id,run_id,kind) VALUES(%s,%s,%s,'analysis')", (uid(), body.video_id, run_id))
         result = dict(run_id=run_id,status='queued')
         idem(conn,owner_id,'run',request_key,body_hash,result)
         return result
@@ -207,12 +247,56 @@ def start_run(body: RunBody,request: Request):
 def run_state(run_id: str,request: Request):
     with connection() as conn:
         row = owned_run(conn,owner(request),run_id)
+        manifest = row['manifest']
+        requested = manifest['requested']
         cast = conn.execute("SELECT status,count(*) AS count FROM checkpoints WHERE run_id=%s GROUP BY status",(run_id,)).fetchall()
         counts = {r['status']:r['count'] for r in cast}
-        return dict(run_id=run_id,video_id=row['video_id'],status=row['status'],stage=row['stage'],
-            error_code=row['error_code'],sequence=row['sequence'],
-            requested=3,effective=counts.get('complete',0)+counts.get('stopped',0),
-            failed=counts.get('failed',0),pending=counts.get('active',3 if not cast else 0))
+        stopped = counts.get('stopped', 0)
+        completed = counts.get('complete', 0)
+        failed = counts.get('failed', 0)
+        active = counts.get('active', 0)
+        effective = completed + stopped
+        if row['status'] in ('complete', 'incomplete', 'failed'):
+            pending = 0
+        else:
+            pending = active if cast else requested
+        return dict(
+            run_id=run_id,
+            video_id=row['video_id'],
+            status=row['status'],
+            stage=row['stage'],
+            error_code=row['error_code'],
+            sequence=row['sequence'],
+            manifest=manifest,
+            requested=requested,
+            effective=effective,
+            failed=failed,
+            pending=pending,
+            stopped=stopped,
+        )
+
+
+@app.get('/runs/{run_id}/evidence/{evidence_id}')
+def evidence(run_id: str, evidence_id: str, request: Request):
+    owner_id = owner(request)
+    with connection() as conn:
+        owned_run(conn, owner_id, run_id)
+        row = conn.execute(
+            'SELECT evidence FROM reactions WHERE run_id=%s AND evidence->>\'id\'=%s',
+            (run_id, evidence_id)
+        ).fetchone()
+        if not row:
+            raise Denied('evidence_not_found')
+        ev = row['evidence']
+        return dict(
+            id=ev['id'],
+            persona_id=ev['persona_id'],
+            scene_id=ev['scene_id'],
+            start_ms=ev['start_ms'],
+            end_ms=ev['end_ms'],
+            quote=ev['quote'],
+            still_watching=ev.get('still_watching', True),
+        )
 
 
 @app.get('/runs/{run_id}/events')
@@ -298,7 +382,8 @@ def deletion(deletion_id: str,request: Request):
 @app.get('/health')
 def health():
     with connection() as conn:
-        assert conn.execute('SELECT version FROM schema_migrations').fetchone()['version'] == 1
+        rows = {r['version'] for r in conn.execute('SELECT version FROM schema_migrations').fetchall()}
+        assert 1 in rows and 2 in rows and 3 in rows
     Storage().check()
     return {'status': 'ok', 'database': 'postgresql', 'storage': 'private_s3', 'inference': 'recorded_only'}
 
