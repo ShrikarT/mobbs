@@ -783,7 +783,9 @@ a, button, input {
 }
 
 .persona-node.pending {
-  opacity: 0.6;
+  border-color: var(--border-subtle);
+  border-style: dashed;
+  background: var(--bg-surface);
 }
 
 .persona-id {
@@ -808,7 +810,7 @@ a, button, input {
 }
 
 .indicator-pending {
-  color: var(--text-muted);
+  color: var(--text-subtle);
 }
 
 .node-action-badges {
@@ -992,13 +994,14 @@ a, button, input {
 }
 
 .score-item.unavailable {
-  opacity: 0.8;
+  border-color: var(--border-subtle);
+  border-style: dashed;
   background: var(--bg-subtle);
 }
 
 .score-label {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text-subtle);
   font-weight: 500;
 }
 
@@ -1020,8 +1023,8 @@ a, button, input {
 }
 
 .score-reason {
-  font-size: 10px;
-  color: var(--text-muted);
+  font-size: 11px;
+  color: var(--text-subtle);
   word-break: break-all;
 }
 
@@ -1042,20 +1045,32 @@ a, button, input {
 }
 
 .engagement-item.unavailable {
-  opacity: 0.8;
+  border-color: var(--border-subtle);
+  border-style: dashed;
   background: var(--bg-subtle);
 }
 
 .act-name {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-subtle);
 }
 
 .act-value {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.act-range {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.act-reason {
+  font-size: 11px;
+  color: var(--text-subtle);
+  word-break: break-all;
 }
 
 .act-range {
@@ -1104,6 +1119,55 @@ a, button, input {
 .clickable-quote:hover {
   background: var(--action-green-tint);
   text-decoration: underline;
+}
+
+.quote-button {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  margin-top: 4px;
+  font-family: inherit;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--text-primary);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  display: block;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.quote-button:hover {
+  background-color: var(--action-green-tint);
+  border-color: var(--action-green);
+}
+
+.quote-button:focus-visible {
+  outline: 2px solid var(--action-green);
+  outline-offset: 2px;
+}
+
+.section-unavailable-banner {
+  padding: 10px 14px;
+  background: var(--bg-subtle);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-subtle);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.cohort-coverage-card {
+  margin-bottom: 16px;
+}
+
+.cohort-complete-badge {
+  padding: 6px 10px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  display: inline-block;
 }
 
 .btn-close-sm {

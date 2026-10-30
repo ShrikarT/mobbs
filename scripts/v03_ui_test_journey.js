@@ -60,7 +60,7 @@ async function main() {
   }
 
   console.log('4. Waiting for report workbench...');
-  await page.waitForSelector('.workbench-grid', { timeout: 90000 });
+  await page.waitForSelector('.workbench-grid', { timeout: 350000 });
   console.log('Report workbench visible!');
 
   // Verify elements

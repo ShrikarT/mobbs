@@ -77,6 +77,14 @@ test.describe('Viralist V03 Browser Journey', () => {
     const currentTime = await video.evaluate((el: HTMLVideoElement) => el.currentTime);
     expect(currentTime).toBeGreaterThanOrEqual(3.0);
 
+    // 9b. Verify keyboard operability on evidence quote button (Enter/Space opens inspector without clearing note)
+    const quoteBtn = noteCard.locator('button.quote-button').first();
+    await expect(quoteBtn).toBeVisible();
+    await quoteBtn.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.evidence-inspector-card')).toBeVisible();
+    await expect(noteCard).toHaveClass(/selected/);
+
     // 10. Verify timeline keyboard seek
     await triggerSegment.focus();
     await page.keyboard.press('Enter');
@@ -100,6 +108,8 @@ test.describe('Viralist V03 Browser Journey', () => {
     await expect(page.locator('dt:has-text("Training cutoff:") + dd')).toHaveText('not provided');
     await expect(page.locator('text=Methodology assumptions:')).toBeVisible();
     await expect(page.locator('text=Simulation limitations:')).toBeVisible();
+    await expect(page.locator('.thin-cast-notice')).not.toContainText('Flash 50');
+    await expect(page.locator('.thin-cast-notice')).toContainText('Test 3 cast');
 
     // 14. Modal focus lifecycle and boundary containment
     const reportDeleteBtn = page.locator('button:has-text("Delete video & report")');
@@ -213,6 +223,8 @@ test.describe('Viralist V03 Browser Journey', () => {
 
     // Verify no supported notes and honest suppression note with rejection breakdown
     await expect(page.locator('text=No supported edit found.')).toBeVisible();
+    await expect(page.locator('.no-notes-banner')).not.toContainText('statistical support threshold');
+    await expect(page.locator('.no-notes-banner')).not.toContainText('11 personas stopped');
     await expect(page.locator('.suppressed-note-alert')).toContainText('1 unsupported candidate note was suppressed');
     await expect(page.locator('.rejection-breakdown')).toContainText('unsupported_trigger: 1');
 

@@ -32,9 +32,10 @@ export async function ensureSession(): Promise<SessionResponse> {
   return res.json();
 }
 
-export async function listVideos(): Promise<VideoItem[]> {
+export async function listVideos(signal?: AbortSignal): Promise<VideoItem[]> {
   const res = await fetch('/videos', {
     headers: { 'Accept': 'application/json' },
+    signal,
   });
   if (!res.ok) {
     const err: any = new Error(`Failed to list videos: HTTP ${res.status}`);
@@ -104,9 +105,10 @@ export async function startRun(
   return res.json();
 }
 
-export async function fetchRun(runId: string): Promise<RunState> {
+export async function fetchRun(runId: string, signal?: AbortSignal): Promise<RunState> {
   const res = await fetch(`/runs/${runId}`, {
     headers: { 'Accept': 'application/json' },
+    signal,
   });
   if (!res.ok) {
     const err: any = new Error(`Failed to fetch run: HTTP ${res.status}`);
@@ -116,9 +118,10 @@ export async function fetchRun(runId: string): Promise<RunState> {
   return res.json();
 }
 
-export async function fetchEvidence(runId: string, evidenceId: string): Promise<EvidenceItem> {
+export async function fetchEvidence(runId: string, evidenceId: string, signal?: AbortSignal): Promise<EvidenceItem> {
   const res = await fetch(`/runs/${runId}/evidence/${evidenceId}`, {
     headers: { 'Accept': 'application/json' },
+    signal,
   });
   if (!res.ok) {
     const err: any = new Error(`Failed to fetch evidence: HTTP ${res.status}`);
@@ -128,9 +131,10 @@ export async function fetchEvidence(runId: string, evidenceId: string): Promise<
   return res.json();
 }
 
-export async function fetchReport(runId: string): Promise<{ ready: boolean; report?: ReportData; stage?: string }> {
+export async function fetchReport(runId: string, signal?: AbortSignal): Promise<{ ready: boolean; report?: ReportData; stage?: string }> {
   const res = await fetch(`/runs/${runId}/report`, {
     headers: { 'Accept': 'application/json' },
+    signal,
   });
   if (res.status === 202) {
     const body = await res.json();
@@ -166,9 +170,10 @@ export async function requestDelete(
   return res.json();
 }
 
-export async function fetchDeletion(deletionId: string): Promise<DeletionState> {
+export async function fetchDeletion(deletionId: string, signal?: AbortSignal): Promise<DeletionState> {
   const res = await fetch(`/deletions/${deletionId}`, {
     headers: { 'Accept': 'application/json' },
+    signal,
   });
   if (!res.ok) {
     const err: any = new Error(`Failed to fetch deletion status: HTTP ${res.status}`);
@@ -178,9 +183,10 @@ export async function fetchDeletion(deletionId: string): Promise<DeletionState> 
   return res.json();
 }
 
-export async function listDeletions(): Promise<{ id: string; video_id: string; state: DeletionState }[]> {
+export async function listDeletions(signal?: AbortSignal): Promise<{ id: string; video_id: string; state: DeletionState }[]> {
   const res = await fetch('/deletions', {
     headers: { 'Accept': 'application/json' },
+    signal,
   });
   if (!res.ok) {
     const err: any = new Error(`Failed to list deletions: HTTP ${res.status}`);

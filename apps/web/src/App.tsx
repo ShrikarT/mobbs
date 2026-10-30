@@ -72,6 +72,20 @@ export function App() {
   const [selectedEvidence, setSelectedEvidence] = useState<EvidenceItem | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Fencing and request cancellation refs to prevent stale async responses
+  const runFenceRef = useRef<number>(0);
+  const evidenceFenceRef = useRef<number>(0);
+  const delFenceRef = useRef<number>(0);
+  const pollAbortControllerRef = useRef<AbortController | null>(null);
+
+  const abortActiveRunTasks = () => {
+    runFenceRef.current++;
+    if (pollAbortControllerRef.current) {
+      pollAbortControllerRef.current.abort();
+      pollAbortControllerRef.current = null;
+    }
+  };
+
   // Deletion modal & tracking
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [deletionState, setDeletionState] = useState<DeletionState | null>(null);
@@ -110,24 +124,39 @@ export function App() {
     }
   };
 
-  // Start polling deletion helper
+  // Start polling deletion helper with sequenced polling and generation fencing
   const startPollingDeletion = (delId: string) => {
-    const delInterval = setInterval(async () => {
+    const currentDelFence = ++delFenceRef.current;
+    let delTimer: ReturnType<typeof setTimeout> | null = null;
+    let isDelBusy = false;
+
+    const pollDel = async () => {
+      if (delFenceRef.current !== currentDelFence || isDelBusy) return;
+      isDelBusy = true;
       try {
         const cur = await fetchDeletion(delId);
+        if (delFenceRef.current !== currentDelFence) return;
         setDeletionState(cur);
         if (cur.status === 'complete' && cur.can_claim_complete) {
-          clearInterval(delInterval);
           setViewState('deleted');
+          return;
         }
       } catch (err: any) {
+        if (delFenceRef.current !== currentDelFence) return;
         if (err.status === 401 || err.status === 404) {
-          clearInterval(delInterval);
           setErrorMessage('Deletion tracking unavailable or session expired.');
           setViewState('error');
+          return;
+        }
+      } finally {
+        isDelBusy = false;
+        if (delFenceRef.current === currentDelFence) {
+          delTimer = setTimeout(pollDel, 1000);
         }
       }
-    }, 1000);
+    };
+
+    delTimer = setTimeout(pollDel, 1000);
   };
 
   // Initialize session on mount and restore durable state across reload
@@ -181,19 +210,30 @@ export function App() {
       });
   }, []);
 
-  // Poll / SSE for run updates when processing
+  // Poll / SSE for run updates when processing with non-overlapping requests and generation fencing
   useEffect(() => {
     if (viewState !== 'processing' || !runId) return;
 
     let isMounted = true;
+    const currentFence = ++runFenceRef.current;
+    const abortCtrl = new AbortController();
+    pollAbortControllerRef.current = abortCtrl;
+    const activeRunId = runId;
+
+    let pollTimeout: ReturnType<typeof setTimeout> | null = null;
+    let isPollBusy = false;
     let eventSource: EventSource | null = null;
 
     // Helper: Drain terminal events from server before completing
     const drainTerminalEvents = async (lastSeq: number) => {
+      if (!isMounted || runFenceRef.current !== currentFence) return;
       try {
-        const res = await fetch(`/runs/${runId}/events?after=${lastSeq}`);
+        const res = await fetch(`/runs/${activeRunId}/events?after=${lastSeq}`, {
+          signal: abortCtrl.signal,
+        });
         if (!res.ok) return;
         const text = await res.text();
+        if (!isMounted || runFenceRef.current !== currentFence) return;
         const lines = text.split('\n');
         const newEvents: SimulationEvent[] = [];
         for (const line of lines) {
@@ -206,7 +246,7 @@ export function App() {
             } catch {}
           }
         }
-        if (newEvents.length > 0 && isMounted) {
+        if (newEvents.length > 0 && isMounted && runFenceRef.current === currentFence) {
           setEvents((prev) => {
             const map = new Map<string, SimulationEvent>();
             for (const ev of prev) map.set(ev.event_id, ev);
@@ -217,10 +257,17 @@ export function App() {
       } catch {}
     };
 
-    const interval = setInterval(async () => {
+    const scheduleNextPoll = (delayMs: number) => {
+      if (!isMounted || runFenceRef.current !== currentFence) return;
+      pollTimeout = setTimeout(pollRun, delayMs);
+    };
+
+    const pollRun = async () => {
+      if (!isMounted || runFenceRef.current !== currentFence || isPollBusy) return;
+      isPollBusy = true;
       try {
-        const state = await fetchRun(runId);
-        if (!isMounted) return;
+        const state = await fetchRun(activeRunId, abortCtrl.signal);
+        if (!isMounted || runFenceRef.current !== currentFence) return;
         setRunState(state);
 
         // Surface report for complete OR incomplete terminal state
@@ -228,40 +275,55 @@ export function App() {
           // Terminal drain: ensure all final events are captured
           const highestSeq = events.length > 0 ? Math.max(...events.map((e) => e.sequence)) : 0;
           await drainTerminalEvents(highestSeq);
+          if (!isMounted || runFenceRef.current !== currentFence) return;
 
-          const repResult = await fetchReport(runId);
-          if (repResult.ready && repResult.report && isMounted) {
+          const repResult = await fetchReport(activeRunId, abortCtrl.signal);
+          if (!isMounted || runFenceRef.current !== currentFence) return;
+
+          if (repResult.ready && repResult.report) {
             setReport(repResult.report);
             if (repResult.report.notes.length > 0) {
               setSelectedNote(repResult.report.notes[0]);
             }
             setViewState('ready');
-            clearInterval(interval);
+            return; // terminal state reached, do not reschedule
           }
         } else if (state.status === 'failed') {
           setErrorMessage(state.error_code || 'Analysis failed');
           setViewState('error');
-          clearInterval(interval);
+          return; // terminal failure, do not reschedule
         }
       } catch (err: any) {
+        if (err.name === 'AbortError' || !isMounted || runFenceRef.current !== currentFence) {
+          return; // request was aborted or superseded by newer generation
+        }
         if (err.status === 401) {
           setSessionError('Session expired. Please start a new session.');
           setViewState('error');
-          clearInterval(interval);
+          return;
         } else if (err.status === 404) {
           setErrorMessage('Run not found or was deleted.');
           setViewState('error');
-          clearInterval(interval);
+          return;
+        }
+      } finally {
+        isPollBusy = false;
+        if (isMounted && runFenceRef.current === currentFence) {
+          scheduleNextPoll(1000);
         }
       }
-    }, 1000);
+    };
+
+    // Trigger initial poll immediately
+    scheduleNextPoll(0);
 
     // Connect to SSE events stream with cursor and named event handlers
     try {
       const lastSeq = events.length > 0 ? Math.max(...events.map((e) => e.sequence)) : 0;
-      eventSource = new EventSource(`/runs/${runId}/events${lastSeq ? `?after=${lastSeq}` : ''}`);
+      eventSource = new EventSource(`/runs/${activeRunId}/events${lastSeq ? `?after=${lastSeq}` : ''}`);
 
       const handleEvent = (e: MessageEvent) => {
+        if (!isMounted || runFenceRef.current !== currentFence) return;
         try {
           const parsed = JSON.parse(e.data);
           if (parsed && parsed.event_id) {
@@ -293,7 +355,8 @@ export function App() {
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      abortCtrl.abort();
+      if (pollTimeout) clearTimeout(pollTimeout);
       if (eventSource) eventSource.close();
     };
   }, [viewState, runId, isGraphPaused]);
@@ -320,6 +383,7 @@ export function App() {
 
   // Handle file upload and analysis profile inspection
   const handleUpload = async (file: File) => {
+    abortActiveRunTasks();
     let currentSession = session;
     if (!currentSession) {
       try {
@@ -374,15 +438,26 @@ export function App() {
     }
   };
 
-  // Seek video and view evidence details
+  // Seek video and view evidence details with fencing against stale responses
   const handleSelectEvidence = async (evId: string) => {
     if (!runId) return;
+    const currentFence = runFenceRef.current;
+    const targetRunId = runId;
+    const currentEvidenceFence = ++evidenceFenceRef.current;
+
     try {
-      const ev = await fetchEvidence(runId, evId);
-      setSelectedEvidence(ev);
-      if (videoRef.current && ev.start_ms !== undefined) {
-        videoRef.current.currentTime = ev.start_ms / 1000;
-        videoRef.current.play().catch(() => {});
+      const ev = await fetchEvidence(targetRunId, evId);
+      if (
+        runFenceRef.current === currentFence &&
+        runId === targetRunId &&
+        evidenceFenceRef.current === currentEvidenceFence &&
+        viewState === 'ready'
+      ) {
+        setSelectedEvidence(ev);
+        if (videoRef.current && ev.start_ms !== undefined) {
+          videoRef.current.currentTime = ev.start_ms / 1000;
+          videoRef.current.play().catch(() => {});
+        }
       }
     } catch {}
   };
@@ -390,6 +465,7 @@ export function App() {
   // Trigger deletion
   const handleDelete = async () => {
     if (!videoId || !session) return;
+    abortActiveRunTasks();
     setShowDeleteModal(false);
     setViewState('deleting');
     setStatusMessage('Revoking access and deleting data...');
@@ -405,6 +481,8 @@ export function App() {
   };
 
   const handleReset = () => {
+    abortActiveRunTasks();
+    delFenceRef.current++;
     setVideoId(null);
     setRunId(null);
     setRunState(null);
@@ -437,7 +515,7 @@ export function App() {
     return match ? parseInt(match[1], 10) : 0;
   }, [report]);
 
-  // Derive persona state map for the live graph
+  // Derive persona state map for the live graph using persisted reason
   const personaStateMap = useMemo(() => {
     const map = new Map<
       string,
@@ -445,7 +523,7 @@ export function App() {
         status: 'watching' | 'stopped' | 'active';
         lastScene: number;
         atMs?: number;
-        dropReason?: string;
+        reason?: string;
         actions: string[];
       }
     >();
@@ -465,9 +543,10 @@ export function App() {
 
       if (ev.type === 'persona.stopped') {
         current.status = 'stopped';
-        current.dropReason = p.drop_reason || p.reason || 'dropout';
+        current.reason = p.reason || p.drop_reason;
       } else if (ev.type === 'persona.continued') {
         current.status = 'watching';
+        current.reason = p.reason;
       }
 
       if (p.actions && Array.isArray(p.actions)) {
@@ -641,12 +720,13 @@ export function App() {
                   const isStopped = state?.status === 'stopped';
                   const isWatching = state?.status === 'watching';
                   const hasActions = state?.actions && state.actions.length > 0;
+                  const reasonText = state?.reason ? ` · Quote: "${state.reason}"` : '';
 
                   return (
                     <div
                       key={pid}
                       className={`persona-node ${isStopped ? 'stopped' : isWatching ? 'watching' : 'pending'}`}
-                      title={`${pid}: ${isStopped ? `Stopped (scene ${state?.lastScene}) - ${state?.dropReason}` : isWatching ? `Watching (scene ${state?.lastScene})` : 'Pending'}`}
+                      title={`${pid}: ${isStopped ? `Stopped (scene ${state?.lastScene})${reasonText}` : isWatching ? `Watching (scene ${state?.lastScene})${reasonText}` : 'Pending'}`}
                     >
                       <span className="persona-id mono">{pid}</span>
                       <span className={`persona-indicator ${isStopped ? 'indicator-stopped' : isWatching ? 'indicator-watching' : 'indicator-pending'}`}>
@@ -682,13 +762,17 @@ export function App() {
                         <div key={ev.event_id} className={`event-log-item ${isStop ? 'event-stop' : 'event-continue'}`}>
                           <span className="ev-seq">#{ev.sequence}</span>
                           <span className="ev-type">{ev.type}</span>
-                          <span className="ev-pid">{p.persona_id}</span>
+                          <span className="ev-pid mono">{p.persona_id}</span>
                           <span className="ev-scene">scene {p.scene_id}</span>
                           {p.at_ms !== undefined && <span className="ev-time">{p.at_ms}ms</span>}
-                          {p.drop_reason && <span className="ev-reason">reason: {p.drop_reason}</span>}
+                          {p.reason && (
+                            <span className="ev-reason">
+                              {isStop ? 'stop quote: ' : 'quote: '}&ldquo;{p.reason}&rdquo;
+                            </span>
+                          )}
                           {p.actions && p.actions.length > 0 && (
                             <span className="ev-actions">
-                              actions: {p.actions.map((a) => (typeof a === 'object' && a ? a.type : a)).join(', ')}
+                              actions: {p.actions.map((a) => (typeof a === 'object' && a ? a.type : String(a))).join(', ')}
                             </span>
                           )}
                         </div>
@@ -786,7 +870,7 @@ export function App() {
               </div>
 
               {/* Retention & Drop-Off Table / Curve */}
-              {report.retention && report.retention.length > 0 && (
+              {report.retention && report.retention.length > 0 ? (
                 <div className="retention-card">
                   <div className="retention-header">
                     <h3>Scene Retention &amp; Drop-Off ({report.retention.length} scenes)</h3>
@@ -808,11 +892,11 @@ export function App() {
                         {report.retention.map((row: RetentionRow) => {
                           const sSec = (row.start_ms / 1000).toFixed(1);
                           const eSec = (row.end_ms / 1000).toFixed(1);
-                          const survObs = row.survival.observed !== null ? `${row.survival.observed?.toFixed(1)}%` : 'Unavailable';
+                          const survObs = row.survival.observed !== null && row.survival.observed !== undefined ? `${row.survival.observed?.toFixed(1)}%` : 'Unavailable';
                           const survRange = row.survival.range ? `[${row.survival.range.low.toFixed(0)}%–${row.survival.range.high.toFixed(0)}%]` : '';
-                          
+
                           // Honest zero-entrant disclosure
-                          const dropObs = row.drop_rate.observed !== null
+                          const dropObs = row.drop_rate.observed !== null && row.drop_rate.observed !== undefined
                             ? `${row.drop_rate.observed?.toFixed(1)}%`
                             : 'Unavailable';
                           const dropReason = row.drop_rate.unavailable_reason
@@ -841,6 +925,15 @@ export function App() {
                     </table>
                   </div>
                 </div>
+              ) : (
+                <div className="retention-card">
+                  <div className="retention-header">
+                    <h3>Scene Retention &amp; Drop-Off</h3>
+                  </div>
+                  <div className="section-unavailable-banner">
+                    Scene retention curve unavailable: report does not contain retention intervals.
+                  </div>
+                </div>
               )}
             </div>
 
@@ -852,11 +945,30 @@ export function App() {
                   Audience retention simulation with {report.cast.effective} simulated synthetic personas.
                 </p>
 
-                {report.cast.failed > 0 && report.cast.effective < report.cast.requested && (
-                  <div className="alert-box caution">
-                    <strong>Incomplete run:</strong> {report.cast.effective} effective, {report.cast.failed} failed of {report.cast.requested} requested viewers.
-                  </div>
-                )}
+                {/* Cohort coverage disclosure */}
+                <div className="cohort-coverage-card">
+                  {report.cast.effective < report.cast.requested || report.cast.status !== 'complete' || report.cast.failed > 0 || report.cast.pending > 0 ? (
+                    <div className="alert-box caution">
+                      <strong>Partial cohort:</strong> Simulated {report.cast.effective} of {report.cast.requested} requested personas ({report.cast.failed} failed, {report.cast.pending} pending; status: {report.cast.status}). Metrics represent observed effective sample only, not a complete requested cohort.
+                    </div>
+                  ) : (
+                    <div className="cohort-complete-badge mono" style={{ fontSize: '12px', color: 'var(--text-subtle)' }}>
+                      Complete cohort: {report.cast.effective} / {report.cast.requested} personas simulated (status: {report.cast.status})
+                    </div>
+                  )}
+
+                  {report.coverage?.excluded_traces &&
+                    ((report.coverage.excluded_traces.failed && report.coverage.excluded_traces.failed.length > 0) ||
+                      (report.coverage.excluded_traces.pending && report.coverage.excluded_traces.pending.length > 0)) && (
+                      <div className="excluded-traces-alert mono" style={{ fontSize: '12px', marginTop: '6px', color: 'var(--caution)' }}>
+                        <strong>Excluded traces:</strong>{' '}
+                        {report.coverage.excluded_traces.failed && report.coverage.excluded_traces.failed.length > 0 &&
+                          `Failed: [${report.coverage.excluded_traces.failed.join(', ')}] `}
+                        {report.coverage.excluded_traces.pending && report.coverage.excluded_traces.pending.length > 0 &&
+                          `Pending: [${report.coverage.excluded_traces.pending.join(', ')}]`}
+                      </div>
+                    )}
+                </div>
 
                 {/* Approved hierarchy: Editing finding / Notes appear BEFORE metric grids */}
                 <div className="primary-finding-section" style={{ marginBottom: '20px' }}>
@@ -865,10 +977,21 @@ export function App() {
                       <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>
                         No supported edit found.
                       </p>
-                      <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.4', marginBottom: '10px' }}>
-                        All candidate findings were checked against observed dropout triggers; none met the threshold.
-                        Observed retention drop occurred at Scene 2 (3.0s – 8.0s) where 11 personas stopped, but candidate edit did not meet statistical support threshold.
-                      </p>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.4', marginBottom: '10px' }}>
+                        {report.observations && report.observations.length > 0 ? (
+                          <span>
+                            Observed drop triggers evaluated: {report.observations.map((obs) => {
+                              const pct = (obs.value * 100).toFixed(1);
+                              const threshPct = (obs.threshold * 100).toFixed(1);
+                              return `Scene ${obs.scene_id} (${(obs.start_ms / 1000).toFixed(1)}s–${(obs.end_ms / 1000).toFixed(1)}s: ${obs.numerator}/${obs.denominator} stopped, ${pct}%, threshold ${threshPct}%)`;
+                            }).join('; ')}. No candidate director notes satisfied the deterministic support criteria for these triggers.
+                          </span>
+                        ) : (
+                          <span>
+                            All candidate findings were checked against observed dropout triggers; none met the required support criteria. No scene dropout trigger exceeded the deterministic support threshold.
+                          </span>
+                        )}
+                      </div>
                       <div className="suppressed-note-alert">
                         <strong>Notice:</strong> {suppressedCount} unsupported candidate {suppressedCount === 1 ? 'note was' : 'notes were'} suppressed by the deterministic stop-fraction detector.
                         Only findings backed by observed dropout triggers are surfaced.
@@ -890,14 +1013,17 @@ export function App() {
                           className={`note-card ${selectedNote?.id === note.id ? 'selected' : ''}`}
                           onClick={() => handleSelectNote(note)}
                           tabIndex={0}
-                          role="button"
+                          role="region"
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') handleSelectNote(note);
+                            if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                              e.preventDefault();
+                              handleSelectNote(note);
+                            }
                           }}
-                          aria-label={`Note at ${note.start_ms / 1000} seconds: ${note.interpretation}`}
+                          aria-label={`Note at ${(note.start_ms / 1000).toFixed(1)} seconds: ${note.interpretation}`}
                         >
                           <div className="note-timestamp mono">
-                            {(note.start_ms / 1000).toFixed(1)}s – {(note.end_ms / 1000).toFixed(1)}s (Click to seek)
+                            {(note.start_ms / 1000).toFixed(1)}s – {(note.end_ms / 1000).toFixed(1)}s (Click note to seek)
                           </div>
                           <div className="note-finding">{note.interpretation}</div>
                           <div className="note-fix">
@@ -909,17 +1035,24 @@ export function App() {
                             <div className="quotes-section">
                               <div className="quotes-heading">Simulated persona reason</div>
                               {note.quotes.map((q, idx) => (
-                                <div
-                                  key={idx}
-                                  className="quote-item clickable-quote"
+                                <button
+                                  key={q.evidence_id || idx}
+                                  type="button"
+                                  className="quote-button"
+                                  aria-label={`Inspect evidence quote ${idx + 1}: "${q.text}"`}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleSelectEvidence(q.evidence_id);
                                   }}
-                                  title="Click to inspect evidence"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.stopPropagation();
+                                    }
+                                  }}
+                                  title="Click or press Enter/Space to inspect evidence and seek player"
                                 >
                                   &ldquo;{q.text}&rdquo;
-                                </div>
+                                </button>
                               ))}
                             </div>
                           )}
@@ -966,13 +1099,18 @@ export function App() {
                 {/* Simulated cast metrics summary */}
                 <div className="metrics-summary">
                   <div className="metric-pill">
-                    Cast: <strong>{report.cast.effective} viewers</strong> ({report.cast.profile} profile · synthetic)
+                    Cast: <strong>{report.cast.effective} / {report.cast.requested} viewers</strong> ({report.cast.effective < report.cast.requested ? 'Partial cohort' : 'Complete cohort'} · {report.cast.profile} profile · synthetic)
                   </div>
                   <div className="metric-pill">
                     Completion rate:{' '}
-                    <strong>{report.completion.observed !== null ? `${report.completion.observed?.toFixed(1)}%` : 'N/A'}</strong>
+                    <strong>{report.completion.observed !== null && report.completion.observed !== undefined ? `${report.completion.observed?.toFixed(1)}%` : 'Unavailable'}</strong>
+                    {report.completion.observed !== null && report.completion.observed !== undefined && (
+                      <span className="mono" style={{ color: 'var(--text-subtle)' }}>
+                        {' '}({report.completion.denominator ? `${Math.round(((report.completion.observed || 0) / 100) * report.completion.denominator)} / ${report.completion.denominator}` : `${report.cast.effective - report.cast.stopped} / ${report.cast.effective}`})
+                      </span>
+                    )}
                     {report.completion.range && (
-                      <span className="mono" style={{ color: 'var(--text-muted)' }}>
+                      <span className="mono" style={{ color: 'var(--text-subtle)' }}>
                         {' '}[{report.completion.range.low.toFixed(0)}%–{report.completion.range.high.toFixed(0)}%]
                       </span>
                     )}
@@ -983,19 +1121,19 @@ export function App() {
                     )}
                   </div>
                   <div className="metric-pill">
-                    Stopped viewers: <strong>{report.cast.stopped}</strong>
+                    Stopped viewers: <strong>{report.cast.stopped} / {report.cast.effective}</strong> ({report.cast.effective > 0 ? ((report.cast.stopped / report.cast.effective) * 100).toFixed(1) : '0.0'}%)
                   </div>
                 </div>
 
                 {/* Score Indices: Hook, Pacing, and unobserved signals */}
-                {report.scores && (
+                {report.scores ? (
                   <div className="scores-card">
                     <h3 className="section-subheading">Retention &amp; Quality Indices</h3>
                     <div className="scores-grid">
                       <div className="score-item">
                         <span className="score-label">Hook Score (min 3s)</span>
                         <span className="score-value mono">
-                          {report.scores.hook?.observed !== null ? `${report.scores.hook?.observed?.toFixed(1)}%` : 'Unavailable'}
+                          {report.scores.hook?.observed !== null && report.scores.hook?.observed !== undefined ? `${report.scores.hook?.observed?.toFixed(1)}%` : 'Unavailable'}
                         </span>
                         {report.scores.hook?.range && (
                           <span className="score-range mono">
@@ -1006,7 +1144,7 @@ export function App() {
                       <div className="score-item">
                         <span className="score-label">Pacing Score (80% dur)</span>
                         <span className="score-value mono">
-                          {report.scores.pacing?.observed !== null ? `${report.scores.pacing?.observed?.toFixed(1)}%` : 'Unavailable'}
+                          {report.scores.pacing?.observed !== null && report.scores.pacing?.observed !== undefined ? `${report.scores.pacing?.observed?.toFixed(1)}%` : 'Unavailable'}
                         </span>
                         {report.scores.pacing?.range && (
                           <span className="score-range mono">
@@ -1031,10 +1169,17 @@ export function App() {
                       </div>
                     </div>
                   </div>
+                ) : (
+                  <div className="scores-card">
+                    <h3 className="section-subheading">Retention &amp; Quality Indices</h3>
+                    <div className="section-unavailable-banner">
+                      Quality indices unavailable: report does not contain score indices.
+                    </div>
+                  </div>
                 )}
 
                 {/* Engagement Rates */}
-                {report.engagement && (
+                {report.engagement ? (
                   <div className="engagement-card">
                     <h3 className="section-subheading">Engagement Actions (Simulated personas taking action)</h3>
                     <div className="engagement-grid">
@@ -1042,12 +1187,19 @@ export function App() {
                         const item: MetricItem | undefined = report.engagement?.[act];
                         if (!item) return null;
                         const isUnavail = item.observed === null || item.observed === undefined;
+                        const den = item.denominator ?? report.cast.effective;
+                        const actionCount = !isUnavail && den ? Math.round(((item.observed || 0) / 100) * den) : null;
                         return (
                           <div key={act} className={`engagement-item ${isUnavail ? 'unavailable' : ''}`}>
                             <span className="act-name">{act.toUpperCase()}</span>
                             <span className="act-value mono">
                               {isUnavail ? 'Unavailable' : `${item.observed?.toFixed(1)}%`}
                             </span>
+                            {!isUnavail && actionCount !== null && (
+                              <span className="mono" style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
+                                ({actionCount} / {den})
+                              </span>
+                            )}
                             {item.range && (
                               <span className="act-range mono">
                                 [{item.range.low.toFixed(0)}%–{item.range.high.toFixed(0)}%]
@@ -1059,6 +1211,13 @@ export function App() {
                           </div>
                         );
                       })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="engagement-card">
+                    <h3 className="section-subheading">Engagement Actions (Simulated personas taking action)</h3>
+                    <div className="section-unavailable-banner">
+                      Engagement telemetry unavailable: report does not contain action telemetry.
                     </div>
                   </div>
                 )}
@@ -1100,9 +1259,17 @@ export function App() {
                       )}
                     </dl>
 
-                    {/* Disclose 5 repeated archetypes thin library notice and extraction limits */}
+                    {/* Persona library disclosure - only show 5-archetype Flash 50 disclosure when actual report manifest/cast supports it */}
                     <div className="thin-cast-notice" style={{ marginTop: '12px', padding: '8px 12px', background: 'var(--caution-tint)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '12px', lineHeight: '1.4' }}>
-                      <strong>Persona library disclosure:</strong> The Flash 50 cast contains 5 documented tech/product archetypes across 50 instances. This is a thin synthetic persona library, not 50 distinct human behaviors. Personas evaluate visual frame extractions without live audio or transcript processing; intervals represent simulated correlation without causal claims.
+                      {(report.cast.profile === 'flash' || report.manifest?.profile === 'flash') && (report.cast.requested === 50 || report.manifest?.requested === 50) ? (
+                        <>
+                          <strong>Persona library disclosure:</strong> The Flash 50 cast contains 5 documented tech/product archetypes across 50 instances. This is a thin synthetic persona library, not 50 distinct human behaviors. Personas evaluate visual frame extractions without live audio or transcript processing; intervals represent simulated correlation without causal claims.
+                        </>
+                      ) : (
+                        <>
+                          <strong>Persona library disclosure:</strong> The {report.cast.profile === 'test' ? 'Test 3' : `${report.cast.profile} ${report.cast.requested}`} cast uses {report.cast.effective} simulated personas. All audience outcomes are simulated models, never real people. Personas evaluate visual frame extractions without live audio or transcript processing; intervals represent simulated correlation without causal claims.
+                        </>
+                      )}
                     </div>
 
                     {report.methodology?.assumptions && report.methodology.assumptions.length > 0 && (

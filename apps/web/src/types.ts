@@ -203,7 +203,7 @@ export interface ReportData {
     assumptions: string[];
   };
   caveats: string[];
-  coverage: {
+  coverage?: {
     transcript: boolean;
     ocr: boolean;
     confused: boolean | null;

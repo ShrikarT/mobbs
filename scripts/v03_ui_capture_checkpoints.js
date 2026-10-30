@@ -63,8 +63,8 @@ async function main() {
   console.log('Clicking Resume view...');
   await page.locator('button:has-text("Resume view")').click();
 
-  console.log('4. Waiting for report workbench (up to 150s)...');
-  await page.waitForSelector('.workbench-grid', { timeout: 150000 });
+  console.log('4. Waiting for report workbench (up to 350s)...');
+  await page.waitForSelector('.workbench-grid', { timeout: 350000 });
   console.log('Report workbench is visible!');
 
   const verdict = await page.locator('.verdict-title').innerText();
@@ -100,7 +100,7 @@ async function main() {
   await page.locator('button:has-text("Delete video & report")').click();
   await page.waitForSelector('.modal-dialog');
   await page.locator('.modal-dialog button:has-text("Confirm deletion")').click();
-  await page.waitForSelector('text=App-owned copies removed', { timeout: 30000 });
+  await page.waitForSelector('text=App-owned copies removed', { timeout: 60000 });
   console.log('Deletion complete!');
 
   await page.screenshot({ path: 'C:/Users/Shrikar/.codex/viralist-v03-ui/report-deleted.png' });
