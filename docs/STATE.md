@@ -8,6 +8,8 @@ Provider maximum **30 USD cumulative**. Opening estimated usage13.38427320 + unc
 
 ## Accepted source
 
+**Current execution overlay:** runtime restored at metadata `a560501`, actual PG55432/RustFS59000 checks passed. U1 Antigravity `ctx_dba6e0dd9be6` is approved via `msg_ed270b8f70e7` and implementing correction1 in `codex/v03-ui` from3dfa20f. Guard independent Codex review resumed as `ctx_0d93d5407565` / terminal `term_0e5e2a3c-68a4-4b9a-bc9f-52183149103f`, same Task `task_ca196433bd63`, frozen clean8edc79b in `codex/v03-budget-review`; startup receipt/approval pending. Supplement `msg_0ab713c55236` requires original contract + source risk controls. Reviewer has no implementation ownership or helpers. No paid calls, new acceptance or integration; both correction histories remain0 submitted/0 unsuccessful. Prior outage paragraphs below are historical.
+
 Coordinator `C:/Users/Shrikar/viralist`, branch `codex/orchestration-readiness`, origin `https://github.com/ShrikarT/viralist.git`; sole integrator. Current metadata HEAD: `git rev-parse HEAD`; metadata follows integration and is not independently journey-tested.
 
 - V02 application **`1e140dc3db6bd9d052206cb3ae385b771d39c9dd`** independently locally JOURNEY-VERIFIED, metadata34ed67e. Its two failed corrections/history remain preserved; no repeated V02 browser audit without regression.
