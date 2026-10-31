@@ -15,7 +15,9 @@ Codex's last coordinator commit, `66129ab` at 2026-10-30 20:37 IST, still descri
 
 No Orca task in `run_d3354faa0659` was still running at recovery. Both author worktrees were clean. Neither correction is in the coordinator branch. Fresh Standard smoke remains unauthorized until a reviewed guard is integrated. Tracked provider maximum stays **$14.69754320 of $30**. GitHub still has only `origin/codex/meta-api-smoke` at `a2c90b5`.
 
-Next: Antigravity correction 2 on the two existing branches, then independent re-review. Do not integrate either candidate on this REVISE.
+Next: Antigravity correction 2, then independent re-review. Do not integrate either candidate on this REVISE.
+
+**U1 correction 2 dispatched:** Task `task_cecb671182d6`, Dispatch `ctx_fb47322f6844`, terminal `term_485aae9d-ca97-4914-a616-bbfe89fdd44f`, agent Antigravity, existing worktree `codex-v03-ui`, parent `task_7459c8f8d952`. Input accepted. Startup receipt must be approved before edits. Contract commit `fe22c06b8019e17f7ab6af6401f96663628d08bb`.
 
 ## Milestone and authority
 
