@@ -17,7 +17,11 @@ No Orca task in `run_d3354faa0659` was still running at recovery. Both author wo
 
 Next: Antigravity correction 2, then independent re-review. Do not integrate either candidate on this REVISE.
 
-**U1 correction 2 dispatched:** Task `task_cecb671182d6`, Dispatch `ctx_fb47322f6844`, terminal `term_485aae9d-ca97-4914-a616-bbfe89fdd44f`, agent Antigravity, existing worktree `codex-v03-ui`, parent `task_7459c8f8d952`. Input accepted. Startup receipt must be approved before edits. Contract commit `fe22c06b8019e17f7ab6af6401f96663628d08bb`.
+**U1 correction 2 in progress:** Task `task_cecb671182d6`, Dispatch `ctx_fb47322f6844`, terminal `term_485aae9d-ca97-4914-a616-bbfe89fdd44f`, agent Antigravity, existing worktree `codex-v03-ui`, parent `task_7459c8f8d952`. Startup receipt `msg_95fee7b727c4` verified the clean base `33596a6` and both fixes. Approved with reply `msg_0b2695c74206`. Contract commit `fe22c06b8019e17f7ab6af6401f96663628d08bb`. A status footer mentioning credits is not a provider denial; the worker was live and asking. Do not stop it from that footer.
+
+**B2G correction 2 not dispatched yet.** Postgres 55432 is down. Docker Desktop process was started, and the engine pipe was still absent after repeated checks. Dispatch only after the existing `viralist-v02-postgres` container is healthy. Do not have the worker start Docker.
+
+**Old terminal release:** settled dispatches `ctx_dba6e0dd9be6` and `ctx_03ccc316bf08` returned `release_unknown` twice. Their terminals do not resolve and liveness is `unverifiable`. No further release retry and no manual terminal close. Worktrees were not deleted.
 
 ## Milestone and authority
 
