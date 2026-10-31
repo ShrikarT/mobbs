@@ -19,7 +19,7 @@ Next: Antigravity correction 2, then independent re-review. Do not integrate eit
 
 **U1 correction 2 INTEGRATED at `d9d3ed5aea6bd85ceca356f02e4e3321bbb312ab`.** Source batch accepted at `52a09687ab33f88ab0f968460e3adbfb2a2ec50c`, Task `task_cecb671182d6`, Dispatch `ctx_fb47322f6844`. Grok reran the regression script and `npm run build`; both exited 0. See [review](evidence/v03-ui-correction-2-review.md). The worker terminal is retained because of user takeover, so it was not closed. Browser journey remains blocked while Docker is down. Not JOURNEY-VERIFIED. The recorded backend integration remains `5a3025c`; this merge adds the accepted UI on top of the coordinator docs.
 
-**B2G correction 2 not dispatched yet.** Postgres 55432 is down. Docker Desktop process was started, and the engine pipe was still absent after repeated checks. Dispatch only after the existing `viralist-v02-postgres` container is healthy. Do not have the worker start Docker.
+**B2G correction 2 not dispatched.** On 2026-10-31 the existing containers `viralist-v02-postgres` and `viralist-v02-objectstore` did start and port 55432 accepted TCP, then Docker Desktop exited. A later start reached Postgres and it answered `the database system is starting up`, then the engine pipe and the port closed again. No volume was recreated or dropped. Do not dispatch the last guard correction until Postgres stays up through a connection. The worker must not start Docker.
 
 **Old terminal release:** settled dispatches `ctx_dba6e0dd9be6` and `ctx_03ccc316bf08` returned `release_unknown` twice. Their terminals do not resolve and liveness is `unverifiable`. No further release retry and no manual terminal close. Worktrees were not deleted.
 
