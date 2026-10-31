@@ -1,4 +1,12 @@
-import { SessionResponse, RunState, ReportData, DeletionState, VideoItem } from './types';
+import {
+  SessionResponse,
+  RunState,
+  ReportData,
+  DeletionState,
+  VideoItem,
+  AnalysisResponse,
+  EvidenceItem,
+} from './types';
 
 export function makeIdempotencyKey(prefix = 'idem'): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -24,9 +32,10 @@ export async function ensureSession(): Promise<SessionResponse> {
   return res.json();
 }
 
-export async function listVideos(): Promise<VideoItem[]> {
+export async function listVideos(signal?: AbortSignal): Promise<VideoItem[]> {
   const res = await fetch('/videos', {
     headers: { 'Accept': 'application/json' },
+    signal,
   });
   if (!res.ok) {
     const err: any = new Error(`Failed to list videos: HTTP ${res.status}`);
@@ -59,9 +68,23 @@ export async function uploadVideo(
   return res.json();
 }
 
+export async function fetchAnalysis(videoId: string): Promise<AnalysisResponse> {
+  const res = await fetch(`/videos/${videoId}/analysis`, {
+    headers: { 'Accept': 'application/json' },
+  });
+  if (!res.ok) {
+    const errObj = await res.json().catch(() => ({ code: `HTTP_${res.status}` }));
+    const err: any = new Error(errObj.code || errObj.message || `Failed to fetch analysis: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
 export async function startRun(
   videoId: string,
   csrf: string,
+  profile: 'flash' | 'test' = 'flash',
   key = makeIdempotencyKey('run')
 ): Promise<{ run_id: string; status: string }> {
   const res = await fetch('/runs', {
@@ -71,7 +94,7 @@ export async function startRun(
       'X-CSRF-Token': csrf,
       'Idempotency-Key': key,
     },
-    body: JSON.stringify({ video_id: videoId, profile: 'test' }),
+    body: JSON.stringify({ video_id: videoId, profile }),
   });
   if (!res.ok) {
     const errObj = await res.json().catch(() => ({ code: `HTTP_${res.status}` }));
@@ -82,9 +105,10 @@ export async function startRun(
   return res.json();
 }
 
-export async function fetchRun(runId: string): Promise<RunState> {
+export async function fetchRun(runId: string, signal?: AbortSignal): Promise<RunState> {
   const res = await fetch(`/runs/${runId}`, {
     headers: { 'Accept': 'application/json' },
+    signal,
   });
   if (!res.ok) {
     const err: any = new Error(`Failed to fetch run: HTTP ${res.status}`);
@@ -94,9 +118,23 @@ export async function fetchRun(runId: string): Promise<RunState> {
   return res.json();
 }
 
-export async function fetchReport(runId: string): Promise<{ ready: boolean; report?: ReportData; stage?: string }> {
+export async function fetchEvidence(runId: string, evidenceId: string, signal?: AbortSignal): Promise<EvidenceItem> {
+  const res = await fetch(`/runs/${runId}/evidence/${evidenceId}`, {
+    headers: { 'Accept': 'application/json' },
+    signal,
+  });
+  if (!res.ok) {
+    const err: any = new Error(`Failed to fetch evidence: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return res.json();
+}
+
+export async function fetchReport(runId: string, signal?: AbortSignal): Promise<{ ready: boolean; report?: ReportData; stage?: string }> {
   const res = await fetch(`/runs/${runId}/report`, {
     headers: { 'Accept': 'application/json' },
+    signal,
   });
   if (res.status === 202) {
     const body = await res.json();
@@ -132,9 +170,10 @@ export async function requestDelete(
   return res.json();
 }
 
-export async function fetchDeletion(deletionId: string): Promise<DeletionState> {
+export async function fetchDeletion(deletionId: string, signal?: AbortSignal): Promise<DeletionState> {
   const res = await fetch(`/deletions/${deletionId}`, {
     headers: { 'Accept': 'application/json' },
+    signal,
   });
   if (!res.ok) {
     const err: any = new Error(`Failed to fetch deletion status: HTTP ${res.status}`);
@@ -144,10 +183,15 @@ export async function fetchDeletion(deletionId: string): Promise<DeletionState> 
   return res.json();
 }
 
-export async function listDeletions(): Promise<{ id: string; video_id: string; state: DeletionState }[]> {
+export async function listDeletions(signal?: AbortSignal): Promise<{ id: string; video_id: string; state: DeletionState }[]> {
   const res = await fetch('/deletions', {
     headers: { 'Accept': 'application/json' },
+    signal,
   });
-  if (!res.ok) return [];
+  if (!res.ok) {
+    const err: any = new Error(`Failed to list deletions: HTTP ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
