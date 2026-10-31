@@ -1,4 +1,21 @@
-# Current state — 2026-10-30
+# Current state — 2026-10-31
+
+## Temporary coordination
+
+Grok is the acting Engineering Lead and Orca coordinator from coordinator HEAD `66129ab3874de21486a48ff7028487fea5ddde86`. Codex is usage-exhausted and must not be dispatched. This is a bounded handoff, not a change to shared policy: Antigravity remains the implementation worker, and Codex resumes coordination when the owner says it is available. No paid provider call, push, deployment, or publication in this handoff.
+
+## Recovered stopping point
+
+Last accepted application milestone: V02 locally JOURNEY-VERIFIED at `1e140dc3db6bd9d052206cb3ae385b771d39c9dd`. V03 recorded backend is REVIEW-ACCEPTED at `7439b6cf575016e7584fa4c6c534d5adb16d90ea` and INTEGRATED at `5a3025c46c043b7645d935c3831f95d733f19ab5`. SQL004 DDL is accepted only as additive schema at `c58fd52f2153b75e84a8a7ca819b3ecffe46b2b3`.
+
+Codex's last coordinator commit, `66129ab` at 2026-10-30 20:37 IST, still described both corrections as in progress. Both Antigravity workers finished after that:
+
+- V03-U1 correction 1: `33596a615872e36e1e39a1aee43950bec35397d6` on `codex/v03-ui`, Orca task `task_7459c8f8d952` completed 2026-10-30T15:16:20Z. WORKER-REPORTED. Grok source review: **REVISE**, one remaining honesty/denominator batch. Runtime journey not rerun; local Postgres, RustFS, and API were down. See [review](evidence/v03-ui-correction-1-review.md) and [correction 2](evidence/v03-ui-r2-assignment.md). Unsuccessful correction reviews: 1. One submission remains before redesign.
+- V03-B2G correction 1: `58c10aa1d9969afbd84eeb541a1ce87741996c3e` on `codex/v03-budget`, Orca task `task_2ffdc9f26a08` completed 2026-10-30T15:25:50Z. WORKER-REPORTED. Grok source review: **REVISE**, stale-debt pause does not commit before send, and cancellation still stores free text. Author's 26 PostgreSQL tests were not rerun because the engine was down, and those tests do not cover this reproduction. See [review](evidence/v03-budget-correction-1-review.md) and [correction 2](evidence/v03-budget-r2-assignment.md). Unsuccessful correction reviews: 1. One submission remains before redesign.
+
+No Orca task in `run_d3354faa0659` was still running at recovery. Both author worktrees were clean. Neither correction is in the coordinator branch. Fresh Standard smoke remains unauthorized until a reviewed guard is integrated. Tracked provider maximum stays **$14.69754320 of $30**. GitHub still has only `origin/codex/meta-api-smoke` at `a2c90b5`.
+
+Next: Antigravity correction 2 on the two existing branches, then independent re-review. Do not integrate either candidate on this REVISE.
 
 ## Milestone and authority
 

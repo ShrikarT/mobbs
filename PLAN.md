@@ -2,7 +2,9 @@
 
 ## Current execution: V03 in progress
 
-**Runtime available:** [restoration evidence](docs/evidence/v03-runtime-restored.md). PostgreSQL55432 and RustFS59000 passed actual connectivity checks. Historical outage reports below remain evidence of previous blocked runs. U1 correction is approved. Guard review at frozen8edc79b has completed REVISE; SQL004 DDL accepted separately. The full report below supersedes prior outage status.
+**2026-10-31 Grok handoff:** coordinator `66129ab` was behind the workers. U1 correction `33596a6` and guard correction `58c10aa` are WORKER-REPORTED and both REVISE. Correction 2 is the last submission for each. See `docs/STATE.md` and `docs/evidence/v03-ui-correction-1-review.md`, `v03-ui-r2-assignment.md`, `v03-budget-correction-1-review.md`, `v03-budget-r2-assignment.md`. No integration and no paid call.
+
+**Runtime available:** [restoration evidence](docs/evidence/v03-runtime-restored.md). PostgreSQL55432 and RustFS59000 passed actual connectivity checks on 2026-10-30. On 2026-10-31 those ports and the Docker engine pipe were closed again. Historical outage reports below remain evidence of previous blocked runs. Guard review at frozen8edc79b has completed REVISE; SQL004 DDL accepted separately. The full report below is history after the 2026-10-31 paragraph.
 
 **Guard source inspection:** [coordinator findings at frozen8edc79b](docs/evidence/v03-budget-source-risks.md) identify six accounting/privacy risks for independent PostgreSQL verification. Production helper probes confirmed permissive receipt content and oversized caller context. No guard acceptance, SQL approval, correction submission, or paid call follows from source inspection.
 
