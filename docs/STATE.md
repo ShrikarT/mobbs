@@ -17,7 +17,7 @@ No Orca task in `run_d3354faa0659` was still running at recovery. Both author wo
 
 Next: Antigravity correction 2, then independent re-review. Do not integrate either candidate on this REVISE.
 
-**U1 correction 2 source batch accepted:** Task `task_cecb671182d6`, Dispatch `ctx_fb47322f6844`, terminal `term_485aae9d-ca97-4914-a616-bbfe89fdd44f`. Worker_done `msg_340006c0c1b8` reports clean `52a09687ab33f88ab0f968460e3adbfb2a2ec50c`. Grok reran `node scripts/v03_ui_regressions.js` and `npm run build` in that worktree; both exited 0. The two correction findings are resolved. See [review](evidence/v03-ui-correction-2-review.md). Browser journey remains blocked while Docker is down. Not JOURNEY-VERIFIED. Unsuccessful UI correction reviews stay at 1; this submission succeeded.
+**U1 correction 2 INTEGRATED at `d9d3ed5aea6bd85ceca356f02e4e3321bbb312ab`.** Source batch accepted at `52a09687ab33f88ab0f968460e3adbfb2a2ec50c`, Task `task_cecb671182d6`, Dispatch `ctx_fb47322f6844`. Grok reran the regression script and `npm run build`; both exited 0. See [review](evidence/v03-ui-correction-2-review.md). The worker terminal is retained because of user takeover, so it was not closed. Browser journey remains blocked while Docker is down. Not JOURNEY-VERIFIED. The recorded backend integration remains `5a3025c`; this merge adds the accepted UI on top of the coordinator docs.
 
 **B2G correction 2 not dispatched yet.** Postgres 55432 is down. Docker Desktop process was started, and the engine pipe was still absent after repeated checks. Dispatch only after the existing `viralist-v02-postgres` container is healthy. Do not have the worker start Docker.
 
