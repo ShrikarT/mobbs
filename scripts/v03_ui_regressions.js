@@ -5,6 +5,9 @@ import assert from 'assert';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { createServer } from 'vite';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -60,6 +63,9 @@ const appTsx = fs.readFileSync(path.join(__dirname, '../apps/web/src/App.tsx'), 
 assert(!appTsx.includes('Observed retention drop occurred at Scene 2 (3.0s – 8.0s)'), 'Fabricated Scene 2 / 3-8s statement still found in App.tsx');
 assert(!appTsx.includes('statistical support threshold'), 'Fabricated statistical support threshold statement still found in App.tsx');
 assert(appTsx.includes('deterministic stop-fraction detector'), 'Missing reference to deterministic stop-fraction detector');
+assert(appTsx.includes('Observed dropout triggers are unavailable for this report.'), 'Missing truthful unavailable message when observations are absent');
+assert(!appTsx.includes('All candidate findings were checked against observed dropout triggers'), 'Ungrounded checked claim still present');
+assert(!appTsx.includes('No scene dropout trigger exceeded the deterministic support threshold'), 'Ungrounded threshold claim still present');
 
 // Verify disclosure gating: only Flash 50 gets the 5-archetype disclosure
 assert(appTsx.includes("(report.cast.profile === 'flash' || report.manifest?.profile === 'flash') && (report.cast.requested === 50 || report.manifest?.requested === 50)"), 'Disclosure gating for Flash 50 missing');
@@ -99,6 +105,211 @@ assert(appTsx.includes('report.coverage?.excluded_traces'), 'Excluded traces ren
 assert(appTsx.includes('Quality indices unavailable: report does not contain score indices.'), 'Legacy scores fallback missing');
 assert(appTsx.includes('Engagement telemetry unavailable: report does not contain action telemetry.'), 'Legacy engagement fallback missing');
 assert(appTsx.includes('Scene retention curve unavailable: report does not contain retention intervals.'), 'Legacy retention fallback missing');
+assert(appTsx.includes('(denominator unavailable)'), 'Missing denominator unavailable display');
+assert(appTsx.includes('(denominator: ${report.scores.hook.denominator})'), 'Missing hook denominator binding');
+assert(appTsx.includes('(denominator: ${report.scores.pacing.denominator})'), 'Missing pacing denominator binding');
 console.log('  ✓ Finding 5 cohort coverage and legacy fallback regression passed.\n');
 
-console.log('=== ALL 6 FOCUSED REGRESSIONS PASSED ===\n');
+// 7. Behavioral Fixture Rendering (Correction 2: Findings 1 & 5)
+console.log('7. Testing Behavioral Fixture Rendering (Findings 1 & 5)...');
+const viteServer = await createServer({
+  appType: 'custom',
+  server: { middlewareMode: true },
+  logLevel: 'silent',
+});
+
+try {
+  const mod = await viteServer.ssrLoadModule('./apps/web/src/App.tsx');
+  const { App } = mod;
+
+  // Case A: Absent observations and absent denominators
+  const fixtureAbsent = {
+    id: 'rep_fixture_absent',
+    run_id: 'run_absent_1',
+    video_id: 'vid_absent_1',
+    duration_ms: 10000,
+    scenes: [
+      { scene_id: 1, start_ms: 0, end_ms: 5000 },
+      { scene_id: 2, start_ms: 5000, end_ms: 10000 },
+    ],
+    cast: {
+      requested: 50,
+      effective: 45,
+      stopped: 10,
+      failed: 5,
+      pending: 0,
+      status: 'complete',
+      profile: 'flash',
+    },
+    completion: {
+      kind: 'simulation_range',
+      unit: 'percent',
+      observed: 77.8,
+      denominator: 45,
+      range: { low: 65, high: 88, method: 'nearest-rank p10-p90' },
+      evidence_ids: [],
+    },
+    retention: [],
+    notes: [],
+    observations: [], // observations absent/empty
+    scores: {
+      hook: {
+        kind: 'heuristic_index',
+        unit: 'percent',
+        observed: 80.0,
+        denominator: null, // stored denominator absent
+        range: { low: 70, high: 90, method: 'nearest-rank' },
+        evidence_ids: [],
+      },
+      pacing: {
+        kind: 'heuristic_index',
+        unit: 'percent',
+        observed: 75.0,
+        denominator: undefined, // stored denominator absent
+        range: { low: 65, high: 85, method: 'nearest-rank' },
+        evidence_ids: [],
+      },
+    },
+    trust: {
+      mode: 'Standard',
+      model_ids: ['spark-1.3'],
+      source_sha: 'base_sha',
+      media_sha256: 'sha256_dummy',
+    },
+    caveats: ['Synthetic audience simulation'],
+  };
+
+  const htmlAbsent = renderToStaticMarkup(React.createElement(App, { initialReport: fixtureAbsent }));
+
+  // Behavioral assertions for Case A (Finding 1 & Finding 5)
+  assert(
+    htmlAbsent.includes('Observed dropout triggers are unavailable for this report.'),
+    'Fixture A: Expected empty-note banner to state observed dropout triggers are unavailable'
+  );
+  assert(
+    !htmlAbsent.includes('All candidate findings were checked'),
+    'Fixture A: Must not claim triggers were checked when observations are absent'
+  );
+  assert(
+    !htmlAbsent.includes('deterministic support threshold'),
+    'Fixture A: Must not claim threshold was evaluated when observations are absent'
+  );
+  assert(
+    !htmlAbsent.includes('Only findings backed by observed dropout triggers are surfaced.'),
+    'Fixture A: Must not display trigger-backed findings notice when observations are absent'
+  );
+  assert(
+    htmlAbsent.includes('(denominator unavailable)'),
+    'Fixture A: Expected score denominator to state (denominator unavailable) when absent'
+  );
+  assert(
+    !htmlAbsent.includes('(denominator: 45)') && !htmlAbsent.includes('(denominator: 50)'),
+    'Fixture A: Must not substitute cast size for absent hook/pacing denominator'
+  );
+  console.log('  ✓ Case A: Absent observations and absent denominators render truthful unavailable states.');
+
+  // Case B: Present observations and present stored denominators
+  const fixturePresent = {
+    id: 'rep_fixture_present',
+    run_id: 'run_present_1',
+    video_id: 'vid_present_1',
+    duration_ms: 10000,
+    scenes: [
+      { scene_id: 1, start_ms: 0, end_ms: 5000 },
+      { scene_id: 2, start_ms: 5000, end_ms: 10000 },
+    ],
+    cast: {
+      requested: 50,
+      effective: 50,
+      stopped: 12,
+      failed: 0,
+      pending: 0,
+      status: 'complete',
+      profile: 'flash',
+    },
+    completion: {
+      kind: 'simulation_range',
+      unit: 'percent',
+      observed: 76.0,
+      denominator: 50,
+      range: { low: 68, high: 84, method: 'nearest-rank' },
+      evidence_ids: [],
+    },
+    retention: [],
+    notes: [],
+    observations: [
+      {
+        id: 'obs_1',
+        scene_id: 1,
+        start_ms: 0,
+        end_ms: 5000,
+        kind: 'stop_fraction',
+        numerator: 8,
+        denominator: 50,
+        value: 0.16,
+        threshold: 0.15,
+        evidence_refs: [],
+      },
+    ],
+    scores: {
+      hook: {
+        kind: 'heuristic_index',
+        unit: 'percent',
+        observed: 84.0,
+        denominator: 50, // stored denominator present
+        range: { low: 76, high: 92, method: 'nearest-rank' },
+        evidence_ids: [],
+      },
+      pacing: {
+        kind: 'heuristic_index',
+        unit: 'percent',
+        observed: 78.0,
+        denominator: 48, // stored denominator present
+        range: { low: 70, high: 86, method: 'nearest-rank' },
+        evidence_ids: [],
+      },
+    },
+    trust: {
+      mode: 'Standard',
+      model_ids: ['spark-1.3'],
+      source_sha: 'base_sha',
+      media_sha256: 'sha256_dummy',
+    },
+    caveats: ['Synthetic audience simulation'],
+  };
+
+  const htmlPresent = renderToStaticMarkup(React.createElement(App, { initialReport: fixturePresent }));
+
+  // Behavioral assertions for Case B (Finding 1 & Finding 5)
+  assert(
+    htmlPresent.includes('Observed drop triggers evaluated: Scene 1'),
+    'Fixture B: Expected data-bound observation evaluation summary'
+  );
+  assert(
+    htmlPresent.includes('8/50 stopped, 16.0%, threshold 15.0%'),
+    'Fixture B: Expected formatted observation numbers'
+  );
+  assert(
+    htmlPresent.includes('No candidate director notes satisfied the deterministic support criteria for these triggers.'),
+    'Fixture B: Expected deterministic criteria statement'
+  );
+  assert(
+    htmlPresent.includes('Only findings backed by observed dropout triggers are surfaced.'),
+    'Fixture B: Expected trigger-backed findings notice when observations exist'
+  );
+  assert(
+    htmlPresent.includes('(denominator: 50)'),
+    'Fixture B: Expected Hook score to render stored denominator 50'
+  );
+  assert(
+    htmlPresent.includes('(denominator: 48)'),
+    'Fixture B: Expected Pacing score to render stored denominator 48'
+  );
+  console.log('  ✓ Case B: Present observations and denominators render data-bound triggers and denominators.');
+
+} finally {
+  await viteServer.close();
+}
+console.log('  ✓ Behavioral fixture rendering regression passed.\n');
+
+console.log('=== ALL REGRESSION AND BEHAVIORAL SUITES PASSED ===\n');

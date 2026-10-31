@@ -41,14 +41,20 @@ function formatUnavailableReason(code?: string | null): string {
   return map[code] || code.replace(/_/g, ' ');
 }
 
-export function App() {
+export function App({
+  initialReport,
+  initialViewState,
+}: {
+  initialReport?: ReportData;
+  initialViewState?: 'idle' | 'uploading' | 'processing' | 'ready' | 'deleting' | 'deleted' | 'error';
+} = {}) {
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
 
   // App workflow state: 'idle' | 'uploading' | 'processing' | 'ready' | 'deleting' | 'deleted' | 'error'
   const [viewState, setViewState] = useState<
     'idle' | 'uploading' | 'processing' | 'ready' | 'deleting' | 'deleted' | 'error'
-  >('idle');
+  >(initialViewState || (initialReport ? 'ready' : 'idle'));
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -60,7 +66,7 @@ export function App() {
   const [videoId, setVideoId] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [runState, setRunState] = useState<RunState | null>(null);
-  const [report, setReport] = useState<ReportData | null>(null);
+  const [report, setReport] = useState<ReportData | null>(initialReport || null);
 
   // Persisted events and live graph state
   const [events, setEvents] = useState<SimulationEvent[]>([]);
@@ -988,19 +994,21 @@ export function App() {
                           </span>
                         ) : (
                           <span>
-                            All candidate findings were checked against observed dropout triggers; none met the required support criteria. No scene dropout trigger exceeded the deterministic support threshold.
+                            Observed dropout triggers are unavailable for this report.
                           </span>
                         )}
                       </div>
-                      <div className="suppressed-note-alert">
-                        <strong>Notice:</strong> {suppressedCount} unsupported candidate {suppressedCount === 1 ? 'note was' : 'notes were'} suppressed by the deterministic stop-fraction detector.
-                        Only findings backed by observed dropout triggers are surfaced.
-                        {report.note_rejections && (
-                          <div className="rejection-breakdown mono" style={{ fontSize: '11px', marginTop: '6px' }}>
-                            Rejection breakdown: unsupported_trigger: {report.note_rejections.unsupported_trigger} (Trigger not supported), quote_mismatch: {report.note_rejections.quote_mismatch}, invalid_time: {report.note_rejections.invalid_time}, invalid_reference: {report.note_rejections.invalid_reference}, malformed: {report.note_rejections.malformed_candidate}
-                          </div>
-                        )}
-                      </div>
+                      {report.observations && report.observations.length > 0 && (
+                        <div className="suppressed-note-alert">
+                          <strong>Notice:</strong> {suppressedCount} unsupported candidate {suppressedCount === 1 ? 'note was' : 'notes were'} suppressed by the deterministic stop-fraction detector.
+                          Only findings backed by observed dropout triggers are surfaced.
+                          {report.note_rejections && (
+                            <div className="rejection-breakdown mono" style={{ fontSize: '11px', marginTop: '6px' }}>
+                              Rejection breakdown: unsupported_trigger: {report.note_rejections.unsupported_trigger} (Trigger not supported), quote_mismatch: {report.note_rejections.quote_mismatch}, invalid_time: {report.note_rejections.invalid_time}, invalid_reference: {report.note_rejections.invalid_reference}, malformed: {report.note_rejections.malformed_candidate}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div>
@@ -1083,15 +1091,17 @@ export function App() {
                         </div>
                       )}
 
-                      <div className="suppressed-note-alert">
-                        <strong>Notice:</strong> {suppressedCount} unsupported candidate {suppressedCount === 1 ? 'note was' : 'notes were'} suppressed by the deterministic stop-fraction detector.
-                        Only findings backed by observed dropout triggers are surfaced.
-                        {report.note_rejections && (
-                          <div className="rejection-breakdown mono" style={{ fontSize: '11px', marginTop: '6px' }}>
-                            Rejection breakdown: unsupported_trigger: {report.note_rejections.unsupported_trigger} (Trigger not supported), quote_mismatch: {report.note_rejections.quote_mismatch}, invalid_time: {report.note_rejections.invalid_time}, invalid_reference: {report.note_rejections.invalid_reference}, malformed: {report.note_rejections.malformed_candidate}
-                          </div>
-                        )}
-                      </div>
+                      {report.observations && report.observations.length > 0 && (
+                        <div className="suppressed-note-alert">
+                          <strong>Notice:</strong> {suppressedCount} unsupported candidate {suppressedCount === 1 ? 'note was' : 'notes were'} suppressed by the deterministic stop-fraction detector.
+                          Only findings backed by observed dropout triggers are surfaced.
+                          {report.note_rejections && (
+                            <div className="rejection-breakdown mono" style={{ fontSize: '11px', marginTop: '6px' }}>
+                              Rejection breakdown: unsupported_trigger: {report.note_rejections.unsupported_trigger} (Trigger not supported), quote_mismatch: {report.note_rejections.quote_mismatch}, invalid_time: {report.note_rejections.invalid_time}, invalid_reference: {report.note_rejections.invalid_reference}, malformed: {report.note_rejections.malformed_candidate}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1135,6 +1145,11 @@ export function App() {
                         <span className="score-value mono">
                           {report.scores.hook?.observed !== null && report.scores.hook?.observed !== undefined ? `${report.scores.hook?.observed?.toFixed(1)}%` : 'Unavailable'}
                         </span>
+                        <span className="score-denominator mono" style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
+                          {report.scores.hook?.denominator !== null && report.scores.hook?.denominator !== undefined
+                            ? `(denominator: ${report.scores.hook.denominator})`
+                            : '(denominator unavailable)'}
+                        </span>
                         {report.scores.hook?.range && (
                           <span className="score-range mono">
                             [{report.scores.hook.range.low.toFixed(0)}%–{report.scores.hook.range.high.toFixed(0)}%]
@@ -1145,6 +1160,11 @@ export function App() {
                         <span className="score-label">Pacing Score (80% dur)</span>
                         <span className="score-value mono">
                           {report.scores.pacing?.observed !== null && report.scores.pacing?.observed !== undefined ? `${report.scores.pacing?.observed?.toFixed(1)}%` : 'Unavailable'}
+                        </span>
+                        <span className="score-denominator mono" style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
+                          {report.scores.pacing?.denominator !== null && report.scores.pacing?.denominator !== undefined
+                            ? `(denominator: ${report.scores.pacing.denominator})`
+                            : '(denominator unavailable)'}
                         </span>
                         {report.scores.pacing?.range && (
                           <span className="score-range mono">
@@ -1294,14 +1314,16 @@ export function App() {
                       </div>
                     )}
 
-                    <div style={{ marginTop: '10px' }}>
-                      <strong>Caveats:</strong>
-                      <ul style={{ paddingLeft: '16px', marginTop: '4px' }}>
-                        {report.caveats.map((c, i) => (
-                          <li key={i}>{c}</li>
-                        ))}
-                      </ul>
-                    </div>
+                    {report.caveats && report.caveats.length > 0 && (
+                      <div style={{ marginTop: '10px' }}>
+                        <strong>Caveats:</strong>
+                        <ul style={{ paddingLeft: '16px', marginTop: '4px' }}>
+                          {report.caveats.map((c, i) => (
+                            <li key={i}>{c}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </details>
               </div>
