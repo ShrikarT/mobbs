@@ -4,6 +4,8 @@
 
 ### Current checkpoint — 2026-11-01
 
+Latest: real fixture checkpoint `c0b2ab0` accepted for readiness with [five qualifications](docs/evidence/v03-budget-redesign-stage-a.md); Antigravity acknowledged and is implementing v2 in Stage B. The independent integrated UI journey returned [BLOCKED](docs/evidence/v03-ui-integrated-review-blocked.md): actual B report/partial A evidence, then shared runtime timeouts. No source correction failure or journey acceptance. UI processes stopped and objectstore gracefully stopped with data preserved; budget DB connectivity recovered. Run remaining heavy checks serially; no repeated UI journey until runtime cause is resolved.
+
 Runtime blocker superseded: local V03 authorization covers the existing development database startup. PostgreSQL is running on its preserved volume and baseline `48c0a83` passed all 30 committed tests (14.031s, exit 0). Next is a gated Antigravity redesign: real failing regressions first, coordinator checkpoint, then production changes. The two historical unsuccessful corrections remain recorded. See the v2 fixture gate clarification; baseline failures are expected for the newly reproduced defects, and all criteria must pass on the redesigned candidate.
 
 - Codex resumed Run `run_d3354faa0659`; Grok's completed work and task history are retained. No implementation worker is active.
