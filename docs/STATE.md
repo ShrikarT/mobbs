@@ -4,6 +4,8 @@
 
 Runtime update: coordinator corrected the prior interpretation of the review-worker service restriction. Existing owner authorization for local V03 development covers starting the existing development database; no new permission gate is required. Docker Desktop was started hidden and only existing `viralist-v02-postgres` was started with verified `viralist-v02-pgdata` mount. PostgreSQL accepts connections; actual committed baseline `48c0a83` ran all 30 budget tests successfully in 14.031s, exit 0. No container/volume recreation, reset, migration, provider call or paid spend. This supersedes the restart-approval blocker stated below. The suite does not cover all independent-review defects; Antigravity's redesign begins with regressions reproducing them before production edits.
 
+Active redesign: Antigravity Task `task_78ff6c14c403`, Dispatch `ctx_bb6e7b063d8e`, terminal `term_e83f6fe9-7b8f-40ae-82b9-c09f34df621c`, dedicated existing tree `C:/Users/Shrikar/orca/workspaces/viralist/codex-v03-budget`, new branch `codex/v03-budget-redesign`, clean base `48c0a8398086e94320f34fbe575834957d022cab`. [Full assignment](evidence/v03-budget-redesign-assignment.md). Startup receipt pending; no production edits before committed regression checkpoint and coordinator approval. This is the sole implementation worker. Historical two unsuccessful corrections remain attached to original parent task.
+
 The remaining recovery notes below preserve earlier snapshots and evidence; when a status conflicts with this dated snapshot, this snapshot is authoritative.
 
 - Coordinator resumed Run `run_d3354faa0659` as terminal `term_53bba174-d4c8-4ac4-a307-f741d7356e9f`; Grok's settled work and task history are preserved. No implementation writer is active.
