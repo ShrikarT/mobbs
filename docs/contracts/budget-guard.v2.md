@@ -72,6 +72,8 @@ Preserve the existing lock order: video → current job → account/stage → at
 
 ## Real fixture and acceptance gate
 
+Gate clarification (2026-11-01): fixture readiness means the actual PostgreSQL/schema/domain path executes on the frozen baseline and the new regressions reproduce its known defects. Those regressions are expected to fail product assertions on baseline `48c0a83`. Requiring them all to pass before redesign implementation would be circular. A fixture-only first stage may write and execute tests, but production edits wait for coordinator acceptance of that checkpoint. All criteria must pass on the redesigned candidate before independent source acceptance.
+
 Do not dispatch redesigned implementation until the fixture below runs against the actual existing PostgreSQL implementation. When the database runtime is authorized and reachable, use only the assigned V03 budget test database, exact committed schema and existing test helpers. Create uniquely namespaced test identity/account/stage/video/run/job rows; capture the IDs created; never truncate tables, drop/recreate a database, or delete pre-existing data. Cleanup may remove only fixture-owned rows after all assertions and only when no unsettled debt remains. Keep crash/recovery debt rows as evidence until separately settled or owner-directed cleanup.
 
 The acceptance fixture must run the actual guard/store and actual PostgreSQL transaction path, then inspect persisted rows through a fresh independent connection. It must cover:

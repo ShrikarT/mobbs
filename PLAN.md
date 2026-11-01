@@ -4,6 +4,8 @@
 
 ### Current checkpoint — 2026-11-01
 
+Runtime blocker superseded: local V03 authorization covers the existing development database startup. PostgreSQL is running on its preserved volume and baseline `48c0a83` passed all 30 committed tests (14.031s, exit 0). Next is a gated Antigravity redesign: real failing regressions first, coordinator checkpoint, then production changes. The two historical unsuccessful corrections remain recorded. See the v2 fixture gate clarification; baseline failures are expected for the newly reproduced defects, and all criteria must pass on the redesigned candidate.
+
 - Codex resumed Run `run_d3354faa0659`; Grok's completed work and task history are retained. No implementation worker is active.
 - V03-U1 correction 2 is REVIEW-ACCEPTED at `52a09687ab33f88ab0f968460e3adbfb2a2ec50c` and INTEGRATED at `d9d3ed5aea6bd85ceca356f02e4e3321bbb312ab`. The UI still needs an independently observed browser journey on that integration commit; the last attempt was infrastructure-blocked.
 - V03-B2G candidate `48c0a8398086e94320f34fbe575834957d022cab` remains WORKER-REPORTED. The independent exact-commit review returned REDESIGN after correction submission 2; [sanitized report](docs/evidence/v03-budget-correction-2-review.md). The only allowed PostgreSQL health check timed out, so tests and persistence/concurrency criteria are BLOCKED. Source review found remaining helper privacy/type validation, override, overflow, replay, reconciliation and retry defects. Do not dispatch another routine patch or rename the correction; redesign/reassess the guard and freeze a real fixture first.
