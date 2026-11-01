@@ -1,5 +1,8 @@
 # V03 live Standard boundary
 
+CURRENT OWNER OVERRIDE (2026-11-01): custom budget/accounting and its review gates are DEFERRED. Read [current scope decision](../decisions-v03-product-priority.md); use lightweight call/concurrency/no-blind-retry/usage safeguards and verify provider spending boundary before paid execution. All older guard/ledger prerequisites below are superseded; protocol/privacy/app behavior remain applicable.
+
+
 Coordinator contract for the next backend dependency; **not a READY dispatch or implemented capability**. V03-B1 is the only current implementation task. Its independently accepted exact SHA and final API/report shapes must be recorded before assigning this work. Preserve [Flash contract](flash.v1.md), existing scheduler/checkpoints/fencing, owner controls and normalized response validators. No frontend contract rewrite or experiment-script import.
 
 ## Authority and producer

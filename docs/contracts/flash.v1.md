@@ -1,5 +1,8 @@
 # V03 Flash contract - first implementation slice
 
+CURRENT OWNER OVERRIDE (2026-11-01): custom budget/accounting and its review gates are DEFERRED. Read [current scope decision](../decisions-v03-product-priority.md); use lightweight call/concurrency/no-blind-retry/usage safeguards and verify provider spending boundary before paid execution. All older guard/ledger prerequisites below are superseded; protocol/privacy/app behavior remain applicable.
+
+
 Accepted application prerequisite: `1e140dc3db6bd9d052206cb3ae385b771d39c9dd`; current coordinator starting HEAD `34ed67e056f9074df970962c255be76c50a8d617` differs only in documentation. This contract and migration002 are new implementation inputs owned by the integrator, not claims of independently accepted code. Their implementation and compatibility receive exact-candidate review together.
 
 ## Frozen producer / consumer boundary
