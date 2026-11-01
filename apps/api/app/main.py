@@ -70,13 +70,14 @@ def key(request):
 def session(request: Request):
     existing_token = request.cookies.get('vir_session','')
     csrf = request.cookies.get('vir_csrf','')
+    provider_mode = settings().provider_mode
     with connection() as conn:
         row = conn.execute('SELECT * FROM owner_sessions WHERE token_hash=%s AND expires_at>now()', (digest(existing_token.encode()),)).fetchone()
         if row and digest(csrf.encode()) == row['csrf_hash']:
-            return dict(csrf=csrf,expires_at=row['expires_at'].isoformat(),retention_hours=24)
+            return dict(csrf=csrf,expires_at=row['expires_at'].isoformat(),retention_hours=24,provider_mode=provider_mode)
         token,csrf = secrets.token_urlsafe(32),secrets.token_urlsafe(32)
         row = conn.execute("INSERT INTO owner_sessions(id,token_hash,csrf_hash,expires_at) VALUES(%s,%s,%s,now()+interval '24 hours') RETURNING expires_at",(uid(),digest(token.encode()),digest(csrf.encode()))).fetchone()
-    response = JSONResponse(dict(csrf=csrf,expires_at=row['expires_at'].isoformat(),retention_hours=24),status_code=201)
+    response = JSONResponse(dict(csrf=csrf,expires_at=row['expires_at'].isoformat(),retention_hours=24,provider_mode=provider_mode),status_code=201)
     response.set_cookie('vir_session',token,httponly=True,samesite='strict',max_age=86400,path='/')
     response.set_cookie('vir_csrf',csrf,httponly=False,samesite='strict',max_age=86400,path='/')
     return response

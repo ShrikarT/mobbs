@@ -437,16 +437,35 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
         prompt_sha256=content_hash({'projection': 'current-frame-and-own-prior-v02'}),
         usage_ledger=receipts,
     )
-    total_cost = sum(
-        r.get('cost_usd', 0.0)
-        for r in receipts
-        if isinstance(r, dict) and r.get('cost_usd') is not None
-    )
-    if total_cost > 0 or manifest.get('provider_mode') == 'standard':
-        trust['total_cost_usd'] = round(total_cost, 8)
+    has_missing_cost = False
+    has_uncertain_cost = False
+    total_cost = 0.0
+    for r in receipts:
+        if not isinstance(r, dict):
+            continue
+        c = r.get('cost_usd')
+        u = r.get('usage')
+        if c == 'uncertain' or (isinstance(r.get('error'), dict) and r['error'].get('charge_state') == 'uncertain'):
+            has_uncertain_cost = True
+        elif c is None or u is None:
+            has_missing_cost = True
+        elif isinstance(c, (int, float)):
+            total_cost += c
+        else:
+            has_missing_cost = True
+
+    if manifest.get('provider_mode') == 'standard':
+        if has_uncertain_cost:
+            trust['total_cost_usd'] = 'uncertain'
+        elif has_missing_cost:
+            trust['total_cost_usd'] = 'unavailable'
+        else:
+            trust['total_cost_usd'] = round(total_cost, 8)
         trust['live_calls'] = sum(1 for r in receipts if isinstance(r, dict) and r.get('mode') == 'standard')
         if receipts and receipts[0].get('pricing_version'):
             trust['pricing_version'] = receipts[0]['pricing_version']
+    elif total_cost > 0:
+        trust['total_cost_usd'] = round(total_cost, 8)
 
     methodology = dict(
         range_kind='simulation_resampling_not_confidence',

@@ -124,7 +124,12 @@ def source_sha() -> str:
 
 
 class ProviderUnavailable(ValueError):
-    pass
+    def __init__(self, code: str, charge_state: str = 'unconfirmed', receipt: Optional[dict] = None, exc: Optional[Exception] = None):
+        super().__init__(code)
+        self.code = code
+        self.charge_state = charge_state
+        self.receipt = receipt or {}
+        self.original_exception_class = exc.__class__.__name__ if exc else None
 
 
 class StandardProvider:
@@ -239,7 +244,6 @@ class StandardProvider:
             latency_sec = time.monotonic() - t0
         except Exception as exc:
             latency_sec = time.monotonic() - t0
-            # Transport timeout or network failure: charge state is uncertain, no blind retry
             receipt = {
                 'http_status': 500,
                 'request_id': req_id,
@@ -247,7 +251,7 @@ class StandardProvider:
                 'latency_sec': latency_sec,
             }
             normalize_envelope(None, receipt)
-            raise ProviderUnavailable(f'provider_transport_error: {exc}')
+            raise ProviderUnavailable('provider_transport_error', charge_state='uncertain', receipt=receipt, exc=exc)
 
         receipt = {
             'http_status': resp.status_code,
@@ -260,18 +264,32 @@ class StandardProvider:
         if resp.status_code != 200:
             receipt['http_status'] = resp.status_code
             normalize_envelope(None, receipt)
-            raise ProviderUnavailable(f'provider_http_error_{resp.status_code}')
+            charge_state = 'uncertain' if resp.status_code >= 500 else 'unconfirmed'
+            raise ProviderUnavailable(f'provider_http_error_{resp.status_code}', charge_state=charge_state, receipt=receipt)
 
         try:
             raw_json = resp.json()
         except Exception as exc:
             receipt['http_status'] = 500
             normalize_envelope(None, receipt)
-            raise ProviderUnavailable(f'provider_malformed_json: {exc}')
+            raise ProviderUnavailable('provider_malformed_json', charge_state='uncertain', receipt=receipt, exc=exc)
 
-        normalized = normalize_envelope(raw_json, receipt)
+        try:
+            normalized = normalize_envelope(raw_json, receipt)
+        except Exception as exc:
+            raw_usage = raw_json.get('usage') if isinstance(raw_json, dict) else None
+            safe_receipt = {
+                'http_status': resp.status_code,
+                'request_id': resp.headers.get('x-request-id', req_id),
+                'requested_model': self.model_id,
+                'latency_sec': latency_sec,
+                'response_id': raw_json.get('id') if isinstance(raw_json, dict) else None,
+                'usage': raw_usage,
+            }
+            raise ProviderUnavailable('provider_response_rejected', charge_state='uncertain', receipt=safe_receipt, exc=exc)
+
         if normalized['status'] != 'completed':
-            raise ProviderUnavailable(f'provider_{normalized["status"]}')
+            raise ProviderUnavailable(f'provider_{normalized["status"]}', charge_state='unconfirmed', receipt=receipt)
 
         cost = compute_cost_usd(normalized.get('usage'))
         normalized['cost_usd'] = cost
@@ -365,7 +383,7 @@ class StandardProvider:
                 'latency_sec': latency_sec,
             }
             normalize_envelope(None, receipt)
-            raise ProviderUnavailable(f'provider_transport_error: {exc}')
+            raise ProviderUnavailable('provider_transport_error', charge_state='uncertain', receipt=receipt, exc=exc)
 
         receipt = {
             'http_status': resp.status_code,
@@ -378,18 +396,32 @@ class StandardProvider:
         if resp.status_code != 200:
             receipt['http_status'] = resp.status_code
             normalize_envelope(None, receipt)
-            raise ProviderUnavailable(f'provider_http_error_{resp.status_code}')
+            charge_state = 'uncertain' if resp.status_code >= 500 else 'unconfirmed'
+            raise ProviderUnavailable(f'provider_http_error_{resp.status_code}', charge_state=charge_state, receipt=receipt)
 
         try:
             raw_json = resp.json()
         except Exception as exc:
             receipt['http_status'] = 500
             normalize_envelope(None, receipt)
-            raise ProviderUnavailable(f'provider_malformed_json: {exc}')
+            raise ProviderUnavailable('provider_malformed_json', charge_state='uncertain', receipt=receipt, exc=exc)
 
-        normalized = normalize_envelope(raw_json, receipt)
+        try:
+            normalized = normalize_envelope(raw_json, receipt)
+        except Exception as exc:
+            raw_usage = raw_json.get('usage') if isinstance(raw_json, dict) else None
+            safe_receipt = {
+                'http_status': resp.status_code,
+                'request_id': resp.headers.get('x-request-id', req_id),
+                'requested_model': self.model_id,
+                'latency_sec': latency_sec,
+                'response_id': raw_json.get('id') if isinstance(raw_json, dict) else None,
+                'usage': raw_usage,
+            }
+            raise ProviderUnavailable('provider_response_rejected', charge_state='uncertain', receipt=safe_receipt, exc=exc)
+
         if normalized['status'] != 'completed':
-            raise ProviderUnavailable(f'provider_{normalized["status"]}')
+            raise ProviderUnavailable(f'provider_{normalized["status"]}', charge_state='unconfirmed', receipt=receipt)
 
         cost = compute_cost_usd(normalized.get('usage'))
         normalized['cost_usd'] = cost

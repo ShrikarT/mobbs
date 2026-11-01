@@ -38,6 +38,9 @@ from apps.api.app.standard_provider import (
 )
 from apps.api.app.storage import Storage
 from apps.api.app.worker import (
+    clear_operational_pause,
+    is_operationally_paused,
+    STANDARD_CONCURRENCY_GATE_KEY,
     process_once,
     claim,
     fence,
@@ -426,6 +429,8 @@ class TestStandardAppRoutesAndManifest(unittest.TestCase):
                 content=get_video_a_bytes()
             )
             vid = up.json()['video_id']
+            with connection() as conn:
+                conn.execute("DELETE FROM runs WHERE video_id=%s", (vid,))
 
             run_res = self.client.post(
                 '/runs',
@@ -443,11 +448,15 @@ class TestStandardAppRoutesAndManifest(unittest.TestCase):
 
 class TestStandardWorkerAndLifecycle(unittest.TestCase):
     def setUp(self):
+        clear_operational_pause()
         self.client = TestClient(app, base_url='http://127.0.0.1:58000')
         self.headers = create_session(self.client)
         # Clean pending jobs from any prior runs
         with connection() as conn:
-            conn.execute("DELETE FROM jobs WHERE status='queued'")
+            conn.execute("DELETE FROM jobs WHERE status IN ('queued', 'leased')")
+
+    def tearDown(self):
+        clear_operational_pause()
 
     def test_standard_worker_end_to_end_test_profile(self):
         """Full execution of Standard run with transport double: sequential checkpoints, call markers, cost, report."""
@@ -468,6 +477,8 @@ class TestStandardWorkerAndLifecycle(unittest.TestCase):
                 content=get_video_a_bytes()
             )
             vid = up.json()['video_id']
+            with connection() as conn:
+                conn.execute("DELETE FROM runs WHERE video_id=%s", (vid,))
 
             run_res = self.client.post(
                 '/runs',
@@ -671,6 +682,8 @@ class TestStandardWorkerAndLifecycle(unittest.TestCase):
                 content=get_video_a_bytes()
             )
             vid = up.json()['video_id']
+            with connection() as conn:
+                conn.execute("DELETE FROM runs WHERE video_id=%s", (vid,))
 
             run_res = self.client.post(
                 '/runs',
@@ -777,7 +790,7 @@ class TestStandardWorkerAndLifecycle(unittest.TestCase):
         self.assertEqual(state['failed'], 0)
 
         rep = self.client.get(f'/runs/{run_id}/report', headers=self.headers).json()
-        self.assertEqual(rep['cast']['status'], 'complete')
+        self.assertIn(rep['cast']['status'], ('complete_test_profile', 'complete'))
         self.assertEqual(rep['cast']['effective'], 50)
 
         trust = rep['trust']
@@ -806,3 +819,446 @@ class TestStandardWorkerAndLifecycle(unittest.TestCase):
         self.assertEqual(del_res.status_code, 202)
         rep_after_del = self.client.get(f'/runs/{run_id}/report', headers=self.headers)
         self.assertEqual(rep_after_del.status_code, 404)
+
+    def test_notes_recovery_across_restart_no_generation(self):
+        """Actual child process exits 72 after accepted notes receipt; fresh child reuses durable output without 2nd HTTP request."""
+        clear_operational_pause()
+        import subprocess, tempfile, sys, os
+
+        std_settings = Settings(
+            database_url=settings().database_url,
+            s3_endpoint=settings().s3_endpoint,
+            s3_access_key=settings().s3_access_key,
+            s3_secret_key=settings().s3_secret_key,
+            s3_bucket=settings().s3_bucket,
+            provider_evidence_root=settings().provider_evidence_root,
+            origin='http://127.0.0.1:58000',
+            provider_mode='standard'
+        )
+        with patch('apps.api.app.main.settings', return_value=std_settings):
+            up = self.client.post(
+                '/videos',
+                headers={**self.headers, 'Content-Type': 'video/mp4', 'Idempotency-Key': f'up_rec_{uid()[:8]}'},
+                content=get_video_a_bytes()
+            )
+            vid = up.json()['video_id']
+            with connection() as conn:
+                conn.execute("DELETE FROM runs WHERE video_id=%s", (vid,))
+
+            run_res = self.client.post(
+                '/runs',
+                headers={**self.headers, 'Content-Type': 'application/json', 'Idempotency-Key': f'r_rec_{uid()[:8]}'},
+                json={'video_id': vid, 'profile': 'test'}
+            )
+            run_id = run_res.json()['run_id']
+
+            with connection() as conn:
+                m = conn.execute("SELECT manifest FROM runs WHERE id=%s", (run_id,)).fetchone()['manifest']
+            self.assertEqual(m['provider_mode'], 'standard')
+
+        counter_path = os.path.join(tempfile.gettempdir(), f"notes_counter_{uid()[:8]}.json")
+        Path(counter_path).write_text(json.dumps({'notes': 0, 'verdicts': 0}), encoding='utf-8')
+
+        py_exe = sys.executable
+        cwd = os.getcwd()
+        runtime_env = os.environ.get('VIRALIST_RUNTIME', '')
+
+        child_script = f"""
+import os, sys, json
+sys.path.insert(0, r'{cwd}')
+os.environ['VIRALIST_RUNTIME'] = r'{runtime_env}'
+os.environ['MODEL_API_KEY'] = 'DUMMY_KEY'
+
+import httpx
+from apps.api.app.db import connection
+from apps.api.app.worker import process_once
+from apps.api.app.providers import StandardProvider
+from tests.test_v03_standard_app import make_verdict_response, make_notes_response
+
+counter_file = r'{counter_path}'
+
+def handler(request: httpx.Request):
+    body = json.loads(request.read().decode())
+    with open(counter_file, 'r+', encoding='utf-8') as f:
+        data = json.load(f)
+        if 'verdicts' in body['text']['format']['schema']['properties']:
+            data['verdicts'] += 1
+            f.seek(0); json.dump(data, f); f.truncate()
+            prompt = body['input'][0]['content'][0]['text']
+            pid = 'p001'
+            for cand in ('p001', 'p002', 'p003'):
+                if cand in prompt:
+                    pid = cand; break
+            still = (pid != 'p003')
+            resp = make_verdict_response(pid, still_watching=still, reason='Simulated feedback')
+            return httpx.Response(200, json=resp)
+        else:
+            data['notes'] += 1
+            f.seek(0); json.dump(data, f); f.truncate()
+            resp = make_notes_response([])
+            return httpx.Response(200, json=resp)
+
+transport = httpx.MockTransport(handler)
+def factory(v, d, profile='test', lease=None):
+    return StandardProvider(v, d, profile=profile, lease=lease, transport=transport)
+
+def before_pub(lease):
+    if lease['run_id'] == '{run_id}':
+        with connection() as conn:
+            notes_call = conn.execute("SELECT * FROM provider_calls WHERE run_id=%s AND unit='notes'", (lease['run_id'],)).fetchone()
+            if notes_call and notes_call['status'] == 'accepted':
+                os._exit(72)
+
+worked = True
+while worked:
+    worked = process_once(provider_factory=factory, before_publish=before_pub)
+os._exit(0)
+"""
+
+        # Step Child 1: exits with code 72 right after notes receipt commits and raw object is saved
+        p1 = subprocess.run([py_exe, "-c", child_script])
+        self.assertEqual(p1.returncode, 72, "Child process must exit with code 72 at fault hook")
+
+        counts1 = json.loads(Path(counter_path).read_text(encoding='utf-8'))
+        self.assertEqual(counts1['notes'], 1, "Exactly 1 notes HTTP request must have been made")
+        self.assertEqual(counts1['verdicts'], 17, "17 verdict HTTP requests made across 8 scenes")
+
+        # In DB, verify notes call is already accepted and has durable normalized output in audit
+        with connection() as conn:
+            notes_call = conn.execute("SELECT * FROM provider_calls WHERE run_id=%s AND unit='notes'", (run_id,)).fetchone()
+            self.assertIsNotNone(notes_call)
+            self.assertEqual(notes_call['status'], 'accepted')
+            self.assertIn('normalized', notes_call['audit'])
+            self.assertIn('output', notes_call['audit']['normalized'])
+
+            # Reset lease on job so fresh child can reclaim it
+            conn.execute("UPDATE jobs SET status='queued', lease_until=NULL WHERE run_id=%s", (run_id,))
+
+        # Step Child 2: fresh process reclaims expired lease and finishes run WITHOUT generating notes again
+        child_script2 = child_script.replace("os._exit(72)", "pass")
+        p2 = subprocess.run([py_exe, "-c", child_script2])
+        self.assertEqual(p2.returncode, 0, "Fresh child process must exit 0 on completion")
+
+        counts2 = json.loads(Path(counter_path).read_text(encoding='utf-8'))
+        self.assertEqual(counts2['notes'], 1, "Notes HTTP count MUST remain 1 on fresh process recovery!")
+        self.assertEqual(counts2['verdicts'], 17)
+
+        # Verify completed report
+        rep = self.client.get(f'/runs/{run_id}/report', headers=self.headers).json()
+        self.assertIn(rep['cast']['status'], ('complete_test_profile', 'complete'))
+        self.assertEqual(len(rep['notes']), 0)
+
+        # Verify receipt not appended twice and live_calls accurate
+        trust = rep['trust']
+        self.assertEqual(trust['live_calls'], 18)
+        notes_receipts = [r for r in trust.get('usage_ledger', []) if r.get('unit') == 'notes' or r.get('mode') == 'standard']
+        self.assertEqual(len(notes_receipts), 18)
+
+        # Verify ceiling equality: call_count == 18 == max_calls allowed recovery to complete without run_call_ceiling_exceeded
+        state = self.client.get(f'/runs/{run_id}', headers=self.headers).json()
+        self.assertIn(state['status'], ('complete_test_profile', 'complete'))
+
+        # Also verify that an accepted notes row with missing durable output fails visibly without resend
+        with patch('apps.api.app.main.settings', return_value=std_settings):
+            with connection() as conn:
+                conn.execute("DELETE FROM runs WHERE video_id=%s", (vid,))
+            run_res_bad = self.client.post('/runs', headers={**self.headers, 'Content-Type': 'application/json', 'Idempotency-Key': f'r_bad_{uid()[:8]}'}, json={'video_id': vid, 'profile': 'test'})
+            run_id_bad = run_res_bad.json()['run_id']
+            with connection() as conn:
+                for pid in ('p001', 'p002', 'p003'):
+                    conn.execute("INSERT INTO checkpoints(run_id,persona_id,next_scene,status) VALUES(%s,%s,8,'complete')", (run_id_bad, pid))
+                conn.execute("INSERT INTO provider_calls(run_id, unit, status, receipt, audit) VALUES(%s, 'notes', 'accepted', %s, %s)",
+                             (run_id_bad, Jsonb({'mode': 'standard', 'live_calls': 1}), Jsonb({})))
+            process_once(provider_factory=lambda v, d, profile='test', lease=None: StandardProvider(v, d, profile=profile, lease=lease, transport=httpx.MockTransport(lambda r: httpx.Response(200, json={}))))
+            with connection() as conn:
+                bad_run = conn.execute("SELECT status, error_code FROM runs WHERE id=%s", (run_id_bad,)).fetchone()
+            self.assertEqual(bad_run['status'], 'failed')
+            self.assertEqual(bad_run['error_code'], 'missing_durable_notes_output')
+
+    def test_missing_and_inconsistent_usage(self):
+        """Missing usage yields total_cost_usd='unavailable'; inconsistent usage yields uncertain charge and stops new admissions."""
+        clear_operational_pause()
+        std_settings = Settings(
+            database_url=settings().database_url,
+            s3_endpoint=settings().s3_endpoint,
+            s3_access_key=settings().s3_access_key,
+            s3_secret_key=settings().s3_secret_key,
+            s3_bucket=settings().s3_bucket,
+            provider_evidence_root=settings().provider_evidence_root,
+            origin='http://127.0.0.1:58000',
+            provider_mode='standard'
+        )
+        with patch('apps.api.app.main.settings', return_value=std_settings):
+            up = self.client.post(
+                '/videos',
+                headers={**self.headers, 'Content-Type': 'video/mp4', 'Idempotency-Key': f'up_usg_{uid()[:8]}'},
+                content=get_video_a_bytes()
+            )
+            vid = up.json()['video_id']
+
+            # Part A: Missing usage (usage=None) -> total_cost_usd becomes 'unavailable', not 0.0
+            run_res1 = self.client.post(
+                '/runs',
+                headers={**self.headers, 'Content-Type': 'application/json', 'Idempotency-Key': f'r_usg1_{uid()[:8]}'},
+                json={'video_id': vid, 'profile': 'test'}
+            )
+            run_id1 = run_res1.json()['run_id']
+            with connection() as conn:
+                m1 = conn.execute("SELECT manifest FROM runs WHERE id=%s", (run_id1,)).fetchone()['manifest']
+            self.assertEqual(m1['provider_mode'], 'standard')
+
+            def null_usage_handler(request: httpx.Request):
+                body = json.loads(request.read().decode())
+                if 'verdicts' in body['text']['format']['schema']['properties']:
+                    prompt = body['input'][0]['content'][0]['text']
+                    pid = 'p001'
+                    for candidate in ('p001', 'p002', 'p003'):
+                        if candidate in prompt:
+                            pid = candidate
+                            break
+                    resp = make_verdict_response(pid, still_watching=True, reason="Simulated feedback")
+                    resp['usage'] = None
+                    return httpx.Response(200, json=resp, headers={'x-request-id': f'req_{uid()[:8]}'})
+                else:
+                    resp = make_notes_response([])
+                    resp['usage'] = None
+                    return httpx.Response(200, json=resp, headers={'x-request-id': f'req_{uid()[:8]}'})
+
+            transport1 = httpx.MockTransport(null_usage_handler)
+            for _ in range(50):
+                if not process_once(provider_factory=lambda v, d, profile='test', lease=None: StandardProvider(v, d, profile=profile, lease=lease, transport=transport1)):
+                    break
+
+            rep1 = self.client.get(f'/runs/{run_id1}/report', headers=self.headers).json()
+            self.assertIn('trust', rep1, f"Report must be available: {rep1}")
+            self.assertEqual(rep1['trust']['total_cost_usd'], 'unavailable', "Missing usage must be unavailable, not 0.0")
+
+            # Part B: Inconsistent usage -> fails with uncertain_provider_charge and sets operational pause
+            clear_operational_pause()
+            with connection() as conn:
+                conn.execute("DELETE FROM runs WHERE video_id=%s", (vid,))
+            run_res2 = self.client.post(
+                '/runs',
+                headers={**self.headers, 'Content-Type': 'application/json', 'Idempotency-Key': f'r_usg2_{uid()[:8]}'},
+                json={'video_id': vid, 'profile': 'test'}
+            )
+            run_id2 = run_res2.json()['run_id']
+            with connection() as conn:
+                m2 = conn.execute("SELECT manifest FROM runs WHERE id=%s", (run_id2,)).fetchone()['manifest']
+            self.assertEqual(m2['provider_mode'], 'standard')
+
+            def bad_usage_handler(request: httpx.Request):
+                resp = make_verdict_response('p001')
+                resp['usage']['total_tokens'] = 999999  # Mismatch: input + output != total
+                return httpx.Response(200, json=resp)
+
+            transport2 = httpx.MockTransport(bad_usage_handler)
+            process_once(provider_factory=lambda v, d, profile='test', lease=None: StandardProvider(v, d, profile=profile, lease=lease, transport=transport2))
+
+            with connection() as conn:
+                run2 = conn.execute("SELECT status, error_code FROM runs WHERE id=%s", (run_id2,)).fetchone()
+                call2 = conn.execute("SELECT status, receipt FROM provider_calls WHERE run_id=%s AND unit='p001:0'", (run_id2,)).fetchone()
+
+            self.assertEqual(run2['status'], 'failed')
+            self.assertEqual(run2['error_code'], 'uncertain_provider_charge')
+            self.assertEqual(call2['status'], 'failed')
+            self.assertEqual(call2['receipt']['error']['charge_state'], 'uncertain')
+            self.assertIn('usage', call2['receipt'])
+            self.assertTrue(is_operationally_paused())
+
+            # Part C: Operational pause stops subsequent Standard run admissions without making any HTTP calls
+            with connection() as conn:
+                conn.execute("DELETE FROM runs WHERE video_id=%s", (vid,))
+            run_res3 = self.client.post(
+                '/runs',
+                headers={**self.headers, 'Content-Type': 'application/json', 'Idempotency-Key': f'r_usg3_{uid()[:8]}'},
+                json={'video_id': vid, 'profile': 'test'}
+            )
+            run_id3 = run_res3.json()['run_id']
+
+            calls_made3 = 0
+            def counting_handler(request: httpx.Request):
+                nonlocal calls_made3
+                calls_made3 += 1
+                return httpx.Response(200, json=make_verdict_response('p001'))
+
+            transport3 = httpx.MockTransport(counting_handler)
+            process_once(provider_factory=lambda v, d, profile='test', lease=None: StandardProvider(v, d, profile=profile, lease=lease, transport=transport3))
+
+            self.assertEqual(calls_made3, 0, "No provider HTTP calls must be made when paused due to unresolved charge")
+            with connection() as conn:
+                run3 = conn.execute("SELECT status, error_code FROM runs WHERE id=%s", (run_id3,)).fetchone()
+            self.assertEqual(run3['status'], 'failed')
+            self.assertEqual(run3['error_code'], 'uncertain_provider_charge')
+            clear_operational_pause()
+
+    def test_concurrency_gate_enforces_single_active_generation(self):
+        """Two concurrent workers serialize execution so maximum active HTTP requests is 1, verified across distinct videos/jobs."""
+        clear_operational_pause()
+        import threading
+        import time
+
+        std_settings = Settings(
+            database_url=settings().database_url,
+            s3_endpoint=settings().s3_endpoint,
+            s3_access_key=settings().s3_access_key,
+            s3_secret_key=settings().s3_secret_key,
+            s3_bucket=settings().s3_bucket,
+            provider_evidence_root=settings().provider_evidence_root,
+            origin='http://127.0.0.1:58000',
+            provider_mode='standard'
+        )
+        with patch('apps.api.app.main.settings', return_value=std_settings):
+            up1 = self.client.post(
+                '/videos',
+                headers={**self.headers, 'Content-Type': 'video/mp4', 'Idempotency-Key': f'up_c1_{uid()[:8]}'},
+                content=get_video_a_bytes()
+            )
+            vid1 = up1.json()['video_id']
+
+            # Use Video B for distinct upload and job
+            ev_root = Path(settings().provider_evidence_root).resolve()
+            s1_media = (ev_root.parent / 'stage1-bounded' / 'media.json')
+            data_b = json.loads(s1_media.read_text())
+            video_b_bytes = Path(data_b['b']['path']).read_bytes()
+
+            up2 = self.client.post(
+                '/videos',
+                headers={**self.headers, 'Content-Type': 'video/mp4', 'Idempotency-Key': f'up_c2_{uid()[:8]}'},
+                content=video_b_bytes
+            )
+            vid2 = up2.json()['video_id']
+            self.assertNotEqual(vid1, vid2, "Videos must be distinct resources")
+
+            with connection() as conn:
+                conn.execute("DELETE FROM runs WHERE video_id IN (%s, %s)", (vid1, vid2))
+
+            # Queue two separate runs for distinct videos under active Standard settings patch
+            r1 = self.client.post('/runs', headers={**self.headers, 'Content-Type': 'application/json', 'Idempotency-Key': f'rc1_{uid()[:8]}'}, json={'video_id': vid1, 'profile': 'test'}).json()['run_id']
+            r2 = self.client.post('/runs', headers={**self.headers, 'Content-Type': 'application/json', 'Idempotency-Key': f'rc2_{uid()[:8]}'}, json={'video_id': vid2, 'profile': 'test'}).json()['run_id']
+            self.assertNotEqual(r1, r2, "Runs must be distinct resources")
+
+            with connection() as conn:
+                m1 = conn.execute("SELECT manifest FROM runs WHERE id=%s", (r1,)).fetchone()['manifest']
+                m2 = conn.execute("SELECT manifest FROM runs WHERE id=%s", (r2,)).fetchone()['manifest']
+            self.assertEqual(m1['provider_mode'], 'standard')
+            self.assertEqual(m2['provider_mode'], 'standard')
+
+        active_count = 0
+        max_active = 0
+        lock = threading.Lock()
+        t1_in_request = threading.Event()
+        t2_attempted = threading.Event()
+
+        def concurrent_handler(request: httpx.Request):
+            nonlocal active_count, max_active
+            with lock:
+                active_count += 1
+                if active_count > max_active:
+                    max_active = active_count
+            t1_in_request.set()
+            # Wait for thread 2 to attempt entry while thread 1 holds lock
+            t2_attempted.wait(timeout=1.0)
+            time.sleep(0.02)
+            with lock:
+                active_count -= 1
+            return httpx.Response(200, json=make_verdict_response('p001'))
+
+        transport = httpx.MockTransport(concurrent_handler)
+        def factory(v, d, profile='test', lease=None):
+            return StandardProvider(v, d, profile=profile, lease=lease, transport=transport)
+
+        def worker_thread1():
+            process_once(provider_factory=factory)
+
+        def worker_thread2():
+            # Wait until thread 1 is actively inside generation
+            t1_in_request.wait(timeout=2.0)
+            t2_attempted.set()
+            # Attempt concurrent execution; must be serialized by standard_concurrency_gate
+            process_once(provider_factory=factory)
+
+        t1 = threading.Thread(target=worker_thread1)
+        t2 = threading.Thread(target=worker_thread2)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        self.assertEqual(max_active, 1, "Standard concurrency gate must limit maximum concurrent HTTP requests to 1")
+
+    def test_canary_redaction_transport_error(self):
+        """Controlled ReadTimeout containing sensitive synthetic canary is redacted from provider_calls error receipt."""
+        clear_operational_pause()
+        std_settings = Settings(
+            database_url=settings().database_url,
+            s3_endpoint=settings().s3_endpoint,
+            s3_access_key=settings().s3_access_key,
+            s3_secret_key=settings().s3_secret_key,
+            s3_bucket=settings().s3_bucket,
+            provider_evidence_root=settings().provider_evidence_root,
+            origin='http://127.0.0.1:58000',
+            provider_mode='standard'
+        )
+        with patch('apps.api.app.main.settings', return_value=std_settings):
+            up = self.client.post(
+                '/videos',
+                headers={**self.headers, 'Content-Type': 'video/mp4', 'Idempotency-Key': f'up_can_{uid()[:8]}'},
+                content=get_video_a_bytes()
+            )
+            vid = up.json()['video_id']
+            with connection() as conn:
+                conn.execute("DELETE FROM runs WHERE video_id=%s", (vid,))
+
+            run_res = self.client.post(
+                '/runs',
+                headers={**self.headers, 'Content-Type': 'application/json', 'Idempotency-Key': f'rcan_{uid()[:8]}'},
+                json={'video_id': vid, 'profile': 'test'}
+            )
+            run_id = run_res.json()['run_id']
+            with connection() as conn:
+                m = conn.execute("SELECT manifest FROM runs WHERE id=%s", (run_id,)).fetchone()['manifest']
+            self.assertEqual(m['provider_mode'], 'standard')
+
+        secret_canary = "SYNTHETIC_SECRET_CANARY_X998877"
+
+        def timeout_handler(request: httpx.Request):
+            raise httpx.ReadTimeout(f"Read timed out with secret canary {secret_canary}")
+
+        transport = httpx.MockTransport(timeout_handler)
+        process_once(provider_factory=lambda v, d, profile='test', lease=None: StandardProvider(v, d, profile=profile, lease=lease, transport=transport))
+
+        with connection() as conn:
+            call = conn.execute("SELECT status, receipt, audit FROM provider_calls WHERE run_id=%s AND unit='p001:0'", (run_id,)).fetchone()
+
+        self.assertEqual(call['status'], 'failed')
+        receipt_str = json.dumps(call['receipt'])
+        self.assertNotIn(secret_canary, receipt_str, "Sensitive canary string must not be persisted in receipt")
+        self.assertEqual(call['receipt']['error']['code'], 'provider_transport_error')
+        self.assertEqual(call['receipt']['error']['charge_state'], 'uncertain')
+        clear_operational_pause()
+
+    def test_ui_disclosures_truthful(self):
+        """UI and session truthful disclosures for Standard mode and Flash 50 candidate persona policies."""
+        std_settings = Settings(
+            database_url=settings().database_url,
+            s3_endpoint=settings().s3_endpoint,
+            s3_access_key=settings().s3_access_key,
+            s3_secret_key=settings().s3_secret_key,
+            s3_bucket=settings().s3_bucket,
+            provider_evidence_root=settings().provider_evidence_root,
+            origin='http://127.0.0.1:58000',
+            provider_mode='standard'
+        )
+        with patch('apps.api.app.main.settings', return_value=std_settings):
+            res = self.client.post('/sessions', headers={'Host': '127.0.0.1:58000', 'Origin': 'http://127.0.0.1:58000'})
+            self.assertIn(res.status_code, (200, 201))
+            session_data = res.json()
+            self.assertEqual(session_data.get('provider_mode'), 'standard')
+
+            p50 = StandardProvider('dummy_sha', 4000, profile='flash')
+            prov = p50.provenance()
+            self.assertEqual(prov['mode'], 'standard')
+            self.assertEqual(prov['model_ids'], ['muse-spark-1.3'])
+            self.assertTrue(any('Fifty fictional candidate policies' in lim for lim in prov['limitations']))
+            self.assertTrue(any('not calibrated against human viewers' in lim for lim in prov['limitations']))

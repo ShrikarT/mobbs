@@ -1,3 +1,7 @@
+import os
+import psycopg
+import httpx
+from contextlib import contextmanager
 """Separate durable worker. Each unit commits checkpoint, verdict and event atomically."""
 import argparse
 import json
@@ -120,6 +124,89 @@ def prepare(lease, provider):
             stage(conn, lease['run_id'], 'simulating')
 
 
+
+
+def get_operational_pause_marker_path():
+    runtime_path = os.environ.get('VIRALIST_RUNTIME')
+    if runtime_path:
+        return Path(runtime_path).parent / 'operational_pause.marker'
+    return ROOT / 'operational_pause.marker'
+
+
+def set_operational_pause():
+    p = get_operational_pause_marker_path()
+    try:
+        p.write_text('paused', encoding='utf-8')
+    except Exception:
+        pass
+
+
+def clear_operational_pause():
+    p = get_operational_pause_marker_path()
+    try:
+        if p.exists():
+            p.unlink()
+    except Exception:
+        pass
+
+
+def is_operationally_paused():
+    p = get_operational_pause_marker_path()
+    return p.exists()
+
+
+STANDARD_CONCURRENCY_GATE_KEY = 58004001
+
+
+@contextmanager
+def standard_concurrency_gate():
+    with psycopg.connect(settings().database_url, autocommit=True) as gate_conn:
+        gate_conn.execute("SELECT pg_advisory_lock(%s)", (STANDARD_CONCURRENCY_GATE_KEY,))
+        try:
+            yield
+        finally:
+            try:
+                gate_conn.execute("SELECT pg_advisory_unlock(%s)", (STANDARD_CONCURRENCY_GATE_KEY,))
+            except Exception:
+                pass
+
+
+def sanitize_error_receipt(exc, mode='standard', model_id=None, req_id=None):
+    exc_str = exc.__class__.__name__
+    is_uncertain = (
+        isinstance(exc, (httpx.TimeoutException, httpx.TransportError))
+        or 'timeout' in exc_str.lower()
+        or 'transport' in exc_str.lower()
+        or 'http_error_5' in str(exc).lower()
+        or getattr(exc, 'charge_state', None) == 'uncertain'
+    )
+    safe_code = getattr(exc, 'code', None)
+    if not safe_code:
+        if isinstance(exc, httpx.TimeoutException):
+            safe_code = 'provider_timeout'
+        elif isinstance(exc, httpx.TransportError):
+            safe_code = 'provider_transport_error'
+        elif 'http_error_' in str(exc):
+            safe_code = 'provider_http_error'
+        else:
+            safe_code = 'provider_response_rejected'
+
+    receipt = getattr(exc, 'receipt', None) or {}
+    clean_receipt = {
+        'mode': mode,
+        'model_id': model_id or receipt.get('requested_model'),
+        'request_id': receipt.get('request_id') or req_id,
+        'http_status': receipt.get('http_status'),
+        'usage': receipt.get('usage'),
+        'error': {
+            'code': safe_code,
+            'error_class': getattr(exc, 'original_exception_class', None) or exc.__class__.__name__,
+            'charge_state': 'uncertain' if is_uncertain else 'unconfirmed',
+        }
+    }
+    return clean_receipt
+
+
 def report_data(video, checkpoints, rows, provider, source, note_envelope, receipts, manifest=None):
     if manifest is None:
         manifest = dict(
@@ -164,25 +251,6 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
         requested = manifest.get('requested', len(provider.persona_ids))
         max_calls = min(40 if profile == 'test' else 651, requested * scenes_count + 1)
 
-        # 1. Enforce call ceiling
-        call_count = conn.execute("SELECT count(*) AS count FROM provider_calls WHERE run_id=%s", (lease['run_id'],)).fetchone()['count']
-        if call_count >= max_calls:
-            conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND status='active'", (lease['run_id'],))
-            conn.execute("UPDATE runs SET error_code='run_call_ceiling_exceeded',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
-            release(conn, lease, True)
-            return
-
-        # 2. Check if previous call had uncertain charge
-        uncertain_call = conn.execute(
-            "SELECT 1 FROM provider_calls WHERE run_id=%s AND status='failed' AND (receipt->'error'->>'charge_state'='uncertain' OR receipt->'error'->>'code'='unresolved_dispatched_call') LIMIT 1",
-            (lease['run_id'],)
-        ).fetchone()
-        if uncertain_call:
-            conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND status='active'", (lease['run_id'],))
-            conn.execute("UPDATE runs SET error_code='uncertain_provider_charge',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
-            release(conn, lease, True)
-            return
-
         cp = conn.execute("SELECT * FROM checkpoints WHERE run_id=%s AND status='active' ORDER BY persona_id LIMIT 1", (lease['run_id'],)).fetchone()
         if cp:
             scene = scenes[cp['next_scene']]
@@ -203,19 +271,47 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                 elif existing_call['status'] == 'dispatched':
                     if mode == 'standard':
                         # Unresolved dispatched call after restart becomes visible uncertainty with NO reissue
-                        err_receipt = {'error': {'code': 'unresolved_dispatched_call', 'charge_state': 'uncertain'}}
+                        err_receipt = {
+                            'mode': 'standard',
+                            'model_id': provider.model_id,
+                            'error': {'code': 'unresolved_dispatched_call', 'error_class': 'WorkerCrash', 'charge_state': 'uncertain'}
+                        }
                         conn.execute("UPDATE provider_calls SET status='failed',receipt=%s WHERE run_id=%s AND unit=%s", (Jsonb(err_receipt), lease['run_id'], unit))
                         conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND persona_id=%s", (lease['run_id'], cp['persona_id']))
                         conn.execute("UPDATE runs SET error_code='uncertain_provider_charge',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                        set_operational_pause()
                         release(conn, lease, True)
                         return
             else:
+                # 1. Enforce call ceiling before admitting a NEW provider call
+                call_count = conn.execute("SELECT count(*) AS count FROM provider_calls WHERE run_id=%s", (lease['run_id'],)).fetchone()['count']
+                if call_count >= max_calls:
+                    conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND status='active'", (lease['run_id'],))
+                    conn.execute("UPDATE runs SET error_code='run_call_ceiling_exceeded',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                    release(conn, lease, True)
+                    return
+
+                # 2. Check if previous call had uncertain charge or operational pause before admitting a NEW provider call
+                uncertain_call = conn.execute(
+                    "SELECT 1 FROM provider_calls WHERE run_id=%s AND status='failed' AND (receipt->'error'->>'charge_state'='uncertain' OR receipt->'error'->>'code'='unresolved_dispatched_call') LIMIT 1",
+                    (lease['run_id'],)
+                ).fetchone()
+                if uncertain_call or (mode == 'standard' and is_operationally_paused()):
+                    conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND status='active'", (lease['run_id'],))
+                    conn.execute("UPDATE runs SET error_code='uncertain_provider_charge',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                    release(conn, lease, True)
+                    return
+
                 # Durable provider_calls marker committed under fence before send
                 conn.execute("INSERT INTO provider_calls(run_id,unit,status,audit) VALUES(%s,%s,'dispatched',%s)", (lease['run_id'], unit, Jsonb(projection)))
 
     if cp:
         try:
-            reaction, evidence, normalized, data, sha = provider.verdict(projection)
+            if mode == 'standard':
+                with standard_concurrency_gate():
+                    reaction, evidence, normalized, data, sha = provider.verdict(projection)
+            else:
+                reaction, evidence, normalized, data, sha = provider.verdict(projection)
             validate_reaction(reaction, set(provider.persona_ids), {s['scene_id']: (s['start_ms'], s['end_ms']) for s in video['features']['scenes']})
             require(reaction['persona_id'] == cp['persona_id'] and reaction['scene_id'] == scene['scene_id'], 'response identity mismatch')
             require(evidence['id'] == reaction['evidence_id'] and evidence['persona_id'] == cp['persona_id'] and evidence['scene_id'] == scene['scene_id'], 'missing evidence')
@@ -225,16 +321,10 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
             with connection() as conn:
                 fence(conn, lease)
                 conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND persona_id=%s", (lease['run_id'], cp['persona_id']))
-                is_uncertain = 'transport' in str(exc) or 'timeout' in str(exc) or 'http_error_5' in str(exc)
-                err_receipt = {
-                    'error': {
-                        'code': 'provider_response_rejected',
-                        'message': str(exc),
-                        'charge_state': 'uncertain' if is_uncertain else 'unconfirmed',
-                    }
-                }
+                err_receipt = sanitize_error_receipt(exc, mode, provider.model_id)
                 conn.execute("UPDATE provider_calls SET status='failed',receipt=%s WHERE run_id=%s AND unit=%s", (Jsonb(err_receipt), lease['run_id'], unit))
-                err_code = 'uncertain_provider_charge' if is_uncertain else 'provider_response_rejected'
+                err_code = 'uncertain_provider_charge' if err_receipt['error']['charge_state'] == 'uncertain' else err_receipt['error']['code']
+                if err_receipt['error']['charge_state'] == 'uncertain': set_operational_pause()
                 conn.execute("UPDATE runs SET error_code=%s,status='failed',stage='failed' WHERE id=%s", (err_code, lease['run_id']))
                 release(conn, lease, True)
             return
@@ -278,73 +368,111 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
         receipts = [r['receipt'] for r in conn.execute('SELECT receipt FROM provider_calls WHERE run_id=%s AND receipt IS NOT NULL ORDER BY unit', (lease['run_id'],)).fetchall()]
 
     if mode == 'standard':
-        note_context = build_note_context(manifest, video, checkpoints, rows)
-        if note_context and note_context.get('supported_triggers'):
-            with connection() as conn:
-                fence(conn, lease)
-                call_count = conn.execute("SELECT count(*) AS count FROM provider_calls WHERE run_id=%s", (lease['run_id'],)).fetchone()['count']
-                if call_count >= max_calls:
-                    conn.execute("UPDATE runs SET error_code='run_call_ceiling_exceeded',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+        reused_notes = False
+        with connection() as conn:
+            fence(conn, lease)
+            existing_notes_call = conn.execute("SELECT * FROM provider_calls WHERE run_id=%s AND unit='notes'", (lease['run_id'],)).fetchone()
+            if existing_notes_call:
+                if existing_notes_call['status'] == 'accepted':
+                    audit_data = existing_notes_call.get('audit') or {}
+                    normalized = audit_data.get('normalized')
+                    if not normalized:
+                        # Accepted notes row without durable output must fail visibly with no resend
+                        conn.execute("UPDATE runs SET error_code='missing_durable_notes_output',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                        release(conn, lease, True)
+                        return
+                    notes_receipt = existing_notes_call.get('receipt')
+                    if notes_receipt and notes_receipt not in receipts:
+                        receipts.append(notes_receipt)
+                    reused_notes = True
+                elif existing_notes_call['status'] == 'dispatched':
+                    err_receipt = {
+                        'mode': 'standard',
+                        'model_id': provider.model_id,
+                        'error': {'code': 'unresolved_dispatched_call', 'error_class': 'WorkerCrash', 'charge_state': 'uncertain'}
+                    }
+                    conn.execute("UPDATE provider_calls SET status='failed',receipt=%s WHERE run_id=%s AND unit='notes'", (Jsonb(err_receipt), lease['run_id']))
+                    conn.execute("UPDATE runs SET error_code='uncertain_provider_charge',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                    set_operational_pause()
                     release(conn, lease, True)
                     return
-                existing_notes_call = conn.execute("SELECT * FROM provider_calls WHERE run_id=%s AND unit='notes'", (lease['run_id'],)).fetchone()
-                if existing_notes_call:
-                    if existing_notes_call['status'] == 'dispatched':
-                        err_receipt = {'error': {'code': 'unresolved_dispatched_call', 'charge_state': 'uncertain'}}
-                        conn.execute("UPDATE provider_calls SET status='failed',receipt=%s WHERE run_id=%s AND unit='notes'", (Jsonb(err_receipt), lease['run_id']))
+                else:
+                    release(conn, lease, True)
+                    return
+
+        if not reused_notes:
+            note_context = build_note_context(manifest, video, checkpoints, rows)
+            if note_context and note_context.get('supported_triggers'):
+                with connection() as conn:
+                    fence(conn, lease)
+                    # 1. Ceiling check before admitting new notes call
+                    call_count = conn.execute("SELECT count(*) AS count FROM provider_calls WHERE run_id=%s", (lease['run_id'],)).fetchone()['count']
+                    if call_count >= max_calls:
+                        conn.execute("UPDATE runs SET error_code='run_call_ceiling_exceeded',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                        release(conn, lease, True)
+                        return
+                    # 2. Uncertainty / operational pause check before admitting new notes call
+                    uncertain_call = conn.execute(
+                        "SELECT 1 FROM provider_calls WHERE run_id=%s AND status='failed' AND (receipt->'error'->>'charge_state'='uncertain' OR receipt->'error'->>'code'='unresolved_dispatched_call') LIMIT 1",
+                        (lease['run_id'],)
+                    ).fetchone()
+                    if uncertain_call or (mode == 'standard' and is_operationally_paused()):
                         conn.execute("UPDATE runs SET error_code='uncertain_provider_charge',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
                         release(conn, lease, True)
                         return
-                else:
                     conn.execute("INSERT INTO provider_calls(run_id,unit,status,audit) VALUES(%s,'notes','dispatched',%s)", (lease['run_id'], Jsonb(note_context)))
 
-            try:
-                normalized, data, sha = provider.notes(note_context)
-            except Exception as exc:
+                try:
+                    with standard_concurrency_gate():
+                        normalized, data, sha = provider.notes(note_context)
+                except Exception as exc:
+                    with connection() as conn:
+                        fence(conn, lease)
+                        err_receipt = sanitize_error_receipt(exc, 'standard', provider.model_id)
+                        conn.execute("UPDATE provider_calls SET status='failed',receipt=%s WHERE run_id=%s AND unit='notes'", (Jsonb(err_receipt), lease['run_id']))
+                        err_code = 'uncertain_provider_charge' if err_receipt['error']['charge_state'] == 'uncertain' else err_receipt['error']['code']
+                        if err_receipt['error']['charge_state'] == 'uncertain':
+                            set_operational_pause()
+                        conn.execute("UPDATE runs SET error_code=%s,status='failed',stage='failed' WHERE id=%s", (err_code, lease['run_id']))
+                        release(conn, lease, True)
+                    return
+
+                key = reserve_object(video['id'], 'provider_files', 'json', lease)
                 with connection() as conn:
                     fence(conn, lease)
-                    is_uncertain = 'transport' in str(exc) or 'timeout' in str(exc) or 'http_error_5' in str(exc)
-                    err_receipt = {
-                        'error': {
-                            'code': 'provider_response_rejected',
-                            'message': str(exc),
-                            'charge_state': 'uncertain' if is_uncertain else 'unconfirmed',
-                        }
-                    }
-                    conn.execute("UPDATE provider_calls SET status='failed',receipt=%s WHERE run_id=%s AND unit='notes'", (Jsonb(err_receipt), lease['run_id']))
-                    err_code = 'uncertain_provider_charge' if is_uncertain else 'provider_response_rejected'
-                    conn.execute("UPDATE runs SET error_code=%s,status='failed',stage='failed' WHERE id=%s", (err_code, lease['run_id']))
-                    release(conn, lease, True)
-                return
-
-            with connection() as conn:
-                fence(conn, lease)
-                if normalized.get('new_provider_calls', 0) > 0:
-                    notes_receipt = {k: v for k, v in normalized.items() if k != 'output'}
-                    notes_receipt.update(
-                        request_id=normalized.get('request_id'),
-                        status=normalized.get('status'),
-                        cost_usd=normalized.get('cost_usd'),
-                        mode='standard',
-                        pricing_version=normalized.get('pricing_version', provider.pricing_version)
-                    )
-                    conn.execute(
-                        "UPDATE provider_calls SET status='accepted',receipt=%s WHERE run_id=%s AND unit='notes'",
-                        (Jsonb(notes_receipt), lease['run_id'])
-                    )
-                    receipts.append(notes_receipt)
-        else:
-            normalized, data, sha = provider.notes(note_context)
+                    put_reserved(conn, video['id'], key, data, 'application/json')
+                    if normalized.get('new_provider_calls', 0) > 0:
+                        notes_receipt = {k: v for k, v in normalized.items() if k != 'output'}
+                        notes_receipt.update(
+                            request_id=normalized.get('request_id'),
+                            status=normalized.get('status'),
+                            cost_usd=normalized.get('cost_usd'),
+                            mode='standard',
+                            pricing_version=normalized.get('pricing_version', provider.pricing_version)
+                        )
+                        conn.execute(
+                            "UPDATE provider_calls SET status='accepted',receipt=%s,audit=%s WHERE run_id=%s AND unit='notes'",
+                            (Jsonb(notes_receipt), Jsonb({'context': note_context, 'normalized': normalized, 'object_key': key}), lease['run_id'])
+                        )
+                        receipts.append(notes_receipt)
+            else:
+                normalized, data, sha = provider.notes(note_context)
+                key = reserve_object(video['id'], 'provider_files', 'json', lease)
+                with connection() as conn:
+                    fence(conn, lease)
+                    put_reserved(conn, video['id'], key, data, 'application/json')
     else:
         normalized, data, sha = provider.notes()
+        key = reserve_object(video['id'], 'provider_files', 'json', lease)
+        with connection() as conn:
+            fence(conn, lease)
+            put_reserved(conn, video['id'], key, data, 'application/json')
 
     report = build_report(run_row['manifest'], video, checkpoints, rows, provider, source_sha(), normalized, receipts)
-    key = reserve_object(video['id'], 'provider_files', 'json', lease)
     if before_publish:
         before_publish(lease)
     with connection() as conn:
         fence(conn, lease)
-        put_reserved(conn, video['id'], key, data, 'application/json')
         terminal_status = 'complete' if report['cast']['status'] in ('complete', 'complete_test_profile') else report['cast']['status']
         conn.execute('UPDATE runs SET report=%s,status=%s,stage=%s,completed_at=now() WHERE id=%s',
             (Jsonb(report), terminal_status, 'report', lease['run_id']))
