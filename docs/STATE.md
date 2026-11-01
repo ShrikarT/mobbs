@@ -1,6 +1,7 @@
 # Current state — 2026-10-31
 
 ## Current coordinator snapshot — 2026-11-01
+Continuation runtime recovery: the Docker Linux engine pipe was absent and the existing PostgreSQL container was Exited(0). Coordinator started the actual user-installed Docker Desktop hidden, verified `viralist-v02-pgdata` mount, then started only `viralist-v02-postgres`. `pg_isready` accepts and actual `viralist_v03_budget` SELECT returned1. No reset/recreate/migration or paid call. Initial standard-path Docker launch failed without side effect; actual path came from Get-Command docker. Antigravity acknowledged the outage and resumed serial checks after restoration (`msg_cb572e3238da`, `msg_44371dc4bc82`). Worker turn is positively live; preserve same task and await final candidate. 
 
 Stage B safe checkpoint is committed at `fff51f722d65e0b0a7bc869c1a89d69ec1002112`, clean author tree observed. Antigravity reports redesign suite 25/25 passing (8.618s, exit0) and baseline 29/30 (17.532s, exit1). Sole reported failure is `cancel_unspent` validation precedence: dispatched attempt with invalid reason raises BudgetError before expected BudgetStateError. Coordinator approved checking attempt state under the account lock before cancellation reason validation (`msg_88521bc3f470`), then exact focused/baseline evidence and final committed candidate for independent review. This is author checkpoint evidence only; no acceptance or integration.
 
