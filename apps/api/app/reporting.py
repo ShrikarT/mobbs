@@ -437,6 +437,16 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
         prompt_sha256=content_hash({'projection': 'current-frame-and-own-prior-v02'}),
         usage_ledger=receipts,
     )
+    total_cost = sum(
+        r.get('cost_usd', 0.0)
+        for r in receipts
+        if isinstance(r, dict) and r.get('cost_usd') is not None
+    )
+    if total_cost > 0 or manifest.get('provider_mode') == 'standard':
+        trust['total_cost_usd'] = round(total_cost, 8)
+        trust['live_calls'] = sum(1 for r in receipts if isinstance(r, dict) and r.get('mode') == 'standard')
+        if receipts and receipts[0].get('pricing_version'):
+            trust['pricing_version'] = receipts[0]['pricing_version']
 
     methodology = dict(
         range_kind='simulation_resampling_not_confidence',

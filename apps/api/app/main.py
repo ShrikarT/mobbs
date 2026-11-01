@@ -16,6 +16,7 @@ from .domain import (Denied, Conflict, LeaseLost, owned_video, owned_run, idem,
     request_deletion, reserve_object, put_reserved)
 from .media import probe, MediaError, MAX_BYTES
 from .providers import RecordedProvider, ProviderUnavailable, digest
+from .cast import get_persona_ids, get_cast_hash
 
 app = FastAPI(title='Viralist local evidence desk', docs_url=None, redoc_url=None)
 
@@ -135,17 +136,21 @@ def videos(request: Request):
 def analysis(video_id: str,request: Request):
     with connection() as conn:
         v = owned_video(conn,owner(request),video_id)
-        profiles = []
-        try:
-            RecordedProvider(v['sha256'], v['metadata']['duration_ms'], profile='test')
-            profiles.append('test')
-        except Exception:
-            pass
-        try:
-            RecordedProvider(v['sha256'], v['metadata']['duration_ms'], profile='flash')
-            profiles.append('flash')
-        except Exception:
-            pass
+        mode = settings().provider_mode
+        if mode == 'standard':
+            profiles = ['test', 'flash']
+        else:
+            profiles = []
+            try:
+                RecordedProvider(v['sha256'], v['metadata']['duration_ms'], profile='test')
+                profiles.append('test')
+            except Exception:
+                pass
+            try:
+                RecordedProvider(v['sha256'], v['metadata']['duration_ms'], profile='flash')
+                profiles.append('flash')
+            except Exception:
+                pass
         return dict(video_id=v['id'],metadata={k:v['metadata'][k] for k in ('duration_ms','width','height','audio_present','bytes','caveats')},features=v['features'],available_profiles=profiles)
 
 
@@ -203,36 +208,39 @@ def start_run(body: RunBody,request: Request):
         if previous: return previous
         if not video['metadata'].get('storage_ready'): return error('upload_not_ready',409)
 
+        cfg = settings()
+        provider_mode = cfg.provider_mode
+
         # Unsupported recorded flash must fail explicitly before enqueue
-        if body.profile == 'flash':
+        if provider_mode == 'recorded' and body.profile == 'flash':
             try:
                 RecordedProvider(video['sha256'], video['metadata']['duration_ms'], profile=body.profile)
             except ProviderUnavailable:
                 return error('recorded_evidence_unavailable_for_this_upload', 422)
 
         existing = conn.execute(
-            "SELECT id,status FROM runs WHERE video_id=%s AND manifest->>'profile'=%s ORDER BY created_at DESC LIMIT 1",
-            (body.video_id, body.profile)
+            "SELECT id,status FROM runs WHERE video_id=%s AND manifest->>'profile'=%s AND manifest->>'provider_mode'=%s ORDER BY created_at DESC LIMIT 1",
+            (body.video_id, body.profile, provider_mode)
         ).fetchone()
         if existing:
             result = dict(run_id=existing['id'],status=existing['status'])
             idem(conn,owner_id,'run',request_key,body_hash,result)
             return result
 
-        if body.profile == 'flash':
-            requested = 50
-            persona_ids = [f'p{i:03d}' for i in range(1, 51)]
-        else:
-            requested = 3
-            persona_ids = ['p001', 'p002', 'p003']
+        persona_ids = get_persona_ids(body.profile)
+        requested = len(persona_ids)
+        cast_hash = get_cast_hash(body.profile)
 
         manifest = dict(
             schema_version='run-manifest-1',
             profile=body.profile,
-            provider_mode='recorded',
+            provider_mode=provider_mode,
             requested=requested,
             persona_ids=persona_ids,
-            resample_seed=20261028
+            resample_seed=20261028,
+            model_id='muse-spark-1.3',
+            cast_hash=cast_hash,
+            prompt_version='spark13-standard-v1' if provider_mode == 'standard' else 'spark13-recorded-v1',
         )
 
         run_id = uid()
@@ -385,7 +393,8 @@ def health():
         rows = {r['version'] for r in conn.execute('SELECT version FROM schema_migrations').fetchall()}
         assert 1 in rows and 2 in rows and 3 in rows
     Storage().check()
-    return {'status': 'ok', 'database': 'postgresql', 'storage': 'private_s3', 'inference': 'recorded_only'}
+    mode = settings().provider_mode
+    return {'status': 'ok', 'database': 'postgresql', 'storage': 'private_s3', 'inference': 'standard' if mode == 'standard' else 'recorded_only'}
 
 
 dist = ROOT/'apps/web/dist'
