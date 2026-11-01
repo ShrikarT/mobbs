@@ -1,6 +1,7 @@
 # Current state — 2026-10-31
 
 ## Current coordinator snapshot — 2026-11-01
+Latest Stage B checkpoint msg_7b3d0a3ee1c0: same live senior Codex ctx_e0819319664e reports compile0 and26focused actual-PG regressions pass in20.074s,exit0, including all7previous defect families plus named-hash qualification/sticky overflow. Source remains UNCOMMITTED/in-progress in assigned tree; no accepted candidate. Coordinator recorded checkpoint/continued existing final81tests+process/cap/privacy scope in msg_0b0aa37070cf; delivery acknowledged. Next: same dispatch final committed candidate, verify clean SHA and exact evidence, then independent review. Do not duplicate or edit its tree. Read-only UI runtime [inventory](evidence/v03-ui-runtime-diagnostic-checkpoint.md) found objectstore exit137/OOMKilled=false and preserved volume; prior graceful-stop wording unsupported, cause still unproved. No shared runtime change or paid calls.
 
 Milestone V03 remains IN PROGRESS. Backend/UI integration is preserved; integrated UI journey remains infrastructure-BLOCKED at cffd9e8 ([evidence](evidence/v03-ui-integrated-review-blocked.md)), not rejected source. No guard/live-provider/whole-V03 acceptance or release. Provider cap30 cumulative, last tracked14.6975432 including reserve; no new paid calls.
 
