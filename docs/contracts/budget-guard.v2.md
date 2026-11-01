@@ -1,6 +1,6 @@
 # Budget guard redesign contract — v2 (proposed)
 
-Status: proposed for independent design review. This contract is a redesign after two unsuccessful submissions under the original B2G task. It does not accept candidate `48c0a8398086e94320f34fbe575834957d022cab`, authorize another routine patch, create a paid account, connect the guard to transport, or authorize provider calls. Preserve `budget-guard.v1.md` and all prior correction/review history.
+Status: independently accepted as a design contract at `a7d0354424276fb2106c3fd9dadb068053619e5e`; see [design review](../evidence/v03-budget-v2-design-review.md). This contract is a redesign after two unsuccessful submissions under the original B2G task. It does not accept candidate `48c0a8398086e94320f34fbe575834957d022cab`, make implementation READY, create a paid account, connect the guard to transport, or authorize provider calls. A real PostgreSQL fixture on an authorized, reachable database is still a READY gate. Preserve `budget-guard.v1.md` and all prior correction/review history.
 
 ## Why a redesign is required
 
@@ -29,6 +29,8 @@ The public guard is a façade over private storage transitions. No caller may pa
 ## Immutable attempt and replay identity
 
 Persist a canonical, bounded fingerprint covering account/ledger identity, complete video/run/analysis-job/generation/lease tuple, stage, unit, attempt ordinal, exact request and count hashes, model/pricing/context/count basis and server-derived quote. Compare the complete fingerprint for reserve/retry replay. A matching request hash alone is not replay identity.
+
+Use the existing JSONB fields without a migration: store the canonical reserve fingerprint as lowercase SHA-256 in `bound_basis.reservation_fingerprint_sha256`; store the canonical settlement fingerprint in `billing_receipt.settlement_fingerprint_sha256`. Persist the normalized bounded fields needed to reproduce both fingerprints. Canonical serialization is UTF-8 JSON with sorted keys, compact separators and non-finite values forbidden. Any fingerprint/schema mismatch is a conflict; do not trust only the digest if the immutable fields disagree.
 
 Settlement has a separate canonical fingerprint over the received receipt hash, normalized usage counts, model/version, status, finite calculated charge and validated billing identifiers. Exact replay of every immutable field is idempotent; any changed usage/evidence conflicts even if the calculated cost happens to be equal. A received receipt hash is immutable. Cancellation/rejection replays use the same exact-input rule.
 
@@ -65,6 +67,7 @@ Preserve the existing lock order: video → current job → account/stage → at
 - Attempt 1 is reservable only after attempt 0 is a recorded `rate_limit_429` rejection with matching request hash, model, stage and full immutable basis, a strict integer Retry-After in 1–3600 seconds, and the persisted delay has elapsed. The reserve path enforces this rule; `retry_allowed` metadata alone is not authorization. Attempt 2 is always denied.
 - Other known uncharged categories (validated 400/403/account denial) do not retry. Ambiguous failures become uncertain. A typed cancellation for a definitely unsent reserved attempt is a separate safe transition.
 - Reconciliation requires a nonempty typed set of specific unresolved attempts, exact request and durable receipt hashes, canonical validated usage and bounded allowlisted receipt metadata. It is idempotent only for exact identical inputs. It cannot erase a larger known charge, rewrite a receipt, or clear pause while any uncertain or stale dispatched/received debt remains.
+- `reconciliation_reason` is one of `provider_receipt_verified`, `provider_request_lookup_verified`, or `stale_attempt_receipt_recovered`. Each value describes a verification path only; it grants no authority without the exact already-recorded receipt, request identity and validated usage. Manual billing-side adjustment remains out of scope.
 - A manual billing-side resolution with no durable provider receipt requires a separate owner-authorized contract and is out of scope.
 
 ## Real fixture and acceptance gate
