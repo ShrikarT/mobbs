@@ -2,6 +2,16 @@
 
 ## Current execution: V03 in progress
 
+### Current checkpoint — 2026-11-01
+
+- Codex resumed Run `run_d3354faa0659`; Grok's completed work and task history are retained. No implementation worker is active.
+- V03-U1 correction 2 is REVIEW-ACCEPTED at `52a09687ab33f88ab0f968460e3adbfb2a2ec50c` and INTEGRATED at `d9d3ed5aea6bd85ceca356f02e4e3321bbb312ab`. The UI still needs an independently observed browser journey on that integration commit; the last attempt was infrastructure-blocked.
+- V03-B2G candidate `48c0a8398086e94320f34fbe575834957d022cab` remains WORKER-REPORTED. The independent exact-commit review returned REDESIGN after correction submission 2; [sanitized report](docs/evidence/v03-budget-correction-2-review.md). The only allowed PostgreSQL health check timed out, so tests and persistence/concurrency criteria are BLOCKED. Source review found remaining helper privacy/type validation, override, overflow, replay, reconciliation and retry defects. Do not dispatch another routine patch or rename the correction; redesign/reassess the guard and freeze a real fixture first.
+- SQL004 at `c58fd52f2153b75e84a8a7ca819b3ecffe46b2b3` retains scoped acceptance for additive DDL only. It does not accept the whole guard. Fresh Standard calls remain gated on an independently accepted guard, reviewed/integrated transport and a revalidated cumulative ledger/stage.
+- Provider ceiling remains $30 cumulative; last recorded estimate plus uncertainty reserve is $14.69754320. No fresh paid call, push, deployment or publication occurred in this continuation. V04/V05 and release remain out of scope.
+
+### Historical checkpoint details — superseded by the current checkpoint above
+
 **2026-10-31 Grok handoff:** coordinator `66129ab` was behind the workers. U1 correction `33596a6` and guard correction `58c10aa` are WORKER-REPORTED and both REVISE. Correction 2 is the last submission for each. See `docs/STATE.md` and `docs/evidence/v03-ui-correction-1-review.md`, `v03-ui-r2-assignment.md`, `v03-budget-correction-1-review.md`, `v03-budget-r2-assignment.md`. No integration and no paid call.
 
 **Runtime available:** [restoration evidence](docs/evidence/v03-runtime-restored.md). PostgreSQL55432 and RustFS59000 passed actual connectivity checks on 2026-10-30. On 2026-10-31 those ports and the Docker engine pipe were closed again. Historical outage reports below remain evidence of previous blocked runs. Guard review at frozen8edc79b has completed REVISE; SQL004 DDL accepted separately. The full report below is history after the 2026-10-31 paragraph.
