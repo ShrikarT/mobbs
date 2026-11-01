@@ -2,6 +2,8 @@
 
 ## Current coordinator snapshot — 2026-11-01
 
+The remaining recovery notes below preserve earlier snapshots and evidence; when a status conflicts with this dated snapshot, this snapshot is authoritative.
+
 - Coordinator resumed Run `run_d3354faa0659` as terminal `term_53bba174-d4c8-4ac4-a307-f741d7356e9f`; Grok's settled work and task history are preserved. No implementation writer is active.
 - V03-U1 correction 2 is REVIEW-ACCEPTED at `52a09687ab33f88ab0f968460e3adbfb2a2ec50c` and INTEGRATED at `d9d3ed5aea6bd85ceca356f02e4e3321bbb312ab`. This does not establish a new browser journey: the last recorded browser attempt was blocked by local services being down. Keep JOURNEY-VERIFIED pending until independently exercised on the integrated revision.
 - V03-B2G correction 2 is WORKER-REPORTED at `48c0a8398086e94320f34fbe575834957d022cab`, branch `codex/v03-budget`; Antigravity reported 30 PostgreSQL tests passing. Correction 1 at `58c10aa1d9969afbd84eeb541a1ce87741996c3e` received REVISE, so this is submission 2 of 2. Independent review is active: Task `task_a69b5784d6b1`, Dispatch `ctx_f3ebbdb795c3`, reviewer Codex, separate worktree `C:/Users/Shrikar/orca/workspaces/viralist/viralist-v03-budget-review-r2`, exact candidate HEAD. Startup receipt approved; reviewer has permission only for source review, one bounded health check and tests on existing `viralist_v03_budget` at port 55432, and a sanitized private report. No source edits or provider calls.
@@ -9,7 +11,7 @@
 - Provider cap remains $30 cumulative. The last recorded tracked estimate plus uncertainty reserve is $14.69754320; no fresh paid call, push, deployment, or publication has occurred in this continuation. Fresh Standard work remains gated on independently accepted guard, reviewed/integrated composed transport and revalidated ledger/stage limits.
 - Next: finish the exact-commit budget review. If the second correction submission is unsuccessful, stop that task for redesign. If accepted, integrate only the accepted guard and verify the combined commit; separately resume the integrated UI browser journey and continue the other V03 acceptance gates. V04/V05, deployment and release remain excluded.
 
-## Temporary coordination
+## Historical temporary coordination — 2026-10-31
 
 Grok is the acting Engineering Lead and Orca coordinator from coordinator HEAD `66129ab3874de21486a48ff7028487fea5ddde86`. Codex is usage-exhausted and must not be dispatched. This is a bounded handoff, not a change to shared policy: Antigravity remains the implementation worker, and Codex resumes coordination when the owner says it is available. No paid provider call, push, deployment, or publication in this handoff.
 
