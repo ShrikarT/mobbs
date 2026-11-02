@@ -1,5 +1,7 @@
 # Viralist
 
+V03 is in progress: the real Standard-provider adapter connection has been verified, while the current app correction awaits independent acceptance. See [current state](docs/STATE.md) for exact commits and journey evidence. Local V03 credit use is authorized under the [current owner decision](docs/decisions-v03-product-priority.md); custom accounting is deferred.
+
 Local V02 development (Windows, Python 3.10.2 / Node 26.7.0). Run the worker and API in separate terminals using the same private configuration:
 
 ```powershell
@@ -66,4 +68,4 @@ npm run build
 npx playwright test --config playwright.v03.config.ts
 ```
 
-The current paid runner is `experiments/meta_pipeline.py`; it requires explicit stage, private output paths and a cumulative prior-spend ledger. Its scale stage requires a passing inspected small-stage gate at the same revision. Credentials use private stdin or `MODEL_API_KEY`; media, raw responses and keys stay outside Git. Do not run a paid stage simply to inspect evidence.
+`experiments/meta_pipeline.py` is a historical experiment runner, not the V03 app entrypoint. The app uses the API and durable worker commands above with the same private runtime; Standard mode selects `provider_mode: "standard"` and a server-only `MODEL_API_KEY` environment variable. Keep the key, media and raw responses outside Git and the browser. Recorded mode remains the default. Follow current STATE and owner authority for the reviewed checkout and real-provider journey; historical experiment-ledger prerequisites do not apply to current V03 execution.
