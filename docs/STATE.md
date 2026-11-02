@@ -12,18 +12,20 @@ GitHub Issues is the selected destination, but no canonical issue is published; 
 
 ## Active work and next action
 
-Normal status ACK msg_63ed6f73a6b8 explicitly accepted item4 replay/error/legacy1/strict-type fixes; delivery08774e608d69 processed/acked. Same Antigravity owner is authorized to proceed with those bounded fixes. Original e69b54a9b9ad admission and cross-process proof items remain required; checkpoint test exits are not acceptance of their current coverage. No new final submission/correction count, independent review or paid calls.
+V03-P1 bounded independent-persona execution is **INTEGRATED at 799a8b3881456506cf24942659b51f6ebf937d91**. Candidate **4ae71179a71d4b1f675e406a896b7dce33879c53** from Antigravity (`task_f42dd28fa84c`, `ctx_25ac981d707b`, worktree `codex-v03-bounded-pool`) was independently reviewed and accepted against clean baseline `ecdcdde59fafda223af4374f15704fe953158e26`:
+- 11 bounded pool tests passed (308.903s, exit 0, CP1 proof 67.922s, 2.44x speedup, 8 aggregate locks).
+- 18 Standard app regression tests passed (142.762s, exit 0).
+- Frontend assets built cleanly (exit 0, 384ms).
+Candidate merged cleanly into coordinator branch `codex/orchestration-readiness` via merge commit `799a8b3881456506cf24942659b51f6ebf937d91`. Combined checks re-verified: all 11 bounded pool tests passed (329.814s, exit 0, 2.64x speedup, 4 concurrent workers in real PG proof, max 8 aggregate locks); frontend built cleanly (exit 0, 785ms). Supervised worker dispatch `ctx_25ac981d707b` is completed and settled.
 
-Latest coordinator diagnosis: same clean cc332c7 regression driver repeatedly requeued recorded job c94876f054b043d3816d6316b888d933/run e3fd2a714cef4f7f8da485207e0498c3 (generation27->30 in1s, one dispatched row, zero reactions). [Checkpoint item4](evidence/v03-bounded-pool-checkpoint.md) identifies duplicate insertion of an existing recorded marker plus swallowed unit_error, and legacy1 stepping compatibility. Addendum msg_20c726cc8bba directs bounded fixes before more broad reruns, same task/owner, no data reset/paid calls. Worker has read original batch2d1ab5a; normal status ACK/fix evidence remains pending. This is a real regression diagnosis, not full independent acceptance or a new correction round.
-
-Worker conversation compaction was observed; full frozen contract + current same-task identities/known dirty scope were resent in msg_774f04ea8d29. The clean WIP checkpoint and same-task owner were confirmed in msg_56702080a7d1; no duplicate worker/reset. Pre-submission interface clarification: retain process_once(provider_factory=None,before_publish=None); use sealed/historical manifest fixtures for concurrency tests, not a production concurrency_override bypass. This is scope/debug guidance, not a failed review correction. Native attention prompts reached the existing terminal without child/process stops. WIP checkpoint cc332c7704c0c0e46e188db5d815a7e6b6ed21d9 is preserved; [technical checkpoint batch](evidence/v03-bounded-pool-checkpoint.md) msg_e69b54a9b9ad now awaits acknowledgment before original task edits/checks resume.
+**Next:** Execute real journey verification for the integrated bounded pool application on `799a8b3881456506cf24942659b51f6ebf937d91` using the prepared Flash 50 journey, recording the updated end-to-end latency to verify resolution of the A01 timing failure.
 
 | Owner/state | Exact identity and scope |
 |---|---|
-| Coordinator | `C:/Users/Shrikar/viralist`, branch `codex/orchestration-readiness`; product source matches accepted c714c2c. Before this handoff edit HEAD4394bf5, documentation-only changes since tested6ebafa5. Verify actual HEAD/status before writes. |
-| Antigravity — IN PROGRESS | V03-P1, Task `task_f42dd28fa84c`, Dispatch `ctx_25ac981d707b`, terminal `term_94ec81bb-df1d-4a9e-91c6-144de54507c1`, Run `run_d3354faa0659`. |
-| Sole implementation worktree | `C:/Users/Shrikar/orca/workspaces/viralist/codex-v03-bounded-pool`, branch `codex/v03-bounded-pool`, committed base **ecdcdde59fafda223af4374f15704fe953158e26**. WIP checkpoint **cc332c7704c0c0e46e188db5d815a7e6b6ed21d9** observed clean; no final submitted candidate or acceptance yet. |
-| Review queue | Empty. Independent frozen-commit review required after submission; no second implementation writer. |
+| Coordinator | `C:/Users/Shrikar/viralist`, branch `codex/orchestration-readiness`; integrated commit **799a8b3881456506cf24942659b51f6ebf937d91**. |
+| Antigravity — SETTLED | V03-P1, Task `task_f42dd28fa84c`, Dispatch `ctx_25ac981d707b`, terminal `term_94ec81bb-df1d-4a9e-91c6-144de54507c1`, Run `run_d3354faa0659`. Status: `completed` / `settled`. |
+| Implementation worktree | `C:/Users/Shrikar/orca/workspaces/viralist/codex-v03-bounded-pool`, branch `codex/v03-bounded-pool`, candidate commit **4ae71179a71d4b1f675e406a896b7dce33879c53** independently REVIEW-ACCEPTED. |
+| Review queue | Empty. Bounded pool candidate 4ae7117 independently reviewed and accepted (11 bounded pool tests, 18 standard app tests, frontend build passing exit 0). |
 
 [Full V03-P1 assignment](evidence/v03-bounded-pool-assignment.md) is frozen at89d9974 and was delivered in the actual dispatch. Startup receipt msg_6035f6a7d563 verified; reply msg_2a29aab0c121 approved implementation, delivery848b9026b97d acknowledged. Worker mislabeled its gitdir as repo root; coordinator verified the actual assigned top-level and corrected it. Excluded manifests means dependency files, not the authorized run-manifest field.
 
@@ -38,7 +40,7 @@ Frozen pool contract at ecdcdde (`docs/contracts/live-standard.v1.md`, bounded-c
 - [Real Flash50 journey](evidence/v03-real-flash50-journey.md) on6ebafa5: actual Standard model,50/50 complete,195 real calls, estimated0.43857825USD (not invoice),88% simulated completion. Streaming, report, decoded playback, refresh/API restart, foreign401/404 and320/375 layouts verified. Zero supported notes because no scene crossed the existing trigger; honest empty state. UI deletion followed by201 actual HEAD404s, empty bucket, content tables0 and stripped tombstone. No upstream-backup erasure claim.
 - **A01 timing FAIL:** report637.669s from completed upload; final verdict exceeds90s. First visible reaction10.289s is not the defined first useful finding. One sample is not p95. V03 still needs bounded-pool performance, positive live-provider supported-note/evidence coverage,60s maximum input, applicable rehearsals and >=20 valid full-path samples before claiming p95. Preserve failed observations; do not relabel/replay them as fast or live success.
 - [Native zoom/motion/text check](evidence/v03-accessibility-zoom-motion.md) at26fc644 (same accepted product source): actual recorded3 path, native200% zoom,631px viewport/document, keyboard evidence/deletion, reduced motion,164 direct-text elements0contrast failures. No full WCAG/cross-browser/assistive-technology claim. Changed integration needs affected re-verification.
-- **RELEASED: not authorized/not performed.** New pool code is not REVIEW-ACCEPTED/INTEGRATED/JOURNEY-VERIFIED.
+- **RELEASED: not authorized/not performed.** New pool code is REVIEW-ACCEPTED (4ae7117) and INTEGRATED (799a8b3); JOURNEY-VERIFIED is next.
 
 ## Runtime and recovery
 
