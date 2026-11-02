@@ -4,9 +4,12 @@
 
 ### Current checkpoint — 2026-11-02
 
-**V03-P1 is INTEGRATED at 799a8b3881456506cf24942659b51f6ebf937d91.** Candidate commit **4ae71179a71d4b1f675e406a896b7dce33879c53** from Antigravity (task task_f42dd28fa84c, dispatch ctx_25ac981d707b, worktree codex-v03-bounded-pool) was independently verified and REVIEW-ACCEPTED (11 bounded pool tests, 18 standard app regressions, frontend build passing exit 0). Merged into codex/orchestration-readiness with combined checks re-verified: 11 tests passed in 329.814s demonstrating 2.64x speedup (10.625s vs 28.062s serial) and aggregate locks strictly bounded at 8 across sessions. Supervised worker dispatch is completed and settled.
-
-**Next product task:** Execute real journey verification for the integrated bounded pool application on 799a8b3881456506cf24942659b51f6ebf937d91 using the prepared Flash 50 journey, recording the updated end-to-end latency to verify resolution of the A01 timing failure.
+**V03-P1 is JOURNEY-VERIFIED on d38ad2826816a294fb0070261505b41de2e6afc5 (integration 799a8b3881456506cf24942659b51f6ebf937d91).** Candidate commit **4ae71179a71d4b1f675e406a896b7dce33879c53** from Antigravity was independently reviewed, accepted, merged, and journey-verified:
+- Flash 50 live journey on Video B portrait executed with 196 real provider calls costing $0.45438985 USD (within $1.50 cap).
+- Wall-clock report delivery reduced from 637.669s to 103.031s from upload completion (6.19x speedup), resolving the A01 timing failure (<300s target).
+- All 50 fictional policy instances completed (44 continued, 6 stopped).
+- Decoded video playback, responsive mobile layouts (375/320), reload persistence, and complete deletion (202 S3 keys 404, 0 DB rows remaining) independently verified.
+See [journey evidence](docs/evidence/v03-bounded-pool-journey.md). Supervised worker dispatch is completed and settled.
 
 **Current:** correction2 c714c2c is independently REVIEW-ACCEPTED and merged at ae643ffe96b4d0e16ae57fde41a8a629b969b2bb. [Report](docs/evidence/v03-standard-app-r2-independent-review.md). Reviewer settled/released; no active writers/review queue. Combined product source matches accepted candidate. Next concrete task is the actual Standard-provider portrait50 upload → streamed simulation → report → evidence/playback → refresh/recovery → deletion on the integrated local app, with measured timing/usage. Controlled46 tests/12 fault checks/both mode browsers passed; real50 journey and performance gates remain pending. No cap/dashboard gate or custom accounting work.
 
