@@ -4,6 +4,8 @@
 
 ### Current checkpoint — 2026-11-02
 
+Review infrastructure update: Codex reviewer explicitly hit usage limit after46passing tests; its dispatch was abandoned/fenced with artifacts retained and no code decision. SAME review task_26ddf5d5a867 resumes with fresh independent Antigravity ctx_2c29ac03ada8 on clean c714c2c; [continuation authority](docs/evidence/v03-standard-app-r2-review-assignment.md). Remaining diff/fault/browser checks and final decision still required. No repeated passed suites without cause, no product correction-count change, no active implementation writer.
+
 **Owner authority update:** monetary cap and dashboard/balance gate REMOVED; use existing provider credits efficiently for real V03 execution. [Current decision](docs/decisions-v03-product-priority.md) supersedes every old30USD/headroom prerequisite below. Retain bounded calls, concurrency and no blind retry/usage truthfulness. Custom accounting stays DEFERRED. Active reviewer informed via msg_a59d7918ebc0; financial-pause/cap enforcement is not a blocking criterion. Complete actual product verification after genuine privacy/recovery/concurrency issues, without another budget task.
 
 Real connection checkpoint: [single actual Standard adapter request](docs/evidence/v03-real-provider-smoke.md) succeeded at frozen5f5fe3a,6.297s/955tokens/application estimate0.00279575USD; one attempt, synthetic frame and real storage/provider, cleanup HEAD404. Component-only evidence: full app/50-instance journey and candidate acceptance remain pending. Correction2 task_e952bf64a6cc/ctx_f64ce39b3cb2 receipt verified and first gate/deletion checkpoint approved; Antigravity is the sole writer.
