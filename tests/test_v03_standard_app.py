@@ -1262,3 +1262,106 @@ os._exit(0)
             self.assertEqual(prov['model_ids'], ['muse-spark-1.3'])
             self.assertTrue(any('Fifty fictional candidate policies' in lim for lim in prov['limitations']))
             self.assertTrue(any('not calibrated against human viewers' in lim for lim in prov['limitations']))
+
+    def test_post_wait_deletion_yields_zero_second_http(self):
+        """Parent-held first HTTP + real PG waiter + second distinct child -> delete second via owner API -> release first yields ZERO second HTTP."""
+        clear_operational_pause()
+        import tempfile
+        import subprocess
+        import time
+        import sys
+
+        std_settings = Settings(
+            database_url=settings().database_url,
+            s3_endpoint=settings().s3_endpoint,
+            s3_access_key=settings().s3_access_key,
+            s3_secret_key=settings().s3_secret_key,
+            s3_bucket=settings().s3_bucket,
+            provider_evidence_root=settings().provider_evidence_root,
+            origin='http://127.0.0.1:58000',
+            provider_mode='standard'
+        )
+        with patch('apps.api.app.main.settings', return_value=std_settings):
+            up1 = self.client.post(
+                '/videos',
+                headers={**self.headers, 'Content-Type': 'video/mp4', 'Idempotency-Key': f'up_wd1_{uid()[:8]}'},
+                content=get_video_a_bytes()
+            )
+            vid1 = up1.json()['video_id']
+
+            ev_root = Path(settings().provider_evidence_root).resolve()
+            s1_media = (ev_root.parent / 'stage1-bounded' / 'media.json')
+            data_b = json.loads(s1_media.read_text())
+            video_b_bytes = Path(data_b['b']['path']).read_bytes()
+
+            up2 = self.client.post(
+                '/videos',
+                headers={**self.headers, 'Content-Type': 'video/mp4', 'Idempotency-Key': f'up_wd2_{uid()[:8]}'},
+                content=video_b_bytes
+            )
+            vid2 = up2.json()['video_id']
+            self.assertNotEqual(vid1, vid2)
+
+            with connection() as conn:
+                conn.execute("DELETE FROM runs WHERE video_id IN (%s, %s)", (vid1, vid2))
+
+            r1 = self.client.post('/runs', headers={**self.headers, 'Content-Type': 'application/json', 'Idempotency-Key': f'rc_wd1_{uid()[:8]}'}, json={'video_id': vid1, 'profile': 'test'}).json()['run_id']
+            r2 = self.client.post('/runs', headers={**self.headers, 'Content-Type': 'application/json', 'Idempotency-Key': f'rc_wd2_{uid()[:8]}'}, json={'video_id': vid2, 'profile': 'test'}).json()['run_id']
+            self.assertNotEqual(r1, r2)
+
+        with tempfile.TemporaryDirectory() as td:
+            d = Path(td)
+            helper = str(Path(__file__).resolve().parent / 'v03_standard_r2_worker.py')
+            env = os.environ.copy()
+            env['VIRALIST_RUNTIME'] = str(Path(os.environ.get('VIRALIST_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-standard-app/runtime.json')).resolve())
+            env['VIRALIST_PROVIDER_MODE'] = 'standard'
+            env['MODEL_API_KEY'] = 'DUMMY_KEY_LOCAL'
+            env['PYTHONDONTWRITEBYTECODE'] = '1'
+
+            one = subprocess.Popen([sys.executable, helper, 'once', r1, 'hold', str(d)], env=env)
+            two = None
+            try:
+                deadline = time.monotonic() + 20
+                while not (d / f"{r1}.entered").exists():
+                    self.assertIsNone(one.poll(), 'Child 1 exited unexpectedly before entering HTTP')
+                    self.assertLess(time.monotonic(), deadline, 'Child 1 timed out before entering HTTP')
+                    time.sleep(0.05)
+
+                two = subprocess.Popen([sys.executable, helper, 'once', r2, 'normal', str(d)], env=env)
+
+                waiting = False
+                deadline = time.monotonic() + 20
+                while time.monotonic() < deadline:
+                    with connection() as db:
+                        waiting = bool(db.execute(
+                            "SELECT 1 FROM pg_locks WHERE locktype='advisory' AND objid=58004001 AND NOT granted"
+                        ).fetchone())
+                    if waiting:
+                        break
+                    self.assertIsNone(two.poll(), 'Child 2 exited before reaching gate')
+                    time.sleep(0.05)
+                self.assertTrue(waiting, 'Child 2 must be observed waiting on pg_advisory_lock 58004001')
+                self.assertFalse((d / f"{r2}.entered").exists(), 'Child 2 must not enter HTTP while child 1 holds gate')
+
+                del_res = self.client.delete(f'/videos/{vid2}', headers={**self.headers, 'Idempotency-Key': f'del_{uid()[:8]}'})
+                self.assertEqual(del_res.status_code, 202)
+
+                (d / 'release').write_text('1')
+                one.wait(timeout=20)
+                two.wait(timeout=20)
+                self.assertEqual(one.returncode, 0, f'Child 1 exited with code {one.returncode}')
+                self.assertEqual(two.returncode, 0, f'Child 2 exited with code {two.returncode}')
+
+                self.assertFalse((d / f"{r2}.entered").exists(), 'Child 2 must not enter HTTP after deletion')
+                self.assertFalse((d / f"{r2}.http").exists(), 'Child 2 must have zero HTTP dispatches')
+            finally:
+                (d / 'release').write_text('1')
+                for ch in (one, two):
+                    if ch is not None and ch.poll() is None:
+                        try:
+                            ch.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            ch.terminate()
+                            ch.wait(timeout=5)
+        with patch('apps.api.app.main.settings', return_value=std_settings):
+            self.client.delete(f'/videos/{vid1}', headers={**self.headers, 'Idempotency-Key': f'del1_{uid()[:8]}'})

@@ -309,6 +309,8 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
         try:
             if mode == 'standard':
                 with standard_concurrency_gate():
+                    with connection() as gate_conn:
+                        video = fence(gate_conn, lease)
                     reaction, evidence, normalized, data, sha = provider.verdict(projection)
             else:
                 reaction, evidence, normalized, data, sha = provider.verdict(projection)
@@ -317,6 +319,8 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
             require(evidence['id'] == reaction['evidence_id'] and evidence['persona_id'] == cp['persona_id'] and evidence['scene_id'] == scene['scene_id'], 'missing evidence')
             require((evidence['start_ms'], evidence['end_ms']) == (scene['start_ms'], scene['end_ms']), 'evidence time mismatch')
             require(isinstance(evidence['quote'], str) and evidence['quote'].strip(), 'missing reason')
+        except LeaseLost:
+            raise
         except (ValueError, KeyError, TypeError, StopIteration) as exc:
             with connection() as conn:
                 fence(conn, lease)
@@ -424,7 +428,11 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
 
                 try:
                     with standard_concurrency_gate():
+                        with connection() as gate_conn:
+                            video = fence(gate_conn, lease)
                         normalized, data, sha = provider.notes(note_context)
+                except LeaseLost:
+                    raise
                 except Exception as exc:
                     with connection() as conn:
                         fence(conn, lease)
