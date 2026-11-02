@@ -12,6 +12,8 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from contracts.normalized import (
     cast_status,
     normalize_envelope,
@@ -159,17 +161,34 @@ def is_operationally_paused():
 
 
 STANDARD_CONCURRENCY_GATE_KEY = 58004001
+STANDARD_CONCURRENCY_SLOT_KEYS = [58004001 + i for i in range(8)]
 
 
 @contextmanager
-def standard_concurrency_gate():
+def standard_concurrency_gate(concurrency=1, halt_event=None):
+    limit = max(1, min(int(concurrency), 8))
     with psycopg.connect(settings().database_url, autocommit=True) as gate_conn:
-        gate_conn.execute("SELECT pg_advisory_lock(%s)", (STANDARD_CONCURRENCY_GATE_KEY,))
+        if limit == 1:
+            gate_conn.execute("SELECT pg_advisory_lock(%s)", (STANDARD_CONCURRENCY_GATE_KEY,))
+            acquired_key = STANDARD_CONCURRENCY_GATE_KEY
+        else:
+            slot_keys = [STANDARD_CONCURRENCY_GATE_KEY + i for i in range(limit)]
+            acquired_key = None
+            while acquired_key is None:
+                if halt_event is not None and halt_event.is_set():
+                    raise LeaseLost('halted')
+                for key in slot_keys:
+                    res = gate_conn.execute("SELECT pg_try_advisory_lock(%s)", (key,)).fetchone()[0]
+                    if res:
+                        acquired_key = key
+                        break
+                if acquired_key is None:
+                    time.sleep(0.005)
         try:
             yield
         finally:
             try:
-                gate_conn.execute("SELECT pg_advisory_unlock(%s)", (STANDARD_CONCURRENCY_GATE_KEY,))
+                gate_conn.execute("SELECT pg_advisory_unlock(%s)", (acquired_key,))
             except Exception:
                 pass
 
@@ -241,6 +260,10 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
     manifest = run_row['manifest'] if (run_row and run_row.get('manifest')) else {}
     profile = manifest.get('profile', 'test')
     mode = manifest.get('provider_mode', 'recorded')
+    raw_concurrency = manifest.get('provider_concurrency')
+    concurrency = max(1, min(int(raw_concurrency) if raw_concurrency is not None else 1, 8))
+    if mode == 'recorded':
+        concurrency = 1
 
     if provider_factory is None:
         provider_factory = StandardProvider if mode == 'standard' else RecordedProvider
@@ -255,87 +278,132 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
         requested = manifest.get('requested', len(provider.persona_ids))
         max_calls = min(40 if profile == 'test' else 651, requested * scenes_count + 1)
 
-        cp = conn.execute("SELECT * FROM checkpoints WHERE run_id=%s AND status='active' ORDER BY persona_id LIMIT 1", (lease['run_id'],)).fetchone()
-        if cp:
-            scene = scenes[cp['next_scene']]
-            projection = project(scene, cp)
-            validate_projection(projection, scene, cp)
-            unit = f"{cp['persona_id']}:{scene['scene_id']}"
+        # 1. Unresolved dispatched unit check from a prior crash
+        unresolved = conn.execute("SELECT * FROM provider_calls WHERE run_id=%s AND status='dispatched' LIMIT 1", (lease['run_id'],)).fetchone()
+        if unresolved:
+            if mode == 'standard':
+                err_receipt = {
+                    'mode': 'standard',
+                    'model_id': getattr(provider, 'model_id', 'muse-spark-1.3'),
+                    'error': {'code': 'unresolved_dispatched_call', 'error_class': 'WorkerCrash', 'charge_state': 'uncertain'}
+                }
+                conn.execute("UPDATE provider_calls SET status='failed',receipt=%s WHERE run_id=%s AND unit=%s", (Jsonb(err_receipt), lease['run_id'], unresolved['unit']))
+                pid = unresolved['unit'].split(':')[0]
+                conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND persona_id=%s", (lease['run_id'], pid))
+                conn.execute("UPDATE runs SET error_code='uncertain_provider_charge',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                set_operational_pause()
+                release(conn, lease, True)
+                return
 
+    # 2. Bounded pool execution for active checkpoints
+    halt_event = threading.Event()
+    stop_heartbeat = threading.Event()
+    in_flight = set()
+    in_flight_lock = threading.Lock()
+    units_completed = [0]
+    unit_error = [None]
+
+    def heartbeat_worker():
+        while not stop_heartbeat.wait(4.0):
+            if halt_event.is_set():
+                break
+            try:
+                with connection() as hb_conn:
+                    res = hb_conn.execute(
+                        "UPDATE jobs SET lease_until=now()+%s*interval '1 second' WHERE id=%s AND generation=%s AND status='leased' RETURNING id",
+                        (settings().lease_seconds, lease['id'], lease['generation'])
+                    ).fetchone()
+                    if not res:
+                        halt_event.set()
+                        break
+            except Exception:
+                halt_event.set()
+                break
+
+    hb_thread = threading.Thread(target=heartbeat_worker, daemon=True)
+    hb_thread.start()
+
+    def execute_persona_scene(cp, scene):
+        unit = f"{cp['persona_id']}:{scene['scene_id']}"
+        projection = project(scene, cp)
+        validate_projection(projection, scene, cp)
+
+        with connection() as conn:
+            fence(conn, lease)
             existing_call = conn.execute("SELECT * FROM provider_calls WHERE run_id=%s AND unit=%s", (lease['run_id'], unit)).fetchone()
             if existing_call:
                 if existing_call['status'] == 'accepted':
-                    # Durable received payload can publish once without another generation
                     rx_row = conn.execute("SELECT * FROM reactions WHERE run_id=%s AND persona_id=%s AND scene_id=%s", (lease['run_id'], cp['persona_id'], scene['scene_id'])).fetchone()
                     if rx_row:
                         status = 'stopped' if not rx_row['reaction']['still_watching'] else ('complete' if scene['scene_id'] == len(scenes) - 1 else 'active')
                         conn.execute('UPDATE checkpoints SET next_scene=next_scene+1,status=%s,impression=%s WHERE run_id=%s AND persona_id=%s', (status, rx_row['reaction']['impression_update'], lease['run_id'], cp['persona_id']))
-                        release(conn, lease)
-                        return
+                        units_completed[0] += 1
+                        return True
                 elif existing_call['status'] == 'dispatched':
                     if mode == 'standard':
-                        # Unresolved dispatched call after restart becomes visible uncertainty with NO reissue
                         err_receipt = {
                             'mode': 'standard',
-                            'model_id': provider.model_id,
+                            'model_id': getattr(provider, 'model_id', 'muse-spark-1.3'),
                             'error': {'code': 'unresolved_dispatched_call', 'error_class': 'WorkerCrash', 'charge_state': 'uncertain'}
                         }
                         conn.execute("UPDATE provider_calls SET status='failed',receipt=%s WHERE run_id=%s AND unit=%s", (Jsonb(err_receipt), lease['run_id'], unit))
                         conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND persona_id=%s", (lease['run_id'], cp['persona_id']))
                         conn.execute("UPDATE runs SET error_code='uncertain_provider_charge',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
                         set_operational_pause()
-                        release(conn, lease, True)
-                        return
-            else:
-                # 1. Enforce call ceiling before admitting a NEW provider call
-                call_count = conn.execute("SELECT count(*) AS count FROM provider_calls WHERE run_id=%s", (lease['run_id'],)).fetchone()['count']
-                if call_count >= max_calls:
-                    conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND status='active'", (lease['run_id'],))
-                    conn.execute("UPDATE runs SET error_code='run_call_ceiling_exceeded',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
-                    release(conn, lease, True)
-                    return
+                        halt_event.set()
+                        return False
 
-                # 2. Check if previous call had uncertain charge or operational pause before admitting a NEW provider call
-                uncertain_call = conn.execute(
-                    "SELECT 1 FROM provider_calls WHERE run_id=%s AND status='failed' AND (receipt->'error'->>'charge_state'='uncertain' OR receipt->'error'->>'code'='unresolved_dispatched_call') LIMIT 1",
-                    (lease['run_id'],)
-                ).fetchone()
-                if uncertain_call or (mode == 'standard' and is_operationally_paused()):
-                    conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND status='active'", (lease['run_id'],))
-                    conn.execute("UPDATE runs SET error_code='uncertain_provider_charge',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
-                    release(conn, lease, True)
-                    return
+            call_count = conn.execute("SELECT count(*) AS count FROM provider_calls WHERE run_id=%s", (lease['run_id'],)).fetchone()['count']
+            if call_count >= max_calls:
+                conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND status='active'", (lease['run_id'],))
+                conn.execute("UPDATE runs SET error_code='run_call_ceiling_exceeded',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                halt_event.set()
+                return False
 
-                # Durable provider_calls marker committed under fence before send
-                conn.execute("INSERT INTO provider_calls(run_id,unit,status,audit) VALUES(%s,%s,'dispatched',%s)", (lease['run_id'], unit, Jsonb(projection)))
+            uncertain_call = conn.execute(
+                "SELECT 1 FROM provider_calls WHERE run_id=%s AND status='failed' AND (receipt->'error'->>'charge_state'='uncertain' OR receipt->'error'->>'code'='unresolved_dispatched_call') LIMIT 1",
+                (lease['run_id'],)
+            ).fetchone()
+            if uncertain_call or (mode == 'standard' and is_operationally_paused()):
+                conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND status='active'", (lease['run_id'],))
+                conn.execute("UPDATE runs SET error_code='uncertain_provider_charge',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                halt_event.set()
+                return False
 
-    if cp:
+            conn.execute("INSERT INTO provider_calls(run_id,unit,status,audit) VALUES(%s,%s,'dispatched',%s)", (lease['run_id'], unit, Jsonb(projection)))
+
         try:
             if mode == 'standard':
-                with standard_concurrency_gate():
+                with standard_concurrency_gate(concurrency, halt_event):
                     with connection() as gate_conn:
                         video = fence(gate_conn, lease)
                     reaction, evidence, normalized, data, sha = provider.verdict(projection)
             else:
                 reaction, evidence, normalized, data, sha = provider.verdict(projection)
+
             validate_reaction(reaction, set(provider.persona_ids), {s['scene_id']: (s['start_ms'], s['end_ms']) for s in video['features']['scenes']})
             require(reaction['persona_id'] == cp['persona_id'] and reaction['scene_id'] == scene['scene_id'], 'response identity mismatch')
             require(evidence['id'] == reaction['evidence_id'] and evidence['persona_id'] == cp['persona_id'] and evidence['scene_id'] == scene['scene_id'], 'missing evidence')
             require((evidence['start_ms'], evidence['end_ms']) == (scene['start_ms'], scene['end_ms']), 'evidence time mismatch')
             require(isinstance(evidence['quote'], str) and evidence['quote'].strip(), 'missing reason')
         except LeaseLost:
+            halt_event.set()
             raise
-        except (ValueError, KeyError, TypeError, StopIteration) as exc:
+        except (ValueError, KeyError, TypeError, StopIteration, httpx.HTTPError, ProviderUnavailable) as exc:
             with connection() as conn:
-                fence(conn, lease)
-                conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND persona_id=%s", (lease['run_id'], cp['persona_id']))
-                err_receipt = sanitize_error_receipt(exc, mode, provider.model_id)
-                conn.execute("UPDATE provider_calls SET status='failed',receipt=%s WHERE run_id=%s AND unit=%s", (Jsonb(err_receipt), lease['run_id'], unit))
-                err_code = 'uncertain_provider_charge' if err_receipt['error']['charge_state'] == 'uncertain' else err_receipt['error']['code']
-                if err_receipt['error']['charge_state'] == 'uncertain': set_operational_pause()
-                conn.execute("UPDATE runs SET error_code=%s,status='failed',stage='failed' WHERE id=%s", (err_code, lease['run_id']))
-                release(conn, lease, True)
-            return
+                try:
+                    fence(conn, lease)
+                    conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND persona_id=%s", (lease['run_id'], cp['persona_id']))
+                    err_receipt = sanitize_error_receipt(exc, mode, getattr(provider, 'model_id', None))
+                    conn.execute("UPDATE provider_calls SET status='failed',receipt=%s WHERE run_id=%s AND unit=%s", (Jsonb(err_receipt), lease['run_id'], unit))
+                    err_code = 'uncertain_provider_charge' if err_receipt['error']['charge_state'] == 'uncertain' else err_receipt['error']['code']
+                    if err_receipt['error']['charge_state'] == 'uncertain':
+                        set_operational_pause()
+                    conn.execute("UPDATE runs SET error_code=%s,status='failed',stage='failed' WHERE id=%s", (err_code, lease['run_id']))
+                except LeaseLost:
+                    pass
+            halt_event.set()
+            return False
 
         key = reserve_object(video['id'], 'provider_files', 'json', lease)
         if before_publish:
@@ -343,7 +411,6 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
         with connection() as conn:
             fence(conn, lease)
             put_reserved(conn, video['id'], key, data, 'application/json')
-            # Stored receipt excludes private raw output/reasoning, retains hashes and usage/cost.
             receipt = {k: v for k, v in normalized.items() if k != 'output'}
             receipt.update(
                 response_sha256=sha,
@@ -351,7 +418,7 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                 new_provider_calls=1 if mode == 'standard' else 0
             )
             conn.execute('INSERT INTO reactions VALUES(%s,%s,%s,%s,%s)', (lease['run_id'], cp['persona_id'], scene['scene_id'], Jsonb(reaction), Jsonb(evidence)))
-            status = 'stopped' if not reaction['still_watching'] else ('complete' if scene['scene_id'] == len(video['features']['scenes']) - 1 else 'active')
+            status = 'stopped' if not reaction['still_watching'] else ('complete' if scene['scene_id'] == len(scenes) - 1 else 'active')
             conn.execute('UPDATE checkpoints SET next_scene=next_scene+1,status=%s,impression=%s WHERE run_id=%s AND persona_id=%s', (status, reaction['impression_update'], lease['run_id'], cp['persona_id']))
             conn.execute("UPDATE provider_calls SET status='accepted',receipt=%s WHERE run_id=%s AND unit=%s", (Jsonb(receipt), lease['run_id'], unit))
             event_payload = dict(
@@ -363,8 +430,106 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                 reason=evidence['quote'],
             )
             event(conn, lease['run_id'], 'persona.continued' if reaction['still_watching'] else 'persona.stopped', event_payload)
-            release(conn, lease)
-        return
+            units_completed[0] += 1
+        return True
+
+    try:
+        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            futures = {}
+            while not halt_event.is_set():
+                done_list = [f for f in futures if f.done()]
+                for f in done_list:
+                    pid = futures.pop(f)
+                    with in_flight_lock:
+                        in_flight.discard(pid)
+                    try:
+                        ok = f.result()
+                        if not ok:
+                            halt_event.set()
+                            break
+                    except LeaseLost:
+                        halt_event.set()
+                        raise
+                    except Exception as exc:
+                        halt_event.set()
+                        unit_error[0] = exc
+                        break
+
+                if halt_event.is_set():
+                    break
+
+
+
+                available_slots = concurrency - len(futures)
+                if available_slots <= 0:
+                    time.sleep(0.005)
+                    continue
+
+                with connection() as conn:
+                    fence(conn, lease)
+                    active_cps = conn.execute(
+                        "SELECT * FROM checkpoints WHERE run_id=%s AND status='active' ORDER BY next_scene ASC, persona_id ASC",
+                        (lease['run_id'],)
+                    ).fetchall()
+
+                if not active_cps and not futures:
+                    break
+
+                admitted = 0
+                for cp in active_cps:
+                    if admitted >= available_slots:
+                        break
+
+                    with in_flight_lock:
+                        if cp['persona_id'] in in_flight:
+                            continue
+                        in_flight.add(cp['persona_id'])
+
+                    scene = scenes[cp['next_scene']]
+                    fut = executor.submit(execute_persona_scene, cp, scene)
+                    futures[fut] = cp['persona_id']
+                    admitted += 1
+
+                if admitted == 0 and not futures:
+                    break
+                elif admitted == 0:
+                    time.sleep(0.005)
+
+            for f in list(futures.keys()):
+                pid = futures.pop(f)
+                with in_flight_lock:
+                    in_flight.discard(pid)
+                try:
+                    ok = f.result()
+                    if not ok:
+                        halt_event.set()
+                except LeaseLost:
+                    halt_event.set()
+                    raise
+                except Exception as exc:
+                    halt_event.set()
+                    if unit_error[0] is None:
+                        unit_error[0] = exc
+    finally:
+        stop_heartbeat.set()
+        hb_thread.join(timeout=1.0)
+
+    if halt_event.is_set():
+        with connection() as conn:
+            run_row = conn.execute("SELECT status FROM runs WHERE id=%s", (lease['run_id'],)).fetchone()
+            if run_row and run_row['status'] == 'failed':
+                release(conn, lease, True)
+                return
+
+
+
+    # Check if active checkpoints remain
+    with connection() as conn:
+        fence(conn, lease)
+        has_active = conn.execute("SELECT 1 FROM checkpoints WHERE run_id=%s AND status='active' LIMIT 1", (lease['run_id'],)).fetchone()
+        if has_active:
+            release(conn, lease, done=False)
+            return
 
     # No more active checkpoints: move to reporting
     with connection() as conn:
@@ -461,7 +626,7 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                     conn.execute("INSERT INTO provider_calls(run_id,unit,status,audit) VALUES(%s,'notes','dispatched',%s)", (lease['run_id'], Jsonb(note_context)))
 
                 try:
-                    with standard_concurrency_gate():
+                    with standard_concurrency_gate(concurrency):
                         with connection() as gate_conn:
                             video = fence(gate_conn, lease)
                         normalized, data, sha = provider.notes(note_context)
