@@ -4,6 +4,8 @@
 
 ### Current checkpoint — 2026-11-02
 
+V03-P1 startup verified/approved via msg_6035f6a7d563 -> msg_2a29aab0c121. Same Antigravity task_f42dd28fa84c/ctx_25ac981d707b may implement the frozen pool in its isolated tree; Checkpoint1 compile/real-PG concurrency proof is next. No additional real model requests; actual positive-note/timing verification follows accepted integration.
+
 V03-P1 dispatched to Antigravity task_f42dd28fa84c / ctx_25ac981d707b, sole writer on codex/v03-bounded-pool at ecdcdde. [Frozen full contract](docs/evidence/v03-bounded-pool-assignment.md), metadata89d9974. Startup receipt gate pending before edits; no paid worker execution. The accepted app and real-journey evidence remain preserved. Next checkpoint: compile plus real-PG bounded concurrent-path proof, then independent frozen review.
 
 **Next product task V03-P1:** implement the already specified bounded independent-persona pool after [real Flash50 evidence](docs/evidence/v03-real-flash50-journey.md) measured637.669s report latency. Functional real50 journey on6ebafa5 is verified through API restart/deletion (201HEAD404), but A01 performance fails and this input had no supported notes. Antigravity implements; coordinator owns the frozen concurrency/manifest contract, independent reviewer checks committed candidate. No repeated slow benchmarks before fixing serialization, no financial subsystem, no scope expansion.
