@@ -428,14 +428,25 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
             limitations=['synthetic_fixture_not_provider_evidence'],
         )
         cast_ids = manifest.get('persona_ids', [])
+    raw_concurrency = manifest.get('provider_concurrency')
+    if raw_concurrency is None:
+        concurrency = 1
+    else:
+        if isinstance(raw_concurrency, bool) or not isinstance(raw_concurrency, int) or not (1 <= raw_concurrency <= 8):
+            raise ValueError(f"invalid provider_concurrency: {raw_concurrency!r}; must be integer 1..8")
+        concurrency = raw_concurrency
+    config_dict = {'profile': manifest['profile'], 'mode': manifest['provider_mode']}
+    if raw_concurrency is not None:
+        config_dict['provider_concurrency'] = concurrency
     trust.update(
         app_source_sha=source_sha,
         observed_at=utc(),
         feature_sha256=content_hash(video['features']),
         cast_sha256=content_hash(cast_ids),
-        config_sha256=content_hash({'profile': manifest['profile'], 'mode': manifest['provider_mode']}),
+        config_sha256=content_hash(config_dict),
         prompt_sha256=content_hash({'projection': 'current-frame-and-own-prior-v02'}),
         usage_ledger=receipts,
+        provider_concurrency=concurrency,
     )
     has_missing_cost = False
     has_uncertain_cost = False

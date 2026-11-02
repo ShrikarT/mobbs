@@ -41,6 +41,7 @@ export interface RunManifest {
   requested: number;
   persona_ids: string[];
   resample_seed: number;
+  provider_concurrency?: number;
 }
 
 export interface RunState {
@@ -164,6 +165,7 @@ export interface TrustManifest {
   reported_versions: (string | null)[];
   training_cutoff: string;
   live_calls?: number;
+  provider_concurrency?: number;
   total_cost_usd?: number | string | null;
   pricing_version?: string;
   limitations: string[];

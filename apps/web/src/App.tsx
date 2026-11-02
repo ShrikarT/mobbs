@@ -673,7 +673,7 @@ export function App({
                 <li>Server validates MP4 container, codec, and duration before any dispatch.</li>
                 <li>Simulated personas: 50 instances for Flash, 3 for Test. All audience outcomes are simulated models, never real people.</li>
                 {effectiveMode === 'standard' ? (
-                  <li>Live Standard provider inference via Meta muse-spark-1.3; bounded calls per run with concurrency 1. Simulation is sequential scene-by-scene without native whole-video understanding, audio extraction, or human calibration.</li>
+                  <li>Live Standard provider inference via Meta muse-spark-1.3; bounded calls per run with concurrency {selectedProfile === 'flash' ? 8 : 1}. Simulation is sequential scene-by-scene per persona without native whole-video understanding, audio extraction, or human calibration.</li>
                 ) : (
                   <li>Exact hash-bound recorded inference; no new provider latency or spend claimed.</li>
                 )}
@@ -1284,6 +1284,8 @@ export function App({
                       <dd className="mono">{report.trust.media_sha256}</dd>
                       {report.trust.mode === 'standard' ? (
                         <>
+                          <dt>Provider concurrency:</dt>
+                          <dd className="mono">{report.trust.provider_concurrency ?? 1} (sequential scenes per persona)</dd>
                           <dt>Live provider calls:</dt>
                           <dd className="mono">{report.trust.live_calls ?? 0}</dd>
                           <dt>Estimated cost (USD):</dt>

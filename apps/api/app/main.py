@@ -231,6 +231,7 @@ def start_run(body: RunBody,request: Request):
         persona_ids = get_persona_ids(body.profile)
         requested = len(persona_ids)
         cast_hash = get_cast_hash(body.profile)
+        provider_concurrency = 8 if (provider_mode == 'standard' and body.profile == 'flash') else 1
 
         manifest = dict(
             schema_version='run-manifest-1',
@@ -239,6 +240,7 @@ def start_run(body: RunBody,request: Request):
             requested=requested,
             persona_ids=persona_ids,
             resample_seed=20261028,
+            provider_concurrency=provider_concurrency,
             model_id='muse-spark-1.3',
             cast_hash=cast_hash,
             prompt_version='spark13-standard-v1' if provider_mode == 'standard' else 'spark13-recorded-v1',
