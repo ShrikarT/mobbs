@@ -574,13 +574,20 @@ export function App({
     return Array.from({ length: requested }, (_, i) => `p${String(i + 1).padStart(3, '0')}`);
   }, [runState, selectedProfile]);
 
+  // Derive effective mode: saved report provenance first, sealed manifest second, session config only for initial empty state
+  const effectiveMode = useMemo(() => {
+    if (report?.trust?.mode) return report.trust.mode;
+    if (runState?.manifest?.provider_mode) return runState.manifest.provider_mode;
+    return session?.provider_mode || 'recorded';
+  }, [report?.trust?.mode, runState?.manifest?.provider_mode, session?.provider_mode]);
+
   return (
     <div>
       {/* 56px utility header with responsive wrap at 320px */}
       <header className="app-header">
         <div className="brand-group">
           <span className="brand-title">Viralist / Evidence desk</span>
-          {(report?.trust?.mode === 'standard' || runState?.manifest?.provider_mode === 'standard' || session?.provider_mode === 'standard') ? (
+          {effectiveMode === 'standard' ? (
             <span className="badge-recorded" style={{ background: '#2e1065', borderColor: '#7c3aed', color: '#e9d5ff' }}>
               Standard mode · Meta muse-spark-1.3
             </span>
@@ -665,7 +672,7 @@ export function App({
               <ul className="disclosure-list">
                 <li>Server validates MP4 container, codec, and duration before any dispatch.</li>
                 <li>Simulated personas: 50 instances for Flash, 3 for Test. All audience outcomes are simulated models, never real people.</li>
-                {(report?.trust?.mode === 'standard' || session?.provider_mode === 'standard') ? (
+                {effectiveMode === 'standard' ? (
                   <li>Live Standard provider inference via Meta muse-spark-1.3; bounded calls per run with concurrency 1. Simulation is sequential scene-by-scene without native whole-video understanding, audio extraction, or human calibration.</li>
                 ) : (
                   <li>Exact hash-bound recorded inference; no new provider latency or spend claimed.</li>
@@ -1260,7 +1267,7 @@ export function App({
                   <div className="trust-details">
                     <dl>
                       <dt>Inference mode:</dt>
-                      <dd>{report.trust.mode} ({report.trust.label || 'Standard Meta Spark 1.3'})</dd>
+                      <dd>{report.trust.mode === 'standard' ? 'Standard inference' : 'Recorded replay'} ({report.trust.label || (report.trust.mode === 'standard' ? 'Standard Meta Spark 1.3' : 'Recorded inference')})</dd>
                       <dt>Model ID:</dt>
                       <dd>{report.trust.model_ids.join(', ')}</dd>
                       <dt>Provider version:</dt>
@@ -1295,7 +1302,7 @@ export function App({
                       ) : (
                         <>
                           <dt>Live calls / spend:</dt>
-                          <dd>0 live calls / $0.00 (recorded replay)</dd>
+                          <dd>0 live calls / $0.00 (Recorded replay)</dd>
                         </>
                       )}
                       {report.trust.feature_sha256 && (
@@ -1314,14 +1321,26 @@ export function App({
 
                     {/* Persona library disclosure - accurate candidate policies without false calibration or archetype claims */}
                     <div className="thin-cast-notice" style={{ marginTop: '12px', padding: '8px 12px', background: 'var(--caution-tint)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '12px', lineHeight: '1.4' }}>
-                      {(report.cast.profile === 'flash' || report.manifest?.profile === 'flash') && (report.cast.requested === 50 || report.manifest?.requested === 50) ? (
-                        <>
-                          <strong>Persona library disclosure:</strong> The Flash 50 cast contains 50 fictional candidate persona policies from fifty-policies.json. This is a synthetic persona library; behavioral distinction was not calibrated against human viewers. Personas evaluate visual frame extractions without live audio, transcript, or OCR processing; intervals represent simulated correlation without causal claims.
-                        </>
+                      {effectiveMode === 'standard' ? (
+                        (report.cast.profile === 'flash' || report.manifest?.profile === 'flash') && (report.cast.requested === 50 || report.manifest?.requested === 50) ? (
+                          <>
+                            <strong>Persona library disclosure:</strong> The Flash 50 cast contains 50 fictional candidate persona policies from fifty-policies.json. This is a synthetic persona library; behavioral distinction was not calibrated against human viewers. Personas evaluate visual frame extractions without live audio, transcript, or OCR processing; intervals represent simulated correlation without causal claims.
+                          </>
+                        ) : (
+                          <>
+                            <strong>Persona library disclosure:</strong> The {report.cast.profile === 'test' ? 'Test 3' : `${report.cast.profile} ${report.cast.requested}`} cast contains 3 fictional candidate persona policies. This is a synthetic persona library; behavioral distinction was not calibrated against human viewers. Personas evaluate visual frame extractions without live audio, transcript, or OCR processing; intervals represent simulated correlation without causal claims.
+                          </>
+                        )
                       ) : (
-                        <>
-                          <strong>Persona library disclosure:</strong> The {report.cast.profile === 'test' ? 'Test 3' : `${report.cast.profile} ${report.cast.requested}`} cast contains 3 fictional candidate persona policies. This is a synthetic persona library; behavioral distinction was not calibrated against human viewers. Personas evaluate visual frame extractions without live audio, transcript, or OCR processing; intervals represent simulated correlation without causal claims.
-                        </>
+                        (report.cast.profile === 'flash' || report.manifest?.profile === 'flash') && (report.cast.requested === 50 || report.manifest?.requested === 50) ? (
+                          <>
+                            <strong>Persona library disclosure:</strong> The Flash 50 cast contains 50 simulated personas derived from five archetypes; this is a synthetic persona library, not 50 distinct human behaviors. Behavioral distinction was not calibrated against human viewers. Personas evaluate visual frame extractions without live audio, transcript, or OCR processing; intervals represent simulated correlation without causal claims.
+                          </>
+                        ) : (
+                          <>
+                            <strong>Persona library disclosure:</strong> The {report.cast.profile === 'test' ? 'Test 3' : `${report.cast.profile} ${report.cast.requested}`} cast contains 3 simulated viewers; this is a synthetic persona library and not a representative audience. Behavioral distinction was not calibrated against human viewers. Personas evaluate visual frame extractions without live audio, transcript, or OCR processing; intervals represent simulated correlation without causal claims.
+                          </>
+                        )
                       )}
                     </div>
 

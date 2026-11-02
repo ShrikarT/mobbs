@@ -116,6 +116,25 @@ def compute_cost_usd(usage: Optional[dict]) -> Optional[float]:
     return float(cost.quantize(Decimal('0.00000001'), rounding=ROUND_HALF_UP))
 
 
+def sanitize_usage(raw: Optional[dict]) -> Optional[dict]:
+    if not isinstance(raw, dict):
+        return None
+    safe = {}
+    for k in ('input_tokens', 'output_tokens', 'total_tokens', 'cached_tokens', 'reasoning_tokens'):
+        val = raw.get(k)
+        if isinstance(val, (int, float)) and not isinstance(val, bool):
+            safe[k] = int(val) if isinstance(val, int) or val.is_integer() else val
+    if isinstance(raw.get('input_tokens_details'), dict):
+        ct = raw['input_tokens_details'].get('cached_tokens')
+        if isinstance(ct, (int, float)) and not isinstance(ct, bool) and 'cached_tokens' not in safe:
+            safe['cached_tokens'] = int(ct) if isinstance(ct, int) or ct.is_integer() else ct
+    if isinstance(raw.get('output_tokens_details'), dict):
+        rt = raw['output_tokens_details'].get('reasoning_tokens')
+        if isinstance(rt, (int, float)) and not isinstance(rt, bool) and 'reasoning_tokens' not in safe:
+            safe['reasoning_tokens'] = int(rt) if isinstance(rt, int) or rt.is_integer() else rt
+    return safe if safe else None
+
+
 def source_sha() -> str:
     try:
         return subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
@@ -284,7 +303,7 @@ class StandardProvider:
                 'requested_model': self.model_id,
                 'latency_sec': latency_sec,
                 'response_id': raw_json.get('id') if isinstance(raw_json, dict) else None,
-                'usage': raw_usage,
+                'usage': sanitize_usage(raw_usage),
             }
             raise ProviderUnavailable('provider_response_rejected', charge_state='uncertain', receipt=safe_receipt, exc=exc)
 
@@ -416,7 +435,7 @@ class StandardProvider:
                 'requested_model': self.model_id,
                 'latency_sec': latency_sec,
                 'response_id': raw_json.get('id') if isinstance(raw_json, dict) else None,
-                'usage': raw_usage,
+                'usage': sanitize_usage(raw_usage),
             }
             raise ProviderUnavailable('provider_response_rejected', charge_state='uncertain', receipt=safe_receipt, exc=exc)
 

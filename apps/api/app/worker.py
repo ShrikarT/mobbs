@@ -1,6 +1,7 @@
 import os
 import psycopg
 import httpx
+import hashlib
 from contextlib import contextmanager
 """Separate durable worker. Each unit commits checkpoint, verdict and event atomically."""
 import argparse
@@ -13,6 +14,7 @@ import time
 from pathlib import Path
 from contracts.normalized import (
     cast_status,
+    normalize_envelope,
     content_hash,
     normalize_note,
     stop_trigger,
@@ -33,6 +35,7 @@ from .domain import (
 )
 from .media import extract
 from .providers import RecordedProvider, StandardProvider, build_note_context, ProviderUnavailable, digest
+from .standard_provider import sanitize_usage
 from .reporting import build_report
 from .storage import Storage
 
@@ -196,8 +199,9 @@ def sanitize_error_receipt(exc, mode='standard', model_id=None, req_id=None):
         'mode': mode,
         'model_id': model_id or receipt.get('requested_model'),
         'request_id': receipt.get('request_id') or req_id,
+        'response_id': receipt.get('response_id'),
         'http_status': receipt.get('http_status'),
-        'usage': receipt.get('usage'),
+        'usage': sanitize_usage(receipt.get('usage')),
         'error': {
             'code': safe_code,
             'error_class': getattr(exc, 'original_exception_class', None) or exc.__class__.__name__,
@@ -379,13 +383,43 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
             if existing_notes_call:
                 if existing_notes_call['status'] == 'accepted':
                     audit_data = existing_notes_call.get('audit') or {}
-                    normalized = audit_data.get('normalized')
-                    if not normalized:
-                        # Accepted notes row without durable output must fail visibly with no resend
+                    object_key = audit_data.get('object_key')
+                    stored_sha = audit_data.get('response_sha256') or (existing_notes_call.get('receipt') or {}).get('response_sha256')
+                    if not object_key or not stored_sha:
+                        # Legacy missing durable output or missing pointer fails visibly without resend
                         conn.execute("UPDATE runs SET error_code='missing_durable_notes_output',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
                         release(conn, lease, True)
                         return
-                    notes_receipt = existing_notes_call.get('receipt')
+
+                    # Must load registered bytes from Storage, verify SHA-256, and normalize via safe stored receipt
+                    try:
+                        storage = Storage()
+                        raw_bytes = storage.get(object_key)['Body'].read()
+                    except Exception:
+                        conn.execute("UPDATE runs SET error_code='missing_durable_notes_output',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                        release(conn, lease, True)
+                        return
+
+                    computed_sha = hashlib.sha256(raw_bytes).hexdigest()
+                    if computed_sha != stored_sha:
+                        conn.execute("UPDATE runs SET error_code='missing_durable_notes_output',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                        release(conn, lease, True)
+                        return
+
+                    try:
+                        raw_json = json.loads(raw_bytes.decode('utf-8'))
+                        notes_receipt = existing_notes_call.get('receipt') or {}
+                        rec_input = dict(notes_receipt)
+                        rec_input.setdefault('http_status', 200)
+                        rec_input.setdefault('latency_sec', (notes_receipt.get('latency_ms') or 0) / 1000.0)
+                        normalized = normalize_envelope(raw_json, rec_input)
+                        if normalized.get('status') != 'completed' or normalized.get('output') is None:
+                            raise ValueError('invalid restored notes output')
+                    except Exception:
+                        conn.execute("UPDATE runs SET error_code='missing_durable_notes_output',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                        release(conn, lease, True)
+                        return
+
                     if notes_receipt and notes_receipt not in receipts:
                         receipts.append(notes_receipt)
                     reused_notes = True
@@ -452,15 +486,17 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                     if normalized.get('new_provider_calls', 0) > 0:
                         notes_receipt = {k: v for k, v in normalized.items() if k != 'output'}
                         notes_receipt.update(
+                            http_status=200,
                             request_id=normalized.get('request_id'),
                             status=normalized.get('status'),
                             cost_usd=normalized.get('cost_usd'),
                             mode='standard',
+                            response_sha256=sha,
                             pricing_version=normalized.get('pricing_version', provider.pricing_version)
                         )
                         conn.execute(
                             "UPDATE provider_calls SET status='accepted',receipt=%s,audit=%s WHERE run_id=%s AND unit='notes'",
-                            (Jsonb(notes_receipt), Jsonb({'context': note_context, 'normalized': normalized, 'object_key': key}), lease['run_id'])
+                            (Jsonb(notes_receipt), Jsonb({'context': note_context, 'normalized': normalized, 'object_key': key, 'response_sha256': sha}), lease['run_id'])
                         )
                         receipts.append(notes_receipt)
             else:

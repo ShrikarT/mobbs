@@ -930,6 +930,9 @@ os._exit(0)
             self.assertEqual(notes_call['status'], 'accepted')
             self.assertIn('normalized', notes_call['audit'])
             self.assertIn('output', notes_call['audit']['normalized'])
+            self.assertIn('response_sha256', notes_call['receipt'])
+            self.assertIn('response_sha256', notes_call['audit'])
+            self.assertEqual(notes_call['receipt']['response_sha256'], notes_call['audit']['response_sha256'])
 
             # Reset lease on job so fresh child can reclaim it
             conn.execute("UPDATE jobs SET status='queued', lease_until=NULL WHERE run_id=%s", (run_id,))
@@ -957,6 +960,16 @@ os._exit(0)
         # Verify ceiling equality: call_count == 18 == max_calls allowed recovery to complete without run_call_ceiling_exceeded
         state = self.client.get(f'/runs/{run_id}', headers=self.headers).json()
         self.assertIn(state['status'], ('complete_test_profile', 'complete'))
+
+        # Test Storage boundary integrity fault on accepted notes recovery without deleting another fixture
+        with patch('apps.api.app.storage.Storage.get', side_effect=OSError('synthetic_storage_fault')):
+            with connection() as conn:
+                conn.execute("UPDATE jobs SET status='queued', lease_until=NULL WHERE run_id=%s", (run_id,))
+            process_once(provider_factory=lambda v, d, profile='test', lease=None: StandardProvider(v, d, profile=profile, lease=lease, transport=httpx.MockTransport(lambda r: (_ for _ in ()).throw(AssertionError('no_http_generation_permitted')))))
+            with connection() as conn:
+                fault_run = conn.execute("SELECT status, error_code FROM runs WHERE id=%s", (run_id,)).fetchone()
+            self.assertEqual(fault_run['status'], 'failed')
+            self.assertEqual(fault_run['error_code'], 'missing_durable_notes_output')
 
         # Also verify that an accepted notes row with missing durable output fails visibly without resend
         with patch('apps.api.app.main.settings', return_value=std_settings):
@@ -1050,7 +1063,8 @@ os._exit(0)
             def bad_usage_handler(request: httpx.Request):
                 resp = make_verdict_response('p001')
                 resp['usage']['total_tokens'] = 999999  # Mismatch: input + output != total
-                return httpx.Response(200, json=resp)
+                resp['usage']['diagnostic'] = 'SYNTHETIC_USAGE_PROSE_CANARY_R2'
+                return httpx.Response(200, json=resp, headers={'x-request-id': 'req_safe_test_r2'})
 
             transport2 = httpx.MockTransport(bad_usage_handler)
             process_once(provider_factory=lambda v, d, profile='test', lease=None: StandardProvider(v, d, profile=profile, lease=lease, transport=transport2))
@@ -1064,6 +1078,9 @@ os._exit(0)
             self.assertEqual(call2['status'], 'failed')
             self.assertEqual(call2['receipt']['error']['charge_state'], 'uncertain')
             self.assertIn('usage', call2['receipt'])
+            self.assertIn('response_id', call2['receipt'])
+            self.assertEqual(call2['receipt']['usage']['total_tokens'], 999999)
+            self.assertNotIn('SYNTHETIC_USAGE_PROSE_CANARY_R2', json.dumps(call2['receipt']))
             self.assertTrue(is_operationally_paused())
 
             # Part C: Operational pause stops subsequent Standard run admissions without making any HTTP calls
@@ -1262,6 +1279,12 @@ os._exit(0)
             self.assertEqual(prov['model_ids'], ['muse-spark-1.3'])
             self.assertTrue(any('Fifty fictional candidate policies' in lim for lim in prov['limitations']))
             self.assertTrue(any('not calibrated against human viewers' in lim for lim in prov['limitations']))
+
+            from apps.api.app.providers import RecordedProvider
+            p_rec = RecordedProvider('c76b510a43b6aaaf90dc152e8be358f0e6efb64a95ebc785c8cd51af7713975a', 33782, profile='flash')
+            prov_rec = p_rec.provenance()
+            self.assertEqual(prov_rec['mode'], 'recorded')
+            self.assertTrue(any('five archetypes' in lim for lim in prov_rec['limitations']))
 
     def test_post_wait_deletion_yields_zero_second_http(self):
         """Parent-held first HTTP + real PG waiter + second distinct child -> delete second via owner API -> release first yields ZERO second HTTP."""
