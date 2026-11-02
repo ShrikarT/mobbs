@@ -4,14 +4,7 @@ import json
 from pathlib import Path
 from contracts.normalized import normalize_envelope, normalize_verdict, require, milliseconds
 from .config import ROOT, settings
-
-
-class ProviderUnavailable(ValueError):
-    pass
-
-
-def digest(data):
-    return hashlib.sha256(data).hexdigest()
+from .standard_provider import StandardProvider, build_note_context, ProviderUnavailable, digest
 
 
 class MetaStandardAdapter:

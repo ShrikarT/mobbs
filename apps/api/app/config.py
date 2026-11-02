@@ -22,6 +22,8 @@ class Settings:
     origin: str = 'http://127.0.0.1:58000'
     session_hours: int = 24
     lease_seconds: int = 120
+    provider_mode: str = 'recorded'
+    model_api_key: str = ''
 
 
 def settings():
@@ -31,4 +33,18 @@ def settings():
     kwargs = {k: raw[k] for k in fields}
     if 'origin' in raw:
         kwargs['origin'] = raw['origin']
+
+    # Server config selects recorded or standard mode; default recorded
+    mode = os.environ.get('VIRALIST_PROVIDER_MODE') or raw.get('provider_mode') or 'recorded'
+    if mode not in ('recorded', 'standard'):
+        mode = 'recorded'
+    kwargs['provider_mode'] = mode
+
+    # In recorded mode, NEVER read provider credentials.
+    # In standard mode, server reads MODEL_API_KEY from env or runtime if provided.
+    if mode == 'standard':
+        kwargs['model_api_key'] = os.environ.get('MODEL_API_KEY') or raw.get('model_api_key') or ''
+    else:
+        kwargs['model_api_key'] = ''
+
     return Settings(**kwargs)

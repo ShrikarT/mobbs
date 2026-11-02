@@ -2,6 +2,7 @@ export interface SessionResponse {
   csrf: string;
   expires_at: string;
   retention_hours: number;
+  provider_mode?: 'recorded' | 'standard';
 }
 
 export interface VideoMetadata {
@@ -163,6 +164,8 @@ export interface TrustManifest {
   reported_versions: (string | null)[];
   training_cutoff: string;
   live_calls?: number;
+  total_cost_usd?: number | string | null;
+  pricing_version?: string;
   limitations: string[];
   app_source_sha: string;
   observed_at: string;

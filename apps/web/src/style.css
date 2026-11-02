@@ -50,6 +50,17 @@ a, button, input {
 .mono {
   font-family: var(--font-mono);
   font-feature-settings: "tnum" 1;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.rejection-breakdown,
+.excluded-traces-alert,
+.thin-cast-notice,
+.no-notes-banner,
+.suppressed-note-alert {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Header */
@@ -308,6 +319,12 @@ a, button, input {
   grid-template-columns: 58% 42%;
   gap: 24px;
   align-items: start;
+  min-width: 0;
+  width: 100%;
+}
+
+.workbench-grid > * {
+  min-width: 0;
 }
 
 /* Media / Player Column */
@@ -315,6 +332,8 @@ a, button, input {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .video-container {
@@ -372,6 +391,10 @@ a, button, input {
   cursor: pointer;
   transition: background-color 0.15s ease;
   user-select: none;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .timeline-segment:hover {
@@ -403,6 +426,8 @@ a, button, input {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   padding: 24px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .report-header {
@@ -962,6 +987,11 @@ a, button, input {
 }
 
 /* Scores & Engagement Cards */
+.scores-card, .engagement-card, .retention-card, .timeline-card {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .scores-card, .engagement-card {
   margin-top: 16px;
   background: var(--bg-surface);
@@ -1216,11 +1246,16 @@ a, button, input {
 /* Responsive (Mobile <640px / 320px) */
 @media (max-width: 1023px) {
   .workbench-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 100%;
     gap: 20px;
+    min-width: 0;
+    width: 100%;
   }
   .app-main {
     padding: 16px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 }
 
@@ -1228,32 +1263,77 @@ a, button, input {
   .app-header {
     height: auto;
     min-height: 56px;
-    padding: 8px 16px;
+    padding: 8px 12px;
     flex-wrap: wrap;
     gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   .brand-group {
     flex-wrap: wrap;
     gap: 8px;
+    width: 100%;
+    max-width: 100%;
   }
   .brand-title {
     font-size: 16px;
+    max-width: 100%;
+  }
+  .badge-recorded {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .header-meta {
+    width: 100%;
+    max-width: 100%;
+  }
+  .session-badge {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .app-main {
+    padding: 12px 10px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   .upload-container, .running-container, .evidence-column {
-    padding: 16px;
+    padding: 12px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   .video-container {
     max-height: 50vh;
+    width: 100%;
+    max-width: 100%;
   }
   .trust-details dl {
-    grid-template-columns: 1fr;
+    grid-template-columns: 100%;
     gap: 4px;
+    width: 100%;
+    max-width: 100%;
+  }
+  .metrics-summary {
+    gap: 8px;
+  }
+  .metric-pill {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  .actions-footer {
+    flex-wrap: wrap;
+    gap: 8px;
   }
 }
 
 @media (max-width: 360px) {
   .app-header {
-    padding: 6px 10px;
+    padding: 6px 8px;
+    gap: 6px;
   }
   .brand-group {
     gap: 6px;
@@ -1267,6 +1347,12 @@ a, button, input {
   }
   .session-badge {
     font-size: 11px;
+  }
+  .app-main {
+    padding: 10px 6px;
+  }
+  .upload-container, .running-container, .evidence-column, .retention-card, .timeline-card {
+    padding: 10px;
   }
 }
 
