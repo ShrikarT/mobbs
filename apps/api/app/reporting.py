@@ -429,7 +429,12 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
         )
         cast_ids = manifest.get('persona_ids', [])
     raw_concurrency = manifest.get('provider_concurrency')
-    concurrency = int(raw_concurrency) if raw_concurrency is not None else 1
+    if raw_concurrency is None:
+        concurrency = 1
+    else:
+        if isinstance(raw_concurrency, bool) or not isinstance(raw_concurrency, int) or not (1 <= raw_concurrency <= 8):
+            raise ValueError(f"invalid provider_concurrency: {raw_concurrency!r}; must be integer 1..8")
+        concurrency = raw_concurrency
     config_dict = {'profile': manifest['profile'], 'mode': manifest['provider_mode']}
     if raw_concurrency is not None:
         config_dict['provider_concurrency'] = concurrency

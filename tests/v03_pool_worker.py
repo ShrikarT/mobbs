@@ -66,6 +66,8 @@ def run_child(rid, action, folder):
         (d / f"{rid}.entered").write_text('1')
 
         if action == 'hold':
+            with (d / f"{rid}.held_count").open('a') as f:
+                f.write(f"{pid}\n")
             deadline = time.monotonic() + 30
             while not (d / 'release').exists():
                 if time.monotonic() > deadline:
@@ -86,13 +88,15 @@ def run_child(rid, action, folder):
                 raise httpx.ReadTimeout("Simulated provider read timeout")
 
         if action == 'delay':
-            time.sleep(0.05)
+            time.sleep(0.03)
 
         return response(req, 'normal')
 
     t = httpx.MockTransport(handler)
 
     def factory(h, dur, profile='test', lease=None):
+        if lease is not None:
+            assert lease['run_id'] == rid, f"expected lease run_id {rid}, got {lease['run_id']}"
         return StandardProvider(h, dur, profile=profile, lease=lease, transport=t)
 
     try:

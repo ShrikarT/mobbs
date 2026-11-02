@@ -36,8 +36,8 @@ from .domain import (
     utc,
 )
 from .media import extract
-from .providers import RecordedProvider, StandardProvider, build_note_context, ProviderUnavailable, digest
-from .standard_provider import sanitize_usage
+from .providers import RecordedProvider, StandardProvider, ProviderUnavailable, digest
+from .standard_provider import sanitize_usage, build_note_context
 from .reporting import build_report
 from .storage import Storage
 
@@ -129,8 +129,6 @@ def prepare(lease, provider):
             stage(conn, lease['run_id'], 'simulating')
 
 
-
-
 def get_operational_pause_marker_path():
     runtime_path = os.environ.get('VIRALIST_RUNTIME')
     if runtime_path:
@@ -165,12 +163,13 @@ STANDARD_CONCURRENCY_SLOT_KEYS = [58004001 + i for i in range(8)]
 
 
 @contextmanager
-def standard_concurrency_gate(concurrency=1, halt_event=None):
+def standard_concurrency_gate(concurrency=1, halt_event=None, run_id=None):
     limit = max(1, min(int(concurrency), 8))
-    with psycopg.connect(settings().database_url, autocommit=True) as gate_conn:
+    app_name = f"gate_wait_{run_id}" if run_id else "gate_wait"
+    with psycopg.connect(settings().database_url, application_name=app_name, autocommit=True) as gate_conn:
         if limit == 1:
-            gate_conn.execute("SELECT pg_advisory_lock(%s)", (STANDARD_CONCURRENCY_GATE_KEY,))
             acquired_key = STANDARD_CONCURRENCY_GATE_KEY
+            gate_conn.execute("SELECT pg_advisory_lock(%s)", (STANDARD_CONCURRENCY_GATE_KEY,))
         else:
             slot_keys = [STANDARD_CONCURRENCY_GATE_KEY + i for i in range(limit)]
             acquired_key = None
@@ -261,7 +260,12 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
     profile = manifest.get('profile', 'test')
     mode = manifest.get('provider_mode', 'recorded')
     raw_concurrency = manifest.get('provider_concurrency')
-    concurrency = max(1, min(int(raw_concurrency) if raw_concurrency is not None else 1, 8))
+    if raw_concurrency is None:
+        concurrency = 1
+    else:
+        if isinstance(raw_concurrency, bool) or not isinstance(raw_concurrency, int) or not (1 <= raw_concurrency <= 8):
+            raise ValueError(f"invalid provider_concurrency: {raw_concurrency!r}; must be integer 1..8")
+        concurrency = raw_concurrency
     if mode == 'recorded':
         concurrency = 1
 
@@ -295,41 +299,18 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                 release(conn, lease, True)
                 return
 
-    # 2. Bounded pool execution for active checkpoints
-    halt_event = threading.Event()
-    stop_heartbeat = threading.Event()
-    in_flight = set()
-    in_flight_lock = threading.Lock()
     units_completed = [0]
-    unit_error = [None]
 
-    def heartbeat_worker():
-        while not stop_heartbeat.wait(4.0):
-            if halt_event.is_set():
-                break
-            try:
-                with connection() as hb_conn:
-                    res = hb_conn.execute(
-                        "UPDATE jobs SET lease_until=now()+%s*interval '1 second' WHERE id=%s AND generation=%s AND status='leased' RETURNING id",
-                        (settings().lease_seconds, lease['id'], lease['generation'])
-                    ).fetchone()
-                    if not res:
-                        halt_event.set()
-                        break
-            except Exception:
-                halt_event.set()
-                break
-
-    hb_thread = threading.Thread(target=heartbeat_worker, daemon=True)
-    hb_thread.start()
-
-    def execute_persona_scene(cp, scene):
+    def execute_persona_scene(cp, scene, halt_event=None):
         unit = f"{cp['persona_id']}:{scene['scene_id']}"
         projection = project(scene, cp)
         validate_projection(projection, scene, cp)
 
+        if halt_event is not None and halt_event.is_set():
+            return False
+
         with connection() as conn:
-            fence(conn, lease)
+            video = fence(conn, lease)
             existing_call = conn.execute("SELECT * FROM provider_calls WHERE run_id=%s AND unit=%s", (lease['run_id'], unit)).fetchone()
             if existing_call:
                 if existing_call['status'] == 'accepted':
@@ -338,6 +319,8 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                         status = 'stopped' if not rx_row['reaction']['still_watching'] else ('complete' if scene['scene_id'] == len(scenes) - 1 else 'active')
                         conn.execute('UPDATE checkpoints SET next_scene=next_scene+1,status=%s,impression=%s WHERE run_id=%s AND persona_id=%s', (status, rx_row['reaction']['impression_update'], lease['run_id'], cp['persona_id']))
                         units_completed[0] += 1
+                        if concurrency == 1:
+                            release(conn, lease, done=False)
                         return True
                 elif existing_call['status'] == 'dispatched':
                     if mode == 'standard':
@@ -350,31 +333,42 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                         conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND persona_id=%s", (lease['run_id'], cp['persona_id']))
                         conn.execute("UPDATE runs SET error_code='uncertain_provider_charge',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
                         set_operational_pause()
-                        halt_event.set()
+                        if halt_event is not None:
+                            halt_event.set()
                         return False
+                    # mode == 'recorded': reuse existing dispatched marker without duplicate INSERT
+            else:
+                if halt_event is not None and halt_event.is_set():
+                    return False
 
-            call_count = conn.execute("SELECT count(*) AS count FROM provider_calls WHERE run_id=%s", (lease['run_id'],)).fetchone()['count']
-            if call_count >= max_calls:
-                conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND status='active'", (lease['run_id'],))
-                conn.execute("UPDATE runs SET error_code='run_call_ceiling_exceeded',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
-                halt_event.set()
-                return False
+                call_count = conn.execute("SELECT count(*) AS count FROM provider_calls WHERE run_id=%s", (lease['run_id'],)).fetchone()['count']
+                if call_count >= max_calls:
+                    conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND status='active'", (lease['run_id'],))
+                    conn.execute("UPDATE runs SET error_code='run_call_ceiling_exceeded',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                    if halt_event is not None:
+                        halt_event.set()
+                    return False
 
-            uncertain_call = conn.execute(
-                "SELECT 1 FROM provider_calls WHERE run_id=%s AND status='failed' AND (receipt->'error'->>'charge_state'='uncertain' OR receipt->'error'->>'code'='unresolved_dispatched_call') LIMIT 1",
-                (lease['run_id'],)
-            ).fetchone()
-            if uncertain_call or (mode == 'standard' and is_operationally_paused()):
-                conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND status='active'", (lease['run_id'],))
-                conn.execute("UPDATE runs SET error_code='uncertain_provider_charge',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
-                halt_event.set()
-                return False
+                uncertain_call = conn.execute(
+                    "SELECT 1 FROM provider_calls WHERE run_id=%s AND status='failed' AND (receipt->'error'->>'charge_state'='uncertain' OR receipt->'error'->>'code'='unresolved_dispatched_call') LIMIT 1",
+                    (lease['run_id'],)
+                ).fetchone()
+                if uncertain_call or (mode == 'standard' and is_operationally_paused()):
+                    conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND status='active'", (lease['run_id'],))
+                    conn.execute("UPDATE runs SET error_code='uncertain_provider_charge',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                    if halt_event is not None:
+                        halt_event.set()
+                    return False
 
-            conn.execute("INSERT INTO provider_calls(run_id,unit,status,audit) VALUES(%s,%s,'dispatched',%s)", (lease['run_id'], unit, Jsonb(projection)))
+                conn.execute("INSERT INTO provider_calls(run_id,unit,status,audit) VALUES(%s,%s,'dispatched',%s)", (lease['run_id'], unit, Jsonb(projection)))
 
         try:
+            if halt_event is not None and halt_event.is_set():
+                return False
             if mode == 'standard':
-                with standard_concurrency_gate(concurrency, halt_event):
+                with standard_concurrency_gate(concurrency, halt_event, run_id=lease['run_id']):
+                    if halt_event is not None and halt_event.is_set():
+                        return False
                     with connection() as gate_conn:
                         video = fence(gate_conn, lease)
                     reaction, evidence, normalized, data, sha = provider.verdict(projection)
@@ -387,7 +381,8 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
             require((evidence['start_ms'], evidence['end_ms']) == (scene['start_ms'], scene['end_ms']), 'evidence time mismatch')
             require(isinstance(evidence['quote'], str) and evidence['quote'].strip(), 'missing reason')
         except LeaseLost:
-            halt_event.set()
+            if halt_event is not None:
+                halt_event.set()
             raise
         except (ValueError, KeyError, TypeError, StopIteration, httpx.HTTPError, ProviderUnavailable) as exc:
             with connection() as conn:
@@ -402,7 +397,8 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                     conn.execute("UPDATE runs SET error_code=%s,status='failed',stage='failed' WHERE id=%s", (err_code, lease['run_id']))
                 except LeaseLost:
                     pass
-            halt_event.set()
+            if halt_event is not None:
+                halt_event.set()
             return False
 
         key = reserve_object(video['id'], 'provider_files', 'json', lease)
@@ -431,14 +427,122 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
             )
             event(conn, lease['run_id'], 'persona.continued' if reaction['still_watching'] else 'persona.stopped', event_payload)
             units_completed[0] += 1
+            if concurrency == 1:
+                release(conn, lease, done=False)
         return True
 
-    try:
-        with ThreadPoolExecutor(max_workers=concurrency) as executor:
-            futures = {}
-            while not halt_event.is_set():
-                done_list = [f for f in futures if f.done()]
-                for f in done_list:
+    if concurrency == 1:
+        with connection() as conn:
+            fence(conn, lease)
+            cp = conn.execute(
+                "SELECT * FROM checkpoints WHERE run_id=%s AND status='active' ORDER BY next_scene ASC, persona_id ASC LIMIT 1",
+                (lease['run_id'],)
+            ).fetchone()
+
+        if cp:
+            scene = scenes[cp['next_scene']]
+            ok = execute_persona_scene(cp, scene)
+            if not ok:
+                with connection() as c2:
+                    run_row = c2.execute("SELECT status FROM runs WHERE id=%s", (lease['run_id'],)).fetchone()
+                    if run_row and run_row['status'] == 'failed':
+                        release(c2, lease, True)
+            return
+    else:
+        # Bounded pool execution for active checkpoints
+        halt_event = threading.Event()
+        stop_heartbeat = threading.Event()
+        in_flight = set()
+        in_flight_lock = threading.Lock()
+        unit_error = [None]
+
+        def heartbeat_worker():
+            while not stop_heartbeat.wait(4.0):
+                if halt_event.is_set():
+                    break
+                try:
+                    with connection() as hb_conn:
+                        res = hb_conn.execute(
+                            "UPDATE jobs SET lease_until=now()+%s*interval '1 second' WHERE id=%s AND generation=%s AND status='leased' RETURNING id",
+                            (settings().lease_seconds, lease['id'], lease['generation'])
+                        ).fetchone()
+                        if not res:
+                            halt_event.set()
+                            break
+                except Exception:
+                    halt_event.set()
+                    break
+
+        hb_thread = threading.Thread(target=heartbeat_worker, daemon=True)
+        hb_thread.start()
+
+        try:
+            with ThreadPoolExecutor(max_workers=concurrency) as executor:
+                futures = {}
+                while not halt_event.is_set():
+                    done_list = [f for f in futures if f.done()]
+                    for f in done_list:
+                        pid = futures.pop(f)
+                        with in_flight_lock:
+                            in_flight.discard(pid)
+                        try:
+                            ok = f.result()
+                            if not ok:
+                                halt_event.set()
+                                break
+                        except LeaseLost:
+                            halt_event.set()
+                            raise
+                        except Exception as exc:
+                            halt_event.set()
+                            if unit_error[0] is None:
+                                unit_error[0] = exc
+                            break
+
+                    if halt_event.is_set():
+                        break
+
+                    available_slots = concurrency - len(futures)
+                    if available_slots <= 0:
+                        time.sleep(0.005)
+                        continue
+
+                    if halt_event.is_set():
+                        break
+
+                    with connection() as conn:
+                        fence(conn, lease)
+                        active_cps = conn.execute(
+                            "SELECT * FROM checkpoints WHERE run_id=%s AND status='active' ORDER BY next_scene ASC, persona_id ASC",
+                            (lease['run_id'],)
+                        ).fetchall()
+
+                    if not active_cps and not futures:
+                        break
+
+                    admitted = 0
+                    for cp in active_cps:
+                        if halt_event.is_set():
+                            break
+                        if admitted >= available_slots:
+                            break
+
+                        with in_flight_lock:
+                            if cp['persona_id'] in in_flight:
+                                continue
+                            in_flight.add(cp['persona_id'])
+
+                        scene = scenes[cp['next_scene']]
+                        fut = executor.submit(execute_persona_scene, cp, scene, halt_event)
+                        futures[fut] = cp['persona_id']
+                        admitted += 1
+
+                    if admitted == 0 and not futures:
+                        break
+                    elif admitted == 0:
+                        time.sleep(0.005)
+
+                for f in list(futures.keys()):
                     pid = futures.pop(f)
                     with in_flight_lock:
                         in_flight.discard(pid)
@@ -446,90 +550,42 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                         ok = f.result()
                         if not ok:
                             halt_event.set()
-                            break
                     except LeaseLost:
                         halt_event.set()
                         raise
                     except Exception as exc:
                         halt_event.set()
-                        unit_error[0] = exc
-                        break
+                        if unit_error[0] is None:
+                            unit_error[0] = exc
+        finally:
+            stop_heartbeat.set()
+            hb_thread.join(timeout=1.0)
 
-                if halt_event.is_set():
-                    break
-
-
-
-                available_slots = concurrency - len(futures)
-                if available_slots <= 0:
-                    time.sleep(0.005)
-                    continue
-
-                with connection() as conn:
-                    fence(conn, lease)
-                    active_cps = conn.execute(
-                        "SELECT * FROM checkpoints WHERE run_id=%s AND status='active' ORDER BY next_scene ASC, persona_id ASC",
-                        (lease['run_id'],)
-                    ).fetchall()
-
-                if not active_cps and not futures:
-                    break
-
-                admitted = 0
-                for cp in active_cps:
-                    if admitted >= available_slots:
-                        break
-
-                    with in_flight_lock:
-                        if cp['persona_id'] in in_flight:
-                            continue
-                        in_flight.add(cp['persona_id'])
-
-                    scene = scenes[cp['next_scene']]
-                    fut = executor.submit(execute_persona_scene, cp, scene)
-                    futures[fut] = cp['persona_id']
-                    admitted += 1
-
-                if admitted == 0 and not futures:
-                    break
-                elif admitted == 0:
-                    time.sleep(0.005)
-
-            for f in list(futures.keys()):
-                pid = futures.pop(f)
-                with in_flight_lock:
-                    in_flight.discard(pid)
+        if unit_error[0] is not None:
+            exc = unit_error[0]
+            with connection() as conn:
                 try:
-                    ok = f.result()
-                    if not ok:
-                        halt_event.set()
+                    fence(conn, lease)
+                    code = str(exc) if isinstance(exc, ProviderUnavailable) else 'analysis_failed'
+                    conn.execute("UPDATE runs SET status='failed',stage='failed',error_code=%s WHERE id=%s", (code, lease['run_id']))
+                    release(conn, lease, True)
                 except LeaseLost:
-                    halt_event.set()
-                    raise
-                except Exception as exc:
-                    halt_event.set()
-                    if unit_error[0] is None:
-                        unit_error[0] = exc
-    finally:
-        stop_heartbeat.set()
-        hb_thread.join(timeout=1.0)
-
-    if halt_event.is_set():
-        with connection() as conn:
-            run_row = conn.execute("SELECT status FROM runs WHERE id=%s", (lease['run_id'],)).fetchone()
-            if run_row and run_row['status'] == 'failed':
-                release(conn, lease, True)
-                return
-
-
-
-    # Check if active checkpoints remain
-    with connection() as conn:
-        fence(conn, lease)
-        has_active = conn.execute("SELECT 1 FROM checkpoints WHERE run_id=%s AND status='active' LIMIT 1", (lease['run_id'],)).fetchone()
-        if has_active:
-            release(conn, lease, done=False)
+                    pass
             return
+
+        if halt_event.is_set():
+            with connection() as conn:
+                run_row = conn.execute("SELECT status FROM runs WHERE id=%s", (lease['run_id'],)).fetchone()
+                if run_row and run_row['status'] == 'failed':
+                    release(conn, lease, True)
+                    return
+
+        with connection() as conn:
+            fence(conn, lease)
+            has_active = conn.execute("SELECT 1 FROM checkpoints WHERE run_id=%s AND status='active' LIMIT 1", (lease['run_id'],)).fetchone()
+            if has_active:
+                release(conn, lease, done=False)
+                return
 
     # No more active checkpoints: move to reporting
     with connection() as conn:
@@ -553,42 +609,26 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                     if not object_key or not stored_sha:
                         # Legacy missing durable output or missing pointer fails visibly without resend
                         conn.execute("UPDATE runs SET error_code='missing_durable_notes_output',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                        set_operational_pause()
                         release(conn, lease, True)
                         return
-
-                    # Must load registered bytes from Storage, verify SHA-256, and normalize via safe stored receipt
                     try:
-                        storage = Storage()
-                        raw_bytes = storage.get(object_key)['Body'].read()
+                        data = Storage().get(object_key)['Body'].read()
                     except Exception:
                         conn.execute("UPDATE runs SET error_code='missing_durable_notes_output',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                        set_operational_pause()
                         release(conn, lease, True)
                         return
-
-                    computed_sha = hashlib.sha256(raw_bytes).hexdigest()
-                    if computed_sha != stored_sha:
-                        conn.execute("UPDATE runs SET error_code='missing_durable_notes_output',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                    if digest(data) != stored_sha:
+                        conn.execute("UPDATE runs SET error_code='corrupted_durable_notes_output',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
+                        set_operational_pause()
                         release(conn, lease, True)
                         return
-
-                    try:
-                        raw_json = json.loads(raw_bytes.decode('utf-8'))
-                        notes_receipt = existing_notes_call.get('receipt') or {}
-                        rec_input = dict(notes_receipt)
-                        rec_input.setdefault('http_status', 200)
-                        rec_input.setdefault('latency_sec', (notes_receipt.get('latency_ms') or 0) / 1000.0)
-                        normalized = normalize_envelope(raw_json, rec_input)
-                        if normalized.get('status') != 'completed' or normalized.get('output') is None:
-                            raise ValueError('invalid restored notes output')
-                    except Exception:
-                        conn.execute("UPDATE runs SET error_code='missing_durable_notes_output',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
-                        release(conn, lease, True)
-                        return
-
-                    if notes_receipt and notes_receipt not in receipts:
-                        receipts.append(notes_receipt)
+                    normalized = audit_data.get('normalized') or {}
+                    sha = stored_sha
                     reused_notes = True
                 elif existing_notes_call['status'] == 'dispatched':
+                    # Unresolved dispatched notes call after crash fails visibly with NO resend
                     err_receipt = {
                         'mode': 'standard',
                         'model_id': provider.model_id,
@@ -599,12 +639,9 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                     set_operational_pause()
                     release(conn, lease, True)
                     return
-                else:
-                    release(conn, lease, True)
-                    return
 
         if not reused_notes:
-            note_context = build_note_context(manifest, video, checkpoints, rows)
+            note_context = build_note_context(run_row['manifest'], video, checkpoints, rows)
             if note_context and note_context.get('supported_triggers'):
                 with connection() as conn:
                     fence(conn, lease)
@@ -626,7 +663,7 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                     conn.execute("INSERT INTO provider_calls(run_id,unit,status,audit) VALUES(%s,'notes','dispatched',%s)", (lease['run_id'], Jsonb(note_context)))
 
                 try:
-                    with standard_concurrency_gate(concurrency):
+                    with standard_concurrency_gate(concurrency, run_id=lease['run_id']):
                         with connection() as gate_conn:
                             video = fence(gate_conn, lease)
                         normalized, data, sha = provider.notes(note_context)
