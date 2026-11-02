@@ -12,6 +12,8 @@ GitHub Issues is the selected destination, but no canonical issue is published; 
 
 ## Active work and next action
 
+Worker conversation compaction was observed; full frozen contract + current same-task identities/known dirty scope were resent in msg_774f04ea8d29. Reverification/read acknowledgment is pending; no duplicate worker/reset. Pre-submission interface clarification: retain process_once(provider_factory=None,before_publish=None); use sealed/historical manifest fixtures for concurrency tests, not a production concurrency_override bypass. This is scope/debug guidance, not a failed review correction. One queued native attention prompt was submitted to the existing terminal (no child/process stop); checkpoint remains pending.
+
 | Owner/state | Exact identity and scope |
 |---|---|
 | Coordinator | `C:/Users/Shrikar/viralist`, branch `codex/orchestration-readiness`; product source matches accepted c714c2c. Before this handoff edit HEAD4394bf5, documentation-only changes since tested6ebafa5. Verify actual HEAD/status before writes. |
