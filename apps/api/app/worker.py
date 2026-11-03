@@ -37,7 +37,7 @@ from .domain import (
 )
 from .media import extract
 from .providers import RecordedProvider, StandardProvider, ProviderUnavailable, digest
-from .standard_provider import sanitize_usage, build_note_context
+from .standard_provider import sanitize_usage, build_note_context, compute_cost_usd
 from .reporting import build_report
 from .storage import Storage
 
@@ -213,19 +213,40 @@ def sanitize_error_receipt(exc, mode='standard', model_id=None, req_id=None):
             safe_code = 'provider_response_rejected'
 
     receipt = getattr(exc, 'receipt', None) or {}
+    usage = sanitize_usage(receipt.get('usage'))
+    cost_usd = receipt.get('cost_usd')
+    if cost_usd is None and usage:
+        cost_usd = compute_cost_usd(usage)
+
+    raw_reason = receipt.get('incomplete_reason')
+    incomplete_reason = raw_reason if raw_reason in ('max_output_tokens', 'unknown') else None
+
+    raw_status = receipt.get('status')
+    status = raw_status if raw_status in ('completed', 'incomplete', 'failed', 'refused', 'error') else None
+
+    raw_max_tokens = receipt.get('max_output_tokens')
+    max_output_tokens = raw_max_tokens if isinstance(raw_max_tokens, int) and raw_max_tokens > 0 else None
+
     clean_receipt = {
         'mode': mode,
         'model_id': model_id or receipt.get('requested_model'),
         'request_id': receipt.get('request_id') or req_id,
         'response_id': receipt.get('response_id'),
         'http_status': receipt.get('http_status'),
-        'usage': sanitize_usage(receipt.get('usage')),
+        'usage': usage,
+        'cost_usd': cost_usd,
         'error': {
             'code': safe_code,
             'error_class': getattr(exc, 'original_exception_class', None) or exc.__class__.__name__,
             'charge_state': 'uncertain' if is_uncertain else 'unconfirmed',
         }
     }
+    if status is not None:
+        clean_receipt['status'] = status
+    if incomplete_reason is not None:
+        clean_receipt['incomplete_reason'] = incomplete_reason
+    if max_output_tokens is not None:
+        clean_receipt['max_output_tokens'] = max_output_tokens
     return clean_receipt
 
 
@@ -279,7 +300,11 @@ def maybe_emit_provisional_verdict(conn, run_id, scenes, requested):
         "SELECT reaction, evidence FROM reactions WHERE run_id=%s AND scene_id=0",
         (run_id,)
     ).fetchall()
-    if len(rows) < requested:
+    active_s0 = conn.execute(
+        "SELECT 1 FROM checkpoints WHERE run_id=%s AND status='active' AND next_scene=0 LIMIT 1",
+        (run_id,)
+    ).fetchone()
+    if active_s0 is not None or not rows:
         return False
 
     total = len(rows)
@@ -479,6 +504,37 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                     conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND persona_id=%s", (lease['run_id'], cp['persona_id']))
                     err_receipt = sanitize_error_receipt(exc, mode, getattr(provider, 'model_id', None))
                     conn.execute("UPDATE provider_calls SET status='failed',receipt=%s WHERE run_id=%s AND unit=%s", (Jsonb(err_receipt), lease['run_id'], unit))
+
+                    usage = err_receipt.get('usage')
+                    is_valid_usage = (
+                        isinstance(usage, dict)
+                        and isinstance(usage.get('total_tokens'), int)
+                        and usage['total_tokens'] > 0
+                        and isinstance(usage.get('input_tokens'), int)
+                        and isinstance(usage.get('output_tokens'), int)
+                        and usage['total_tokens'] == usage['input_tokens'] + usage['output_tokens']
+                    )
+                    is_confirmed_incomplete = (
+                        mode == 'standard'
+                        and isinstance(exc, ProviderUnavailable)
+                        and err_receipt.get('status') == 'incomplete'
+                        and err_receipt.get('incomplete_reason') == 'max_output_tokens'
+                        and err_receipt.get('error', {}).get('charge_state') != 'uncertain'
+                        and err_receipt.get('http_status') == 200
+                        and is_valid_usage
+                    )
+
+                    if is_confirmed_incomplete:
+                        if scene['scene_id'] == 0 and not provisional_emitted[0]:
+                            with provisional_lock:
+                                if not provisional_emitted[0]:
+                                    if maybe_emit_provisional_verdict(conn, lease['run_id'], scenes, requested):
+                                        provisional_emitted[0] = True
+                        units_completed[0] += 1
+                        if concurrency == 1:
+                            release(conn, lease, done=False)
+                        return True
+
                     err_code = 'uncertain_provider_charge' if err_receipt['error']['charge_state'] == 'uncertain' else err_receipt['error']['code']
                     if err_receipt['error']['charge_state'] == 'uncertain':
                         set_operational_pause()

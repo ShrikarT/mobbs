@@ -25,6 +25,65 @@ import {
   ProvisionalVerdict,
 } from './types';
 
+function formatRunErrorMessage(code?: string | null): { title: string; explanation: string; guidance: string } {
+  if (!code) {
+    return {
+      title: 'Analysis could not be completed',
+      explanation: 'An unexpected error occurred during processing.',
+      guidance: 'Return to upload to start a new analysis. No automatic resend was dispatched.',
+    };
+  }
+  const explanations: Record<string, { title: string; explanation: string; guidance: string }> = {
+    uncertain_provider_charge: {
+      title: 'Provider response unconfirmed',
+      explanation: 'The model provider request timed out or returned an ambiguous transport error. To prevent duplicate billing, automatic retries are paused.',
+      guidance: 'Your uploaded video is preserved under your session. No blind retry will be sent.',
+    },
+    provider_incomplete: {
+      title: 'Provider response incomplete',
+      explanation: 'The provider returned an unfinished response, so this run stopped.',
+      guidance: 'Return to upload to start a new analysis. No automatic resend was dispatched.',
+    },
+    run_call_ceiling_exceeded: {
+      title: 'Call ceiling reached',
+      explanation: 'The maximum allowed model inference calls for this run was reached.',
+      guidance: 'No further requests were dispatched to avoid extra charges.',
+    },
+    missing_durable_notes_output: {
+      title: 'Notes artifact verification error',
+      explanation: 'Stored notes output could not be retrieved from durable storage.',
+      guidance: 'Resend was blocked to prevent duplicate billing.',
+    },
+    corrupted_durable_notes_output: {
+      title: 'Notes artifact integrity error',
+      explanation: 'Stored notes payload failed cryptographic hash verification.',
+      guidance: 'Resend was blocked to prevent duplicate billing.',
+    },
+    provider_timeout: {
+      title: 'Provider request timed out',
+      explanation: 'A model inference request timed out before receiving a complete response.',
+      guidance: 'Automatic resend was halted to protect against duplicate charges.',
+    },
+    provider_transport_error: {
+      title: 'Network transport error',
+      explanation: 'A transport error occurred while contacting the model provider.',
+      guidance: 'No unconfirmed retry was sent.',
+    },
+    provider_response_rejected: {
+      title: 'Provider response rejected',
+      explanation: 'The model provider returned an unexpected payload structure.',
+      guidance: 'No automatic retry was sent to protect against unconfirmed charges.',
+    },
+  };
+  return (
+    explanations[code] || {
+      title: 'Analysis failed',
+      explanation: `Operation halted with reason: ${code.replace(/_/g, ' ')}.`,
+      guidance: 'Return to upload to start a new analysis. No automatic resend was dispatched.',
+    }
+  );
+}
+
 function formatUnavailableReason(code?: string | null): string {
   if (!code) return 'Not observed';
   const map: Record<string, string> = {
@@ -1579,32 +1638,47 @@ export function App({
         )}
 
         {/* View 6: Error State with usable recovery and delete action */}
-        {viewState === 'error' && (
-          <div className="running-container">
-            <span className="stage-badge" style={{ background: 'var(--error-tint)', color: 'var(--error)' }}>
-              Error
-            </span>
-            <h2>Operation failed</h2>
-            <p style={{ color: 'var(--error)', marginTop: '8px' }}>{errorMessage}</p>
-            <div style={{ marginTop: '24px', display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button type="button" className="btn btn-primary" onClick={handleReset}>
-                Try again
-              </button>
-              {videoId && (
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={(e) => {
-                    triggerRef.current = e.currentTarget;
-                    setShowDeleteModal(true);
-                  }}
-                >
-                  Delete uploaded video
-                </button>
+        {viewState === 'error' && (() => {
+          const formatted = formatRunErrorMessage(errorMessage);
+          return (
+            <div className="running-container">
+              <span className="stage-badge" style={{ background: 'var(--error-tint)', color: 'var(--error)' }}>
+                Analysis error
+              </span>
+              <h2>{formatted.title}</h2>
+              <p style={{ color: 'var(--ink)', marginTop: '8px', maxWidth: '560px' }}>
+                {formatted.explanation}
+              </p>
+              <p style={{ color: 'var(--muted)', marginTop: '6px', fontSize: '14px', maxWidth: '560px' }}>
+                {formatted.guidance}
+              </p>
+              {errorMessage && (
+                <div style={{ marginTop: '12px' }}>
+                  <span className="badge" style={{ fontSize: '12px', background: 'var(--paper-dark)', color: 'var(--muted)' }}>
+                    Diagnostic code: {errorMessage}
+                  </span>
+                </div>
               )}
+              <div style={{ marginTop: '24px', display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                <button type="button" className="btn btn-primary" onClick={handleReset}>
+                  Return to upload
+                </button>
+                {videoId && (
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    onClick={(e) => {
+                      triggerRef.current = e.currentTarget;
+                      setShowDeleteModal(true);
+                    }}
+                  >
+                    Delete uploaded video
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </main>
 
       {/* Confirmation Modal for Deletion with focus management & containment */}

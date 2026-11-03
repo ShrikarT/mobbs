@@ -1,6 +1,6 @@
 # Viralist
 
-V03 is in progress: the real Standard-provider adapter connection has been verified, while the current app correction awaits independent acceptance. See [current state](docs/STATE.md) for exact commits and journey evidence. Local V03 credit use is authorized under the [current owner decision](docs/decisions-v03-product-priority.md); custom accounting is deferred.
+Local V03 is usable: the real Standard-provider Flash50 journey, supported notes/video evidence, refresh/recovery and deletion have been verified, including one constructed60s input. Formal p95 and the historical cost target remain open. See [current state](docs/STATE.md) for exact commits and journey evidence. Local V03 credit use is authorized under the [current owner decision](docs/decisions-v03-product-priority.md); custom accounting is deferred.
 
 Local V02 development (Windows, Python 3.10.2 / Node 26.7.0). Run the worker and API in separate terminals using the same private configuration:
 

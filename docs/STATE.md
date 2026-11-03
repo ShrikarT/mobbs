@@ -12,6 +12,8 @@ GitHub Issues is the selected destination, but no canonical issue is published; 
 
 ## Active work and next action
 
+GitHub publication preparation: `codex/v03-usable` combines coordinator documentation at ff9747b with the accepted runtime branch095fd2b. All apps/contracts/migrations/scripts/manifests/tests match095fd2b byte-for-byte;31 focused regression tests passed in48.708s. Journey evidence belongs to095fd2b; no fresh paid journey or release is claimed for this documentation/integration packaging. Uncommitted V04/V05 drafts and private runtime/media remain local.
+
 ### 2026-11-03: usable local website; functional journey verified
 
 **Owner continuation completed:** V03-MAX60-VERIFY is JOURNEY-VERIFIED on unchanged **095fd2ba112d99fef72db8535e2a7f81d4f075f3**. One constructed 60s input completed real Flash50 in 278.862s: 433 persona decisions, one supported note, no failed/pending personas, observed estimate 1.09184665USD. The 60.1s input was rejected before any provider call. Playback near 59s, evidence seek, responsive layouts, ownership, refresh and deletion passed; all 448 owned objects returned404 and content rows were removed. Existing user data/report and running app are preserved. No source changes or new workers. This is one sample, not p95; the historical <=0.50USD cost target was missed. See the maximum-duration evidence linked below.
