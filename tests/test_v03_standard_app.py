@@ -202,7 +202,7 @@ class TestStandardProviderUnit(unittest.TestCase):
             self.assertEqual(body['model'], 'muse-spark-1.3')
             self.assertEqual(body['store'], False)
             self.assertEqual(body['reasoning'], {'effort': 'minimal'})
-            self.assertEqual(body['max_output_tokens'], 1200)
+            self.assertEqual(body['max_output_tokens'], 4096)
 
             # Ensure prompt contains persona card and scene bounds
             inp = body['input'][0]['content']

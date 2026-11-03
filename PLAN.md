@@ -9,9 +9,9 @@
 - Outbound token headroom raised to 4096 tokens for `verdict` and `notes`, preventing artificial response truncation.
 - Provider and worker preserve allowlisted metadata (`status="incomplete"`, `incomplete_reason`, `response_id`, canonical `usage`, `cost_usd`, `max_output_tokens: 4096`) while redacting raw prose/reasoning.
 - Confirmed `max_output_tokens` incomplete failures isolate to the affected persona (checkpoint marked `failed`, 0 further scene dispatches to that persona); remaining personas continue to completion, producing an honest incomplete report with effective cast denominator and full usage/cost accounted in run totals.
-- Frontend replaces ambiguous error codes and "Try again" buttons with honest, human-readable error explanations and navigation ("Return to upload" and explicit "Delete uploaded video" confirmation modal).
-- 6/6 tests in `tests/test_v03_incomplete_fix.py` pass clean exit 0; 14/14 tests in `tests/test_normalized.py` pass clean; frontend builds clean in 1.25s. Controlled HTTP provider doubles used; zero live paid calls. Browser harness setup stopped at coordinator decision gate `msg_baab054d297d` for independent coordinator verification. See [evidence](docs/evidence/v03-incomplete-fix.md).
-- Status is WORKER-REPORTED pending independent review. V03 remains the active scope; transition to V04 is deferred until this reliability fix is accepted and integrated.
+- Frontend replaces ambiguous error codes and "Try again" buttons with honest, human-readable error explanations and navigation ("Return to upload" and explicit "Delete uploaded video" confirmation modal). Correction 1 applies neutral copy for provider_incomplete ("The provider returned an unfinished response, so this run stopped.") and removes false no-charge/preservation claims from generic fallbacks.
+- Regression suite updated: `tests/test_v03_standard_app.py:205` outbound request max_output_tokens assertion updated to 4096; 4/4 TestStandardProviderUnit pass, 6/6 test_v03_incomplete_fix pass, 14/14 test_normalized pass, frontend builds in 300ms. Browser verification gap reserved for coordinator.
+- Status is WORKER-REPORTED (correction 1 submitted) pending independent review. V03 remains the active scope; transition to V04 is deferred until this reliability fix is accepted and integrated.
 
 ### Historical checkpoint — 2026-11-02
 

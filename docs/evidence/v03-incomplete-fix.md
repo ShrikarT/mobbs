@@ -126,3 +126,32 @@ apps/web/dist/assets/index-CB_7kx4_.js   270.63 kB │ gzip: 81.54 kB
    No live Meta API calls or charges were incurred by the worker. All provider boundary interactions were exercised via `httpx.MockTransport` fixtures.
 3. **User Data Integrity:**
    The original failed user run and upload from 2026-11-03 were left strictly unmodified in the user database; no retroactive receipts were invented.
+
+---
+
+## 5. Review Correction 1 (2026-11-03)
+
+- Task ID: `task_85789c335894`
+- Dispatch ID: `ctx_a16a63bb9c6e`
+- Run ID: `run_d3354faa0659`
+- Preserved Lineage: Task `task_416dfe1a4d64`, Dispatch `ctx_d98dbfd50ef5`, candidate `47a40c76a3c5a7f35966f77f478cc814070ac470`, baseline `c015c42dc63f04f208c2ba145a5cd5fdfb210098`
+- Submitted Corrections: 1 (0 unsuccessful)
+- Acceptance State: WORKER-REPORTED
+
+### Resolved Review Findings (`docs/evidence/v03-incomplete-review-r1.md`):
+1. **App.tsx Error Copy:**
+   - Updated `provider_incomplete` in `formatRunErrorMessage` to exact neutral copy: `"The provider returned an unfinished response, so this run stopped."`
+   - Removed unsupported charges and video preservation claims from generic/fallback errors (`!code` and unknown code fallback), replacing with honest fallback guidance: `"Return to upload to start a new analysis. No automatic resend was dispatched."`
+   - Retained explicit "Return to upload" navigation and confirmed "Delete uploaded video" modal without broader UI changes.
+2. **Request Shape Regression Assertion (`tests/test_v03_standard_app.py:205`):**
+   - Updated obsolete outbound request ceiling assertion from `1200` to `4096` matching intended bounded headroom.
+   - Preserved 1200-token incomplete response fixtures intact.
+   - Backend source `apps/api/app/standard_provider.py` and `apps/api/app/worker.py` remain byte-identical to `47a40c7`.
+
+### Verification Results:
+- `tests.test_v03_standard_app.TestStandardProviderUnit`: 4 tests PASS in 0.604s (exit code 0) using dedicated test runtime `unit-runtime.json` (origin 58000).
+- `npm run build`: PASS, 17 modules transformed, Vite built in 300ms (exit code 0).
+- `tests.test_v03_incomplete_fix`: 6 tests PASS in 38.008s (exit code 0).
+- `tests.test_normalized`: 14 tests PASS in 0.017s (exit code 0).
+- Browser verification gap: coordinator explicitly owns independent browser and combined verification.
+

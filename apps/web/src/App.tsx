@@ -30,7 +30,7 @@ function formatRunErrorMessage(code?: string | null): { title: string; explanati
     return {
       title: 'Analysis could not be completed',
       explanation: 'An unexpected error occurred during processing.',
-      guidance: 'Your uploaded video is preserved. No automatic charges or retries were sent.',
+      guidance: 'Return to upload to start a new analysis. No automatic resend was dispatched.',
     };
   }
   const explanations: Record<string, { title: string; explanation: string; guidance: string }> = {
@@ -41,8 +41,8 @@ function formatRunErrorMessage(code?: string | null): { title: string; explanati
     },
     provider_incomplete: {
       title: 'Provider response incomplete',
-      explanation: 'The model response stopped prematurely due to token bounds or truncated output. No invalid verdicts were fabricated.',
-      guidance: 'Your upload remains preserved. You can start a new upload or delete this video.',
+      explanation: 'The provider returned an unfinished response, so this run stopped.',
+      guidance: 'Return to upload to start a new analysis. No automatic resend was dispatched.',
     },
     run_call_ceiling_exceeded: {
       title: 'Call ceiling reached',
@@ -79,7 +79,7 @@ function formatRunErrorMessage(code?: string | null): { title: string; explanati
     explanations[code] || {
       title: 'Analysis failed',
       explanation: `Operation halted with reason: ${code.replace(/_/g, ' ')}.`,
-      guidance: 'Your uploaded video is preserved. No hidden charges or automatic retries were dispatched.',
+      guidance: 'Return to upload to start a new analysis. No automatic resend was dispatched.',
     }
   );
 }

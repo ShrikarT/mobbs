@@ -22,11 +22,12 @@ Antigravity implementation candidate for **V03-RUNTIME-INCOMPLETE** is **WORKER-
 - **Worker persona isolation:** Confirmed `max_output_tokens` incomplete failures isolate to the affected persona (checkpoint marked `failed`, 0 further scene dispatches to that persona), allowing other independent personas to continue and produce an honest incomplete report with effective cast denominator and full usage/cost accounted in run totals. Ambiguous transport or malformed receipts remain conservative run failures.
 - **Truthful error copy:** `apps/web/src/App.tsx` maps error codes to clear titles and explanations, replacing ambiguous "Try again" buttons with honest navigation ("Return to upload" and explicit "Delete uploaded video" confirmation modal).
 - **Verification:** 6/6 tests in `tests/test_v03_incomplete_fix.py` pass clean exit 0; 14/14 tests in `tests/test_normalized.py` pass clean; frontend builds clean in 1.25s. Controlled HTTP provider doubles used; zero live paid calls. Browser harness setup stopped at coordinator decision gate `msg_baab054d297d` for independent coordinator verification. See [evidence](evidence/v03-incomplete-fix.md).
+- **Correction 1:** Neutral App.tsx error copy implemented, generic fallback claims removed, tests/test_v03_standard_app.py:205 max_output_tokens updated to 4096. TestStandardProviderUnit (4/4 pass), test_v03_incomplete_fix (6/6 pass), test_normalized (14/14 pass), and npm run build (300ms) verified clean. Backend standard_provider.py and worker.py preserved byte-identical to 47a40c7. Browser verification gap acknowledged for coordinator.
 
 | Owner/state | Exact identity and scope |
 |---|---|
 | Coordinator | `C:/Users/Shrikar/viralist`, branch `codex/orchestration-readiness`. |
-| Antigravity — WORKER-REPORTED | V03-RUNTIME-INCOMPLETE, Task `task_416dfe1a4d64`, Dispatch `ctx_d98dbfd50ef5`, terminal `term_cf41b01f-c754-4e37-bce9-663dbf3c65a9`, Run `run_d3354faa0659`. Status: `WORKER-REPORTED`. |
+| Antigravity — WORKER-REPORTED | V03-RUNTIME-INCOMPLETE correction 1, Task `task_85789c335894`, Dispatch `ctx_a16a63bb9c6e`, terminal `term_990baaed-f73f-4282-a7c8-a96f1f47f11b`, Run `run_d3354faa0659` (preserving task_416dfe1a4d64 / ctx_d98dbfd50ef5). Status: `WORKER-REPORTED`. |
 | Implementation worktree | `C:/Users/Shrikar/orca/workspaces/viralist/codex-v03-incomplete-fix`, branch `codex/v03-incomplete-fix`. |
 | Review queue | Pending independent review of `codex/v03-incomplete-fix` candidate. |
 
