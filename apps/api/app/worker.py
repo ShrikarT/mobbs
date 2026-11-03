@@ -23,7 +23,7 @@ from contracts.normalized import (
     validate_reaction,
     require,
 )
-from .config import ROOT, settings
+from .config import ROOT, settings, get_effective_runtime_path
 from .db import connection, uid, Jsonb
 from .domain import (
     fence,
@@ -95,7 +95,7 @@ def prepare(lease, provider):
                 stage(conn, lease['run_id'], 'simulating')
             return
         stage(conn, lease['run_id'], 'decoding')
-    with tempfile.TemporaryDirectory(prefix='viralist-worker-') as tmp:
+    with tempfile.TemporaryDirectory(prefix='mobbs-worker-') as tmp:
         directory = Path(tmp)
         path = directory / 'original.mp4'
         body = Storage().get(video['metadata']['original_key'])['Body']
@@ -130,7 +130,7 @@ def prepare(lease, provider):
 
 
 def get_operational_pause_marker_path():
-    runtime_path = os.environ.get('VIRALIST_RUNTIME')
+    runtime_path = get_effective_runtime_path()
     if runtime_path:
         return Path(runtime_path).parent / 'operational_pause.marker'
     return ROOT / 'operational_pause.marker'

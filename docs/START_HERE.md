@@ -1,6 +1,6 @@
 # Start here
 
-This is a planning-only repository for Viralist. Read [PROJECT_BRIEF](PROJECT_BRIEF.md) for the recommended scope and unresolved owner choices, [PRODUCT](PRODUCT.md) for the product decision, and [STATE](STATE.md) for actual evidence. The supplied original documents remain unchanged outside Git; source hashes and verified corrections are in [RESEARCH](RESEARCH.md).
+This is a planning-only repository for Mobbs. Read [PROJECT_BRIEF](PROJECT_BRIEF.md) for the recommended scope and unresolved owner choices, [PRODUCT](PRODUCT.md) for the product decision, and [STATE](STATE.md) for actual evidence. The supplied original documents remain unchanged outside Git; source hashes and verified corrections are in [RESEARCH](RESEARCH.md).
 
 ## The sequence
 

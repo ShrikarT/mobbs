@@ -20,15 +20,15 @@ function getMediaPaths() {
 
 const { aPath: VIDEO_A_PATH, bPath: VIDEO_B_PATH } = getMediaPaths();
 
-test.describe('Viralist V03 Browser Journey', () => {
+test.describe('Mobbs V03 Browser Journey', () => {
   test('Complete journey for Video B (Test 3): upload, real data binding, note seek, reload persistence, modal containment, and honest deletion', async ({
     page,
   }) => {
     test.setTimeout(180000);
     // 1. Visit workbench
     await page.goto('/');
-    await expect(page).toHaveTitle(/Viralist/);
-    await expect(page.locator('.brand-title')).toHaveText('Viralist / Evidence desk');
+    await expect(page).toHaveTitle(/Mobbs/);
+    await expect(page.locator('.brand-title')).toHaveText('Mobbs / Evidence desk');
     await expect(page.locator('.hero-heading')).toHaveText('A clearer next cut.');
     await expect(page.locator('.session-badge')).toContainText('Session:');
 

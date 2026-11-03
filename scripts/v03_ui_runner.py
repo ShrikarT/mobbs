@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_LIVE = Path(r"C:\Users\Shrikar\.codex\viralist-v03-ui\runtime-live.json")
 
+os.environ["MOBBS_RUNTIME"] = str(RUNTIME_LIVE)
 os.environ["VIRALIST_RUNTIME"] = str(RUNTIME_LIVE)
 os.environ["PYTHONPATH"] = str(ROOT)
 sys.path.insert(0, str(ROOT))
@@ -88,6 +89,7 @@ def main():
         sys.exit(1)
 
     env = os.environ.copy()
+    env["MOBBS_RUNTIME"] = str(RUNTIME_LIVE)
     env["VIRALIST_RUNTIME"] = str(RUNTIME_LIVE)
     env["PYTHONPATH"] = str(ROOT)
 

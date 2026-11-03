@@ -35,6 +35,7 @@ for name, port in [("runtime.json", 58000), ("runtime-live.json", 58003)]:
     (P / name).write_text(json.dumps(dict(cfg, origin=f"http://127.0.0.1:{port}"), indent=2), encoding="utf-8")
 print("Runtime configs written.")
 
+os.environ["MOBBS_RUNTIME"] = str(P / "runtime.json")
 os.environ["VIRALIST_RUNTIME"] = str(P / "runtime.json")
 sys.path.insert(0, str(ROOT))
 

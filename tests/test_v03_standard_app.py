@@ -8,6 +8,7 @@ import copy
 import hashlib
 import json
 import os
+os.environ.setdefault('MOBBS_RUNTIME', os.environ.get('VIRALIST_RUNTIME') or 'C:/Users/Shrikar/.codex/viralist-v03-standard-app/runtime.json')
 os.environ.setdefault('VIRALIST_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-standard-app/runtime.json')
 import unittest
 from decimal import Decimal
@@ -862,11 +863,12 @@ class TestStandardWorkerAndLifecycle(unittest.TestCase):
 
         py_exe = sys.executable
         cwd = os.getcwd()
-        runtime_env = os.environ.get('VIRALIST_RUNTIME') or 'C:/Users/Shrikar/.codex/viralist-v03-standard-app/runtime.json'
+        runtime_env = os.environ.get('MOBBS_RUNTIME') or os.environ.get('VIRALIST_RUNTIME') or 'C:/Users/Shrikar/.codex/viralist-v03-standard-app/runtime.json'
 
         child_script = f"""
 import os, sys, json
 sys.path.insert(0, r'{cwd}')
+os.environ['MOBBS_RUNTIME'] = r'{runtime_env}'
 os.environ['VIRALIST_RUNTIME'] = r'{runtime_env}'
 os.environ['MODEL_API_KEY'] = 'DUMMY_KEY'
 
@@ -1337,8 +1339,10 @@ os._exit(0)
             d = Path(td)
             helper = str(Path(__file__).resolve().parent / 'v03_standard_r2_worker.py')
             env = os.environ.copy()
-            runtime_env = os.environ.get('VIRALIST_RUNTIME') or 'C:/Users/Shrikar/.codex/viralist-v03-standard-app/runtime.json'
+            runtime_env = os.environ.get('MOBBS_RUNTIME') or os.environ.get('VIRALIST_RUNTIME') or 'C:/Users/Shrikar/.codex/viralist-v03-standard-app/runtime.json'
+            env['MOBBS_RUNTIME'] = str(Path(runtime_env).resolve())
             env['VIRALIST_RUNTIME'] = str(Path(runtime_env).resolve())
+            env['MOBBS_PROVIDER_MODE'] = 'standard'
             env['VIRALIST_PROVIDER_MODE'] = 'standard'
             env['MODEL_API_KEY'] = 'DUMMY_KEY_LOCAL'
             env['PYTHONDONTWRITEBYTECODE'] = '1'

@@ -1,5 +1,6 @@
 import json
 import os
+os.environ.setdefault('MOBBS_RUNTIME', os.environ.get('VIRALIST_RUNTIME') or 'C:/Users/Shrikar/.codex/viralist-v03-pool/runtime.json')
 os.environ.setdefault('VIRALIST_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-pool/runtime.json')
 import threading
 import time

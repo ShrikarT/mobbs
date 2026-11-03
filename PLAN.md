@@ -1,6 +1,15 @@
-# Viralist delivery plan
+# Mobbs delivery plan
 
 ## Current execution: V03 in progress
+
+### 2026-11-03: MOBBS-RENAME in progress
+
+- **Task & Dispatch:** MOBBS-RENAME `task_607bf4406c34`, Dispatch `ctx_11ade2923bb7`, Run `run_d3354faa0659`, Agent Antigravity.
+- **Authority & Receipt:** Assigned base `673e2631357f3869724e0edd2662351bee19cdab`, branch `codex/mobbs-rename`, worktree `C:/Users/Shrikar/orca/workspaces/viralist/codex-mobbs-rename`. Startup receipt approved by coordinator (`msg_211bd080dc1d`).
+- **Status:** **WORKER-REPORTED**; candidate implementation completed with scoped tests and build passing clean. Acceptance pending independent review.
+- **Scope & Delivery:** Mechanical brand rename (Viralist -> Mobbs, viralist -> mobbs, VIRALIST -> MOBBS) across repository product text, UI, headers, API titles, User-Agent, temp prefixes, and documentation. New primary configuration `MOBBS_RUNTIME` and `MOBBS_PROVIDER_MODE` with legacy `VIRALIST_*` fallback, whitespace trimming, and identical worker operational-pause path. Browser cookies `vir_session` and `vir_csrf` preserved unchanged.
+- **Checks & Evidence:** 37 passing unit/regression tests (`test_mobbs_config`, `test_v03_standard_app`, `test_v03_incomplete_fix`, `test_normalized`, `test_v03_notes_strict_schema`), clean Vite frontend build. Old-name inventory and justifications recorded in [docs/evidence/mobbs-rename.md](docs/evidence/mobbs-rename.md).
+
 
 ### Current checkpoint - 2026-11-03: usable local V03 verified
 

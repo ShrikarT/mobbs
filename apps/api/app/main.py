@@ -18,7 +18,7 @@ from .media import probe, MediaError, MAX_BYTES
 from .providers import RecordedProvider, ProviderUnavailable, digest
 from .cast import get_persona_ids, get_cast_hash
 
-app = FastAPI(title='Viralist local evidence desk', docs_url=None, redoc_url=None)
+app = FastAPI(title='Mobbs local evidence desk', docs_url=None, redoc_url=None)
 
 
 def error(code, status=400, stage='request'):
@@ -92,7 +92,7 @@ async def upload(request: Request):
         length = int(request.headers.get('content-length','0'))
     except ValueError: return error('invalid_content_length')
     if length > MAX_BYTES: return error('maximum_size_200000000_bytes',413,'upload')
-    with tempfile.TemporaryDirectory(prefix='viralist-ingest-') as tmp:
+    with tempfile.TemporaryDirectory(prefix='mobbs-ingest-') as tmp:
         path = Path(tmp)/'upload.mp4'
         sha, size = hashlib.sha256(), 0
         with path.open('wb') as f:

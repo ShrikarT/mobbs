@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+os.environ.setdefault('MOBBS_PROVIDER_MODE', 'standard')
 os.environ.setdefault('VIRALIST_PROVIDER_MODE', 'standard')
 os.environ.setdefault('MODEL_API_KEY', 'DUMMY_KEY_LOCAL')
 os.environ['PYTHONDONTWRITEBYTECODE'] = '1'

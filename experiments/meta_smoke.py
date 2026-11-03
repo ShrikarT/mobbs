@@ -1,4 +1,4 @@
-"""Authorized, bounded Meta API experiment. Not the Viralist production pipeline.
+"""Authorized, bounded Meta API experiment. Not the Mobbs production pipeline.
 
 Secrets: MODEL_API_KEY environment or private stdin. Raw results/media go to
 the caller's private output directory, never this repository. No automatic retry.

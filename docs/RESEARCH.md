@@ -4,13 +4,13 @@
 
 Shrikar reports successful Muse Image generation in the playground and receipt of $150 Meta credits. Treat both as owner-confirmed facts; no repeat proof request is needed. Direct API behavior, remaining balance and permitted app deployment are separate, untested questions. The geographic policy was re-read on 2026-10-28 and still explicitly lists Muse Image: India. This conflicts with observed playground availability; neither account-specific exemption nor changed terms have been established. Preserve the discrepancy rather than conclude the playground cannot work or that it grants deployment permission.
 
-Owner selected [ShrikarT/viralist](https://github.com/ShrikarT/viralist). GitHub connector metadata verified public visibility, default branch main, size 0 and repository ID 1436533420; `git ls-remote` succeeded with no refs. Local `origin` was configured to its clone URL; no push or GitHub issue write occurred. TokenTree is excluded by owner instruction; replacement demo subject is unresolved. Earlier observations below describe the initial planning baseline, not the updated account/repository state.
+Owner selected [ShrikarT/mobbs](https://github.com/ShrikarT/mobbs). GitHub connector metadata verified public visibility, default branch main, size 0 and repository ID 1436533420; `git ls-remote` succeeded with no refs. Local `origin` was configured to its clone URL; no push or GitHub issue write occurred. TokenTree is excluded by owner instruction; replacement demo subject is unresolved. Earlier observations below describe the initial planning baseline, not the updated account/repository state.
 
 Research was read-only. Public documentation describes capabilities; it does **not** verify this account's access or an implemented integration. No paid call, billing inspection, credential read, account mutation, external message or publication occurred.
 
 ## Local baseline and source provenance
 
-The workspace was empty: no README, manifest, source, schema, tests, CI, deployment configuration, nested instructions, tracker documents, ADRs or handoff. Initially Git resolved to `C:/Users/Shrikar`, branch `master`, commit `f8d430c6e694af8ad4b3a9483423db579896f0b3`, with unrelated changes. That is **not a Viralist baseline**. It was left untouched. A fresh local repository was initialized at `C:/Users/Shrikar/viralist`, branch `main`, initially without a remote (configured on 2026-10-28 above).
+The workspace was empty: no README, manifest, source, schema, tests, CI, deployment configuration, nested instructions, tracker documents, ADRs or handoff. Initially Git resolved to `C:/Users/Shrikar`, branch `master`, commit `f8d430c6e694af8ad4b3a9483423db579896f0b3`, with unrelated changes. That is **not a Mobbs baseline**. It was left untouched. A fresh local repository was initialized at `C:/Users/Shrikar/viralist`, branch `main`, initially without a remote (configured on 2026-10-28 above).
 
 | Local input | SHA-256 | Treatment |
 |---|---|---|
@@ -40,12 +40,12 @@ The supplied SAM 15,000-frame limit was not corroborated in the pages inspected.
 
 ## Alternatives: capabilities, not independently tested quality
 
-| Alternative / first-party source | What it gets right | Viralist switching hypothesis |
+| Alternative / first-party source | What it gets right | Mobbs switching hypothesis |
 |---|---|---|
-| [OpusClip scoring and selection](https://www.opus.pro/blog/viral-moment-detection-api) | Ranks moments and describes standalone scoring | A founder may prefer traceable audience reactions for an already-edited product demo. We cannot claim competitors lack suggestions or that Viralist is more accurate. |
+| [OpusClip scoring and selection](https://www.opus.pro/blog/viral-moment-detection-api) | Ranks moments and describes standalone scoring | A founder may prefer traceable audience reactions for an already-edited product demo. We cannot claim competitors lack suggestions or that Mobbs is more accurate. |
 | [PickFu screen-recording surveys](https://www.pickfu.com/products/screen-recording) | Real respondents explain their experience; supports video/file inputs | Simulations may provide an earlier inexpensive iteration, but cannot replace human validity. No cost/quality superiority has been measured. |
 | [Frame.io comments](https://help.frame.io/en/articles/9105278-comments-panel-overview) | Time-linked, completable feedback with sorting/export | Automating first-pass feedback may help before a human review. We retain the timestamp-to-evidence interaction principle. |
-| [Descript transcript editor](https://www.descript.com/tools/video-transcript-generator) | Transcript-linked video editing | Viralist can prescribe an edit for an existing editor; building another editor would dilute the wedge. |
+| [Descript transcript editor](https://www.descript.com/tools/video-transcript-generator) | Transcript-linked video editing | Mobbs can prescribe an edit for an existing editor; building another editor would dilute the wedge. |
 
 No interviews, trial use or competitive benchmark occurred. Product demand, relative cost, uniqueness and willingness to pay are HYPOTHESES.
 

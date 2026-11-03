@@ -26,10 +26,24 @@ class Settings:
     model_api_key: str = ''
 
 
+def get_effective_runtime_path() -> str:
+    mobbs_env = (os.environ.get('MOBBS_RUNTIME') or '').strip()
+    if mobbs_env:
+        return mobbs_env
+    viralist_env = (os.environ.get('VIRALIST_RUNTIME') or '').strip()
+    if viralist_env:
+        return viralist_env
+    new_default = Path.home() / '.codex/private-runs/mobbs-v02-local/runtime.json'
+    legacy_default = Path.home() / '.codex/private-runs/viralist-v02-local/runtime.json'
+    if new_default.is_file():
+        return str(new_default)
+    if legacy_default.is_file():
+        return str(legacy_default)
+    return str(new_default)
+
+
 def settings():
-    runtime_path = (os.environ.get('VIRALIST_RUNTIME') or '').strip()
-    if not runtime_path:
-        runtime_path = str(Path.home() / '.codex/private-runs/viralist-v02-local/runtime.json')
+    runtime_path = get_effective_runtime_path()
     path = Path(runtime_path)
     raw = json.loads(path.read_text(encoding='utf-8-sig'))
     fields = ('database_url', 's3_endpoint', 's3_access_key', 's3_secret_key', 's3_bucket', 'provider_evidence_root')
@@ -38,7 +52,11 @@ def settings():
         kwargs['origin'] = raw['origin']
 
     # Server config selects recorded or standard mode; default recorded
-    mode = os.environ.get('VIRALIST_PROVIDER_MODE') or raw.get('provider_mode') or 'recorded'
+    mode = (os.environ.get('MOBBS_PROVIDER_MODE') or '').strip()
+    if not mode:
+        mode = (os.environ.get('VIRALIST_PROVIDER_MODE') or '').strip()
+    if not mode:
+        mode = raw.get('provider_mode') or 'recorded'
     if mode not in ('recorded', 'standard'):
         mode = 'recorded'
     kwargs['provider_mode'] = mode

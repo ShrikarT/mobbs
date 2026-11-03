@@ -671,7 +671,7 @@ export function App({
       {/* 56px utility header with responsive wrap at 320px */}
       <header className="app-header">
         <div className="brand-group">
-          <span className="brand-title">Viralist / Evidence desk</span>
+          <span className="brand-title">Mobbs / Evidence desk</span>
           {effectiveMode === 'standard' ? (
             <span className="badge-recorded" style={{ background: '#2e1065', borderColor: '#7c3aed', color: '#e9d5ff' }}>
               Standard mode · Meta muse-spark-1.3
