@@ -44,6 +44,31 @@ export interface RunManifest {
   provider_concurrency?: number;
 }
 
+export interface ProvisionalDropReason {
+  reason: string;
+  count: number;
+  percentage: number;
+  evidence_quotes: Array<{
+    persona_id: string;
+    quote: string;
+    evidence_id?: string;
+  }>;
+}
+
+export interface ProvisionalVerdict {
+  scene_id: number;
+  start_ms: number;
+  end_ms: number;
+  total_personas: number;
+  retained_count: number;
+  dropped_count: number;
+  retention_pct: number;
+  drop_pct: number;
+  hook_retention_pct?: number;
+  hook_drop_pct?: number;
+  top_drop_reasons: ProvisionalDropReason[];
+}
+
 export interface RunState {
   run_id: string;
   video_id: string;
@@ -57,6 +82,7 @@ export interface RunState {
   pending: number;
   stopped?: number;
   manifest?: RunManifest;
+  provisional_verdict?: ProvisionalVerdict | null;
 }
 
 export interface QuoteItem {
@@ -248,8 +274,8 @@ export interface SimulationEvent {
   sequence: number;
   type: string;
   payload: {
-    persona_id: string;
-    scene_id: number;
+    persona_id?: string;
+    scene_id?: number;
     at_ms?: number;
     evidence_id?: string;
     drop_reason?: string;
@@ -257,6 +283,17 @@ export interface SimulationEvent {
     reason?: string;
     through_sequence?: number;
     reset?: boolean;
+    start_ms?: number;
+    end_ms?: number;
+    total_personas?: number;
+    retained_count?: number;
+    dropped_count?: number;
+    retention_pct?: number;
+    drop_pct?: number;
+    hook_retention_pct?: number;
+    hook_drop_pct?: number;
+    top_drop_reasons?: ProvisionalDropReason[];
+    [key: string]: any;
   };
   created_at?: string;
 }

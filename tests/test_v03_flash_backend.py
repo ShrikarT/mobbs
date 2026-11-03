@@ -214,7 +214,7 @@ class TestCriteria234FullRunEvidenceAndReporting(unittest.TestCase):
         self.assertEqual(len(checkpoints), 50)
         self.assertTrue(all(cp['status'] == 'stopped' for cp in checkpoints))
         self.assertEqual(len(reactions), 256)
-        self.assertEqual(len(events), 256)
+        self.assertEqual(len(events), 257)  # 256 persona reactions + 1 verdict.provisional event
 
         # Post-stop invariant: no persona has any reaction after their stopped scene
         stops_by_pid = {}
@@ -250,14 +250,18 @@ class TestCriteria234FullRunEvidenceAndReporting(unittest.TestCase):
         self.assertEqual(ev_res.status_code, 200)
         raw_sse = ev_res.text
         lines = [line for line in raw_sse.splitlines() if line.startswith('data: ')]
-        self.assertEqual(len(lines), 256)
+        self.assertEqual(len(lines), 257)
         events = [json.loads(line[6:]) for line in lines]
         for i, ev in enumerate(events):
             self.assertEqual(ev['sequence'], i + 1)
-            # Additive fields in payload
-            self.assertIn('actions', ev['payload'])
-            self.assertIn('reason', ev['payload'])
-            self.assertTrue(isinstance(ev['payload']['reason'], str))
+            if ev['type'].startswith('persona.'):
+                # Additive fields in payload
+                self.assertIn('actions', ev['payload'])
+                self.assertIn('reason', ev['payload'])
+                self.assertTrue(isinstance(ev['payload']['reason'], str))
+            elif ev['type'] == 'verdict.provisional':
+                self.assertIn('retention_pct', ev['payload'])
+                self.assertIn('top_drop_reasons', ev['payload'])
 
         # 2. Cursor reconnect with Last-Event-ID
         cursor_event = events[99]  # 100th event (sequence 100)
@@ -267,7 +271,7 @@ class TestCriteria234FullRunEvidenceAndReporting(unittest.TestCase):
         )
         self.assertEqual(reconnect_res.status_code, 200)
         reconnect_lines = [line for line in reconnect_res.text.splitlines() if line.startswith('data: ')]
-        self.assertEqual(len(reconnect_lines), 156)  # 256 - 100 = 156
+        self.assertEqual(len(reconnect_lines), 157)  # 257 - 100 = 157
         first_reconnect_ev = json.loads(reconnect_lines[0][6:])
         self.assertEqual(first_reconnect_ev['sequence'], 101)
 

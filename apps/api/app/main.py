@@ -271,6 +271,11 @@ def run_state(run_id: str,request: Request):
             pending = 0
         else:
             pending = active if cast else requested
+        prov_event = conn.execute(
+            "SELECT payload FROM events WHERE run_id=%s AND type='verdict.provisional' ORDER BY sequence ASC LIMIT 1",
+            (run_id,)
+        ).fetchone()
+        provisional_verdict = prov_event['payload'] if prov_event else None
         return dict(
             run_id=run_id,
             video_id=row['video_id'],
@@ -284,6 +289,7 @@ def run_state(run_id: str,request: Request):
             failed=failed,
             pending=pending,
             stopped=stopped,
+            provisional_verdict=provisional_verdict,
         )
 
 

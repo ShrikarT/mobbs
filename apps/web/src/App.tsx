@@ -22,6 +22,7 @@ import {
   RetentionRow,
   MetricItem,
   EvidenceItem,
+  ProvisionalVerdict,
 } from './types';
 
 function formatUnavailableReason(code?: string | null): string {
@@ -67,6 +68,7 @@ export function App({
   const [runId, setRunId] = useState<string | null>(null);
   const [runState, setRunState] = useState<RunState | null>(null);
   const [report, setReport] = useState<ReportData | null>(initialReport || null);
+  const [provisionalVerdict, setProvisionalVerdict] = useState<ProvisionalVerdict | null>(null);
 
   // Persisted events and live graph state
   const [events, setEvents] = useState<SimulationEvent[]>([]);
@@ -248,6 +250,9 @@ export function App({
               const parsed = JSON.parse(line.slice(6));
               if (parsed && parsed.event_id) {
                 newEvents.push(parsed);
+                if (parsed.type === 'verdict.provisional' && parsed.payload) {
+                  setProvisionalVerdict(parsed.payload);
+                }
               }
             } catch {}
           }
@@ -275,6 +280,9 @@ export function App({
         const state = await fetchRun(activeRunId, abortCtrl.signal);
         if (!isMounted || runFenceRef.current !== currentFence) return;
         setRunState(state);
+        if (state.provisional_verdict) {
+          setProvisionalVerdict(state.provisional_verdict);
+        }
 
         // Surface report for complete OR incomplete terminal state
         if (state.status === 'complete' || state.status === 'incomplete') {
@@ -341,6 +349,10 @@ export function App({
               created_at: parsed.created_at,
             };
 
+            if (evItem.type === 'verdict.provisional' && evItem.payload) {
+              setProvisionalVerdict(evItem.payload as any);
+            }
+
             if (isGraphPaused) {
               bufferedEventsRef.current.push(evItem);
             } else {
@@ -355,6 +367,7 @@ export function App({
 
       eventSource.addEventListener('persona.continued', handleEvent);
       eventSource.addEventListener('persona.stopped', handleEvent);
+      eventSource.addEventListener('verdict.provisional', handleEvent);
       eventSource.addEventListener('run.snapshot', handleEvent);
       eventSource.addEventListener('message', handleEvent);
     } catch {}
@@ -427,6 +440,7 @@ export function App({
 
       const run = await startRun(up.video_id, currentSession.csrf, profileToUse);
       setRunId(run.run_id);
+      setProvisionalVerdict(null);
       setViewState('processing');
     } catch (err: any) {
       setErrorMessage(err.message || 'Upload failed');
@@ -493,6 +507,7 @@ export function App({
     setRunId(null);
     setRunState(null);
     setReport(null);
+    setProvisionalVerdict(null);
     setSelectedNote(null);
     setSelectedEvidence(null);
     setEvents([]);
@@ -537,14 +552,20 @@ export function App({
     for (const ev of events) {
       const p = ev.payload;
       if (!p || !p.persona_id) continue;
-      const current = map.get(p.persona_id) || {
+      const current: {
+        status: 'watching' | 'stopped' | 'active';
+        lastScene: number;
+        atMs?: number;
+        reason?: string;
+        actions: string[];
+      } = map.get(p.persona_id) || {
         status: 'watching',
-        lastScene: p.scene_id,
+        lastScene: p.scene_id ?? 0,
         atMs: p.at_ms,
         actions: [],
       };
 
-      current.lastScene = Math.max(current.lastScene, p.scene_id);
+      current.lastScene = Math.max(current.lastScene, p.scene_id ?? 0);
       if (p.at_ms !== undefined) current.atMs = p.at_ms;
 
       if (ev.type === 'persona.stopped') {
@@ -566,6 +587,11 @@ export function App({
       map.set(p.persona_id, current);
     }
     return map;
+  }, [events]);
+
+  // Count persona decisions strictly (excluding system or verdict events)
+  const personaDecisionsCount = useMemo(() => {
+    return events.filter((e) => e.type.startsWith('persona.')).length;
   }, [events]);
 
   // List of all expected persona IDs based on requested count
@@ -713,11 +739,102 @@ export function App({
               <div className="progress-bar indeterminate"></div>
             </div>
 
+            {/* Provisional Executive Finding: Hook Retention Banner */}
+            {provisionalVerdict && (
+              <div
+                className="provisional-verdict-banner"
+                role="region"
+                aria-label="Provisional Executive Finding: Hook Retention"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(59, 130, 246, 0.08) 100%)',
+                  border: '1px solid var(--accent, #3b82f6)',
+                  borderRadius: '8px',
+                  padding: '16px 20px',
+                  marginBottom: '20px',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span
+                      className="badge"
+                      style={{
+                        background: 'var(--accent, #2563eb)',
+                        color: '#ffffff',
+                        fontWeight: 700,
+                        fontSize: '0.75rem',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                      }}
+                    >
+                      Early Rehearsal Gate
+                    </span>
+                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>
+                      Provisional Executive Finding: Hook Retention
+                    </h3>
+                  </div>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    Scene 0 ({provisionalVerdict.start_ms}–{provisionalVerdict.end_ms}ms) · {provisionalVerdict.total_personas} Personas Evaluated
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'baseline', marginTop: '12px' }}>
+                  <div>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>Hook Retention</span>
+                    <strong style={{ fontSize: '1.75rem', color: provisionalVerdict.retention_pct >= 85 ? 'var(--success, #16a34a)' : (provisionalVerdict.retention_pct >= 60 ? 'var(--warning, #d97706)' : 'var(--danger, #dc2626)') }}>
+                      {provisionalVerdict.retention_pct}%
+                    </strong>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginLeft: '6px' }}>
+                      ({provisionalVerdict.retained_count}/{provisionalVerdict.total_personas})
+                    </span>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>Hook Drop Rate</span>
+                    <strong style={{ fontSize: '1.75rem', color: provisionalVerdict.drop_pct > 15 ? 'var(--danger, #dc2626)' : 'var(--text-muted)' }}>
+                      {provisionalVerdict.drop_pct}%
+                    </strong>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginLeft: '6px' }}>
+                      ({provisionalVerdict.dropped_count}/{provisionalVerdict.total_personas})
+                    </span>
+                  </div>
+                </div>
+
+                {provisionalVerdict.top_drop_reasons && provisionalVerdict.top_drop_reasons.length > 0 ? (
+                  <div style={{ marginTop: '14px', borderTop: '1px solid rgba(0, 0, 0, 0.08)', paddingTop: '10px' }}>
+                    <strong style={{ fontSize: '0.85rem', color: 'var(--text, #111827)', display: 'block', marginBottom: '6px' }}>
+                      Top Drop Reasons &amp; Evidence Quotes:
+                    </strong>
+                    <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.875rem' }}>
+                      {provisionalVerdict.top_drop_reasons.map((r, idx) => (
+                        <li key={idx} style={{ marginBottom: '4px' }}>
+                          <span>
+                            <strong>{r.reason}</strong> ({r.count} personas, {r.percentage}%)
+                          </span>
+                          {r.evidence_quotes && r.evidence_quotes.length > 0 && (
+                            <div style={{ fontStyle: 'italic', color: 'var(--text-muted)', fontSize: '0.825rem', marginTop: '2px' }}>
+                              &ldquo;{r.evidence_quotes[0].quote}&rdquo; — <span className="mono">{r.evidence_quotes[0].persona_id}</span>
+                            </div>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: '10px', fontSize: '0.85rem', color: 'var(--success, #16a34a)' }}>
+                    Zero personas dropped in opening hook. 100% of simulated audience continued past Scene 0.
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Live 50-Persona Grid / Graph */}
             <div className="live-graph-panel">
               <div className="graph-controls-header">
                 <div className="graph-title-group">
-                  <strong>Simulated Audience Grid ({events.length} decisions observed):</strong>
+                  <strong>Simulated Audience Grid ({personaDecisionsCount} decisions observed):</strong>
                   <span className="graph-subtext">Word + shape + color encoded state per persona</span>
                 </div>
                 <button

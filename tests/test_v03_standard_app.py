@@ -8,6 +8,7 @@ import copy
 import hashlib
 import json
 import os
+os.environ.setdefault('VIRALIST_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-standard-app/runtime.json')
 import unittest
 from decimal import Decimal
 from pathlib import Path
@@ -861,7 +862,7 @@ class TestStandardWorkerAndLifecycle(unittest.TestCase):
 
         py_exe = sys.executable
         cwd = os.getcwd()
-        runtime_env = os.environ.get('VIRALIST_RUNTIME', '')
+        runtime_env = os.environ.get('VIRALIST_RUNTIME') or 'C:/Users/Shrikar/.codex/viralist-v03-standard-app/runtime.json'
 
         child_script = f"""
 import os, sys, json
@@ -1336,7 +1337,8 @@ os._exit(0)
             d = Path(td)
             helper = str(Path(__file__).resolve().parent / 'v03_standard_r2_worker.py')
             env = os.environ.copy()
-            env['VIRALIST_RUNTIME'] = str(Path(os.environ.get('VIRALIST_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-standard-app/runtime.json')).resolve())
+            runtime_env = os.environ.get('VIRALIST_RUNTIME') or 'C:/Users/Shrikar/.codex/viralist-v03-standard-app/runtime.json'
+            env['VIRALIST_RUNTIME'] = str(Path(runtime_env).resolve())
             env['VIRALIST_PROVIDER_MODE'] = 'standard'
             env['MODEL_API_KEY'] = 'DUMMY_KEY_LOCAL'
             env['PYTHONDONTWRITEBYTECODE'] = '1'

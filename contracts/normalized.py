@@ -242,12 +242,14 @@ def content_hash(value):
 
 def validate_event(value):
     text(value['run_id']); text(value['event_id']); integer(value['sequence'], 1)
-    require(value['type'] in ('persona.stopped', 'persona.continued', 'run.snapshot', 'deletion.pending', 'deletion.complete'), 'unknown event type')
+    require(value['type'] in ('persona.stopped', 'persona.continued', 'run.snapshot', 'deletion.pending', 'deletion.complete', 'verdict.provisional'), 'unknown event type')
     payload = value['payload']
     if value['type'].startswith('persona.'):
         text(payload['persona_id']); integer(payload['scene_id']); integer(payload['at_ms']); text(payload['evidence_id'])
     elif value['type'] == 'run.snapshot':
         integer(payload['through_sequence']); require(payload['reset'] is True, 'snapshot reset missing')
+    elif value['type'] == 'verdict.provisional':
+        integer(payload['scene_id']); integer(payload['total_personas']); integer(payload['retained_count']); integer(payload['dropped_count'])
     else:
         text(payload['deletion_id'])
     return value

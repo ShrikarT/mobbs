@@ -168,7 +168,7 @@ class TestV03BoundedPool(unittest.TestCase):
             run_data = conn.execute("SELECT status, stage FROM runs WHERE id=%s", (run_id,)).fetchone()
             event_count = conn.execute("SELECT count(*) as count FROM events WHERE run_id=%s", (run_id,)).fetchone()['count']
         self.assertEqual(run_data['status'], 'complete')
-        self.assertEqual(event_count, 400)
+        self.assertEqual(event_count, 401)
 
     def test_pool_helps_wall_time_lower_than_serial_and_events_stream_early(self):
         """Observed pool wall time is substantially faster than controlled serial (1.8x+ speedup) with early event streaming."""

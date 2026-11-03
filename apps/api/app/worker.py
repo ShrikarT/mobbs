@@ -252,6 +252,83 @@ def instantiate_provider(provider_factory, video_sha256, duration_ms, profile='t
             return provider_factory(video_sha256, duration_ms)
 
 
+def maybe_emit_provisional_verdict(conn, run_id, scenes, requested):
+    if not requested or requested <= 0:
+        return False
+
+    # Fast-path check without row lock
+    existing = conn.execute(
+        "SELECT 1 FROM events WHERE run_id=%s AND type='verdict.provisional' LIMIT 1",
+        (run_id,)
+    ).fetchone()
+    if existing:
+        return True
+
+    # Acquire row lock on runs to ensure atomic emission across concurrent threads/workers
+    conn.execute("SELECT id FROM runs WHERE id=%s FOR UPDATE", (run_id,))
+
+    # Re-check under row lock
+    existing = conn.execute(
+        "SELECT 1 FROM events WHERE run_id=%s AND type='verdict.provisional' LIMIT 1",
+        (run_id,)
+    ).fetchone()
+    if existing:
+        return True
+
+    rows = conn.execute(
+        "SELECT reaction, evidence FROM reactions WHERE run_id=%s AND scene_id=0",
+        (run_id,)
+    ).fetchall()
+    if len(rows) < requested:
+        return False
+
+    total = len(rows)
+    continued_count = sum(1 for r in rows if r['reaction']['still_watching'])
+    stopped_count = total - continued_count
+    retention_pct = round((continued_count / total) * 100.0, 1) if total > 0 else 0.0
+    drop_pct = round((stopped_count / total) * 100.0, 1) if total > 0 else 0.0
+
+    reasons_map = {}
+    for r in rows:
+        if not r['reaction']['still_watching']:
+            ev = r['evidence']
+            quote = ev.get('quote', '').strip()
+            if quote:
+                if quote not in reasons_map:
+                    reasons_map[quote] = {
+                        'reason': quote,
+                        'count': 0,
+                        'evidence_quotes': []
+                    }
+                reasons_map[quote]['count'] += 1
+                reasons_map[quote]['evidence_quotes'].append({
+                    'persona_id': ev['persona_id'],
+                    'quote': quote,
+                    'evidence_id': ev['id']
+                })
+
+    top_reasons = sorted(reasons_map.values(), key=lambda x: (-x['count'], x['reason']))
+    for tr in top_reasons:
+        tr['percentage'] = round((tr['count'] / total) * 100.0, 1) if total > 0 else 0.0
+
+    scene0 = scenes[0] if scenes else {'start_ms': 0, 'end_ms': 3000}
+    payload = {
+        'scene_id': 0,
+        'start_ms': scene0['start_ms'],
+        'end_ms': scene0['end_ms'],
+        'total_personas': total,
+        'retained_count': continued_count,
+        'dropped_count': stopped_count,
+        'retention_pct': retention_pct,
+        'drop_pct': drop_pct,
+        'hook_retention_pct': retention_pct,
+        'hook_drop_pct': drop_pct,
+        'top_drop_reasons': top_reasons,
+    }
+    event(conn, run_id, 'verdict.provisional', payload)
+    return True
+
+
 def process_analysis(lease, provider_factory=None, before_publish=None):
     with connection() as conn:
         video = fence(conn, lease)
@@ -300,6 +377,12 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                 return
 
     units_completed = [0]
+    provisional_emitted = [False]
+    provisional_lock = threading.Lock()
+    with connection() as chk_conn:
+        fence(chk_conn, lease)
+        if maybe_emit_provisional_verdict(chk_conn, lease['run_id'], scenes, requested):
+            provisional_emitted[0] = True
 
     def execute_persona_scene(cp, scene, halt_event=None):
         unit = f"{cp['persona_id']}:{scene['scene_id']}"
@@ -318,6 +401,11 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                     if rx_row:
                         status = 'stopped' if not rx_row['reaction']['still_watching'] else ('complete' if scene['scene_id'] == len(scenes) - 1 else 'active')
                         conn.execute('UPDATE checkpoints SET next_scene=next_scene+1,status=%s,impression=%s WHERE run_id=%s AND persona_id=%s', (status, rx_row['reaction']['impression_update'], lease['run_id'], cp['persona_id']))
+                        if scene['scene_id'] == 0 and not provisional_emitted[0]:
+                            with provisional_lock:
+                                if not provisional_emitted[0]:
+                                    if maybe_emit_provisional_verdict(conn, lease['run_id'], scenes, requested):
+                                        provisional_emitted[0] = True
                         units_completed[0] += 1
                         if concurrency == 1:
                             release(conn, lease, done=False)
@@ -426,6 +514,11 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                 reason=evidence['quote'],
             )
             event(conn, lease['run_id'], 'persona.continued' if reaction['still_watching'] else 'persona.stopped', event_payload)
+            if scene['scene_id'] == 0 and not provisional_emitted[0]:
+                with provisional_lock:
+                    if not provisional_emitted[0]:
+                        if maybe_emit_provisional_verdict(conn, lease['run_id'], scenes, requested):
+                            provisional_emitted[0] = True
             units_completed[0] += 1
             if concurrency == 1:
                 release(conn, lease, done=False)

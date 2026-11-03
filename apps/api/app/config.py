@@ -27,7 +27,10 @@ class Settings:
 
 
 def settings():
-    path = Path(os.environ.get('VIRALIST_RUNTIME', str(Path.home()/'.codex/private-runs/viralist-v02-local/runtime.json')))
+    runtime_path = (os.environ.get('VIRALIST_RUNTIME') or '').strip()
+    if not runtime_path:
+        runtime_path = str(Path.home() / '.codex/private-runs/viralist-v02-local/runtime.json')
+    path = Path(runtime_path)
     raw = json.loads(path.read_text(encoding='utf-8-sig'))
     fields = ('database_url', 's3_endpoint', 's3_access_key', 's3_secret_key', 's3_bucket', 'provider_evidence_root')
     kwargs = {k: raw[k] for k in fields}
