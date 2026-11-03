@@ -12,29 +12,40 @@ GitHub Issues is the selected destination, but no canonical issue is published; 
 
 ## Active work and next action
 
-### 2026-11-03 Checkpoint: V03-RUNTIME-INCOMPLETE (WORKER-REPORTED)
+### 2026-11-03 Checkpoint: V03-NOTES-STRICT (WORKER-REPORTED)
 
-Prior statements claiming V03 was complete and transitioning to V04 were premature: owner reported a real local incomplete response failure on 2026-11-03 during a 140-call Flash run (139 accepted, 1 HTTP 200 incomplete with `reason="max_output_tokens"`), which caused premature run failure, lost metadata/usage, and misleading error UI. Local V03 remains the active scope.
+Following integration of V03-RUNTIME-INCOMPLETE (df43e7d), a fresh local Flash 50 run on Video A streamed 346 accepted scene decisions across all 50 personas (34 stopped + 16 complete; accepted-use estimate 0.85935030 USD; 0 persona incomplete failures on that input). However, the final Director's Notes request failed with HTTP 400 (`request_id: 450f235f-f095-4508-ba44-d509b1dfee42`; failed notes usage unavailable, not assumed free). The adapter discarded HTTP 400 error prose.
 
-Antigravity implementation candidate for **V03-RUNTIME-INCOMPLETE** is **WORKER-REPORTED** on branch `codex/v03-incomplete-fix`:
-- **Outbound headroom raised:** Standard provider token ceiling for `verdict` and `notes` raised to 4096 tokens (from 1200 / 1600), eliminating artificial truncation when reasoning tokens consume response headroom.
-- **Metadata preservation:** Outbound error receipts on HTTP 200 incomplete responses preserve `status="incomplete"`, allowlisted `incomplete_reason`, `response_id`, request `max_output_tokens: 4096`, canonical numeric `usage`, and calculated `cost_usd`, while redacting raw model text and reasoning.
-- **Worker persona isolation:** Confirmed `max_output_tokens` incomplete failures isolate to the affected persona (checkpoint marked `failed`, 0 further scene dispatches to that persona), allowing other independent personas to continue and produce an honest incomplete report with effective cast denominator and full usage/cost accounted in run totals. Ambiguous transport or malformed receipts remain conservative run failures.
-- **Truthful error copy:** `apps/web/src/App.tsx` maps error codes to clear titles and explanations, replacing ambiguous "Try again" buttons with honest navigation ("Return to upload" and explicit "Delete uploaded video" confirmation modal).
-- **Verification:** 6/6 tests in `tests/test_v03_incomplete_fix.py` pass clean exit 0; 14/14 tests in `tests/test_normalized.py` pass clean; frontend builds clean in 1.25s. Controlled HTTP provider doubles used; zero live paid calls. Browser harness setup stopped at coordinator decision gate `msg_baab054d297d` for independent coordinator verification. See [evidence](evidence/v03-incomplete-fix.md).
-- **Correction 1:** Neutral App.tsx error copy implemented, generic fallback claims removed, tests/test_v03_standard_app.py:205 max_output_tokens updated to 4096. TestStandardProviderUnit (4/4 pass), test_v03_incomplete_fix (6/6 pass), test_normalized (14/14 pass), and npm run build (300ms) verified clean. Backend standard_provider.py and worker.py preserved byte-identical to 47a40c7. Browser verification gap acknowledged for coordinator.
+Under Meta's Responses structured output specification (https://dev.meta.ai/docs/structured-output, strict mode), `strict: true` requires every object's `required` array to explicitly contain every key declared in `properties`. Baseline `NOTES_SCHEMA` declared both `notes` and `limitations` in `properties` but only listed `["notes"]` in `required`.
+
+Antigravity implementation candidate for **V03-NOTES-STRICT** is **WORKER-REPORTED** on branch `codex/v03-notes-schema`:
+- **Schema strict compliance:** One-line fix in `apps/api/app/standard_provider.py` updating `NOTES_SCHEMA["required"]` to `["notes", "limitations"]`.
+- **Focused regression test:** `tests/test_v03_notes_strict_schema.py` implements a recursive strict-mode schema validator, proves that the baseline missing-limitations defect is rejected with HTTP 400 (`provider_http_error_400`) at the provider boundary, verifies nested object strictness, and validates the outbound request protocol (strict: true, store: false, bounded output 4096 tokens, single HTTP call / no retry, canonical numeric usage and `notes: [], limitations: []` response acceptance).
+- **Verification:** 5/5 tests in `tests/test_v03_notes_strict_schema.py` pass clean exit 0; 4/4 tests in `TestStandardProviderUnit` and 2/2 tests in `TestNotesContextAndOmission` pass clean exit 0. Zero live provider calls. See [evidence](evidence/v03-notes-strict.md).
 
 | Owner/state | Exact identity and scope |
 |---|---|
 | Coordinator | `C:/Users/Shrikar/viralist`, branch `codex/orchestration-readiness`. |
-| Antigravity — WORKER-REPORTED | V03-RUNTIME-INCOMPLETE correction 1, Task `task_85789c335894`, Dispatch `ctx_a16a63bb9c6e`, terminal `term_990baaed-f73f-4282-a7c8-a96f1f47f11b`, Run `run_d3354faa0659` (preserving task_416dfe1a4d64 / ctx_d98dbfd50ef5). Status: `WORKER-REPORTED`. |
-| Implementation worktree | `C:/Users/Shrikar/orca/workspaces/viralist/codex-v03-incomplete-fix`, branch `codex/v03-incomplete-fix`. |
-| Review queue | Pending independent review of `codex/v03-incomplete-fix` candidate. |
+| Antigravity — WORKER-REPORTED | V03-NOTES-STRICT, Task `task_19974038690e`, Dispatch `ctx_05d0790af40e`, terminal `term_db569610-0719-44ff-99b3-5f4212c79d14`, Run `run_d3354faa0659`. Status: `WORKER-REPORTED`. |
+| Implementation worktree | `C:/Users/Shrikar/orca/workspaces/viralist/codex-v03-notes-schema`, branch `codex/v03-notes-schema`. |
+| Review queue | Pending independent review of `codex/v03-notes-schema` candidate. |
+
+### 2026-11-03 Checkpoint: V03-RUNTIME-INCOMPLETE (INTEGRATED)
+
+Prior statements claiming V03 was complete and transitioning to V04 were premature: owner reported a real local incomplete response failure on 2026-11-03 during a 140-call Flash run (139 accepted, 1 HTTP 200 incomplete; saved original receipt lost reason/usage, UNKNOWN; max_output_tokens is the controlled regression fixture reason), which caused premature run failure, lost metadata/usage, and misleading error UI. Local V03 remains the active scope.
+
+Antigravity implementation candidate for **V03-RUNTIME-INCOMPLETE** correction 1 was integrated at commit `df43e7d`:
+- **Outbound headroom raised:** Standard provider token ceiling for `verdict` and `notes` raised to 4096 tokens (from 1200 / 1600), eliminating artificial truncation when reasoning tokens consume response headroom.
+- **Metadata preservation:** Outbound error receipts on HTTP 200 incomplete responses preserve `status="incomplete"`, allowlisted `incomplete_reason`, `response_id`, request `max_output_tokens: 4096`, canonical numeric `usage`, and calculated `cost_usd`, while redacting raw model text and reasoning.
+- **Worker persona isolation:** Confirmed incomplete failures isolate to the affected persona (checkpoint marked `failed`, 0 further scene dispatches to that persona), allowing other independent personas to continue and produce an honest incomplete report with effective cast denominator and full usage/cost accounted in run totals. Ambiguous transport or malformed receipts remain conservative run failures.
+- **Truthful error copy:** `apps/web/src/App.tsx` maps error codes to clear titles and explanations, replacing ambiguous "Try again" buttons with honest navigation ("Return to upload" and explicit "Delete uploaded video" confirmation modal).
+- **Verification:** 6/6 tests in `tests/test_v03_incomplete_fix.py` pass clean exit 0; 14/14 tests in `tests/test_normalized.py` pass clean; frontend builds clean in 1.25s. Controlled HTTP provider doubles used; zero live paid calls. Browser harness setup stopped at coordinator decision gate `msg_baab054d297d` for independent coordinator verification. See [evidence](evidence/v03-incomplete-fix.md).
+- **Correction 1:** Neutral App.tsx error copy implemented, generic fallback claims removed, tests/test_v03_standard_app.py:205 max_output_tokens updated to 4096. TestStandardProviderUnit (4/4 pass), test_v03_incomplete_fix (6/6 pass), test_normalized (14/14 pass), and npm run build (300ms) verified clean. Backend standard_provider.py and worker.py preserved byte-identical to 47a40c7. Browser verification gap acknowledged for coordinator.
 
 V03-P1 bounded independent-persona execution was **JOURNEY-VERIFIED on d38ad2826816a294fb0070261505b41de2e6afc5 (integration 799a8b3881456506cf24942659b51f6ebf937d91)**, with Early Provisional Verdict streaming and positive note verification completed at commit **44c0ef7**:
 - Flash 50 real Standard provider journey on Video B portrait executed with 196 calls, costing 0.45438985 USD (well under $1.50 cap).
 - End-to-end report delivery reduced from 637.669s to 103.031s (6.19x speedup), resolving A01 timing failure (<300s target).
-- Early Provisional Verdict streaming implemented: `verdict.provisional` emitted atomically once all personas complete Scene 0 (~36.5s), resolving the <=90s rehearsal verdict gate. `GET /runs/{id}` recovers provisional verdict on reload. Frontend renders high-visibility Hook retention banner during `processing`.
+- Early Provisional Verdict streaming implemented: `verdict.provisional` emitted atomically once all personas complete Scene 0 (~36.5s), resolving the <=90s rehearsal verdict gate. Exposed in `GET /runs/{id}` for reload recovery. High-visibility Hook retention banner rendered in frontend during simulation.
 - Positive Director's Note & Evidence Inspector card opening verified for >15% drop-off scenes via pre-evaluated `stop_trigger` in `build_note_context`.
 - All 5 test suites passing clean exit 0 (14 normalized, 3 provisional verdict, 14 flash backend, 18 standard app, 11 bounded pool with exact 401 events, and frontend build in 312ms).
 See [journey evidence](evidence/v03-bounded-pool-journey.md). Supervised worker dispatch `ctx_25ac981d707b` is completed and settled.
@@ -48,7 +59,7 @@ See [journey evidence](evidence/v03-bounded-pool-journey.md). Supervised worker 
 
 [Full V03-P1 assignment](evidence/v03-bounded-pool-assignment.md) is frozen at89d9974 and was delivered in the actual dispatch. Startup receipt msg_6035f6a7d563 verified; reply msg_2a29aab0c121 approved implementation, delivery848b9026b97d acknowledged. Worker mislabeled its gitdir as repo root; coordinator verified the actual assigned top-level and corrected it. Excluded manifests means dependency files, not the authorized run-manifest field.
 
-**Next:** Independent review of `codex/v03-incomplete-fix` candidate, followed by integration. V04 remains deferred until V03 reliability is accepted and integrated.
+**Next:** Independent review of `codex/v03-notes-schema` candidate, followed by integration. V04 remains deferred until V03 reliability is accepted and integrated.
 
 Frozen pool contract at ecdcdde (`docs/contracts/live-standard.v1.md`, bounded-concurrency section): new Standard Flash manifest concurrency8; test/recorded1; historical missing1. Global HTTP max8 through PG session slots, one job leader, per-persona ordered next scene/own prior only, no later hints after stop, generation/lease heartbeat and post-slot fence. Stream each completed unit once; unresolved dispatches never resend; preserve notes byte/hash recovery/privacy and call ceilings. Prefer scene-frontier ordering. No schema/service/financial subsystem or real-key/model access by the worker. Own DB `viralist_v03_pool`, bucket `viralist-v03-pool`, port58007, private `.codex/viralist-v03-pool/`.
 

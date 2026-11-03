@@ -92,7 +92,7 @@ NOTES_SCHEMA = {
             "items": {"type": "string"}
         }
     },
-    "required": ["notes"],
+    "required": ["notes", "limitations"],
     "additionalProperties": False
 }
 

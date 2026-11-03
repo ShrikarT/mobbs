@@ -2,7 +2,17 @@
 
 ## Current execution: V03 in progress
 
-### Current checkpoint — 2026-11-03: V03-RUNTIME-INCOMPLETE (WORKER-REPORTED)
+### Current checkpoint — 2026-11-03: V03-NOTES-STRICT (WORKER-REPORTED)
+
+**V03-NOTES-STRICT candidate is WORKER-REPORTED on `codex/v03-notes-schema`:**
+- Fixes Meta Responses strict JSON schema HTTP 400 defect on `/responses` Director's Notes request (`request_id: 450f235f-f095-4508-ba44-d509b1dfee42`; fresh Video A Flash 50 run on df43e7d had 346 accepted decisions, 34 stopped + 16 complete, estimate $0.85935030 USD, 0 incomplete failures on that input; failed notes usage unavailable, not assumed free).
+- Contract requirement: Meta `strict: true` requires every declared property in an object schema to be listed in `required`.
+- One-line production fix in `apps/api/app/standard_provider.py`: `NOTES_SCHEMA["required"]` updated from `["notes"]` to `["notes", "limitations"]`.
+- Focused regression tests: `tests/test_v03_notes_strict_schema.py` verifies recursive strict schema rules, demonstrates baseline HTTP 400 rejection on missing `limitations`, validates nested object strict compliance, single HTTP request / no retry, and canonical numeric usage and `notes: [], limitations: []` response acceptance.
+- Checks: 5/5 in `test_v03_notes_strict_schema.py`, 4/4 in `TestStandardProviderUnit`, 2/2 in `TestNotesContextAndOmission` pass clean exit 0. Zero live provider calls.
+- Status is WORKER-REPORTED pending independent review by Codex.
+
+### Historical checkpoint — 2026-11-03: V03-RUNTIME-INCOMPLETE (INTEGRATED)
 
 **V03-RUNTIME-INCOMPLETE candidate is WORKER-REPORTED on `codex/v03-incomplete-fix`:**
 - Resolves HTTP 200 incomplete response failure on Standard provider (e.g. 139 accepted, 1 `max_output_tokens` incomplete).
