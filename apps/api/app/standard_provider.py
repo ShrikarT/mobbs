@@ -231,7 +231,7 @@ class StandardProvider:
             "model": self.model_id,
             "store": False,
             "reasoning": {"effort": "minimal"},
-            "max_output_tokens": 1200,
+            "max_output_tokens": 4096,
             "input": [
                 {
                     "role": "user",
@@ -297,15 +297,27 @@ class StandardProvider:
             normalized = normalize_envelope(raw_json, receipt)
         except Exception as exc:
             raw_usage = raw_json.get('usage') if isinstance(raw_json, dict) else None
+            safe_usage = sanitize_usage(raw_usage)
             safe_receipt = {
                 'http_status': resp.status_code,
                 'request_id': resp.headers.get('x-request-id', req_id),
                 'requested_model': self.model_id,
                 'latency_sec': latency_sec,
                 'response_id': raw_json.get('id') if isinstance(raw_json, dict) else None,
-                'usage': sanitize_usage(raw_usage),
+                'usage': safe_usage,
+                'cost_usd': compute_cost_usd(safe_usage),
+                'max_output_tokens': 4096,
             }
             raise ProviderUnavailable('provider_response_rejected', charge_state='uncertain', receipt=safe_receipt, exc=exc)
+
+        receipt.update({
+            'status': normalized.get('status'),
+            'incomplete_reason': normalized.get('incomplete_reason'),
+            'response_id': normalized.get('response_id'),
+            'usage': normalized.get('usage'),
+            'cost_usd': compute_cost_usd(normalized.get('usage')),
+            'max_output_tokens': 4096,
+        })
 
         if normalized['status'] != 'completed':
             raise ProviderUnavailable(f'provider_{normalized["status"]}', charge_state='unconfirmed', receipt=receipt)
@@ -366,7 +378,7 @@ class StandardProvider:
             "model": self.model_id,
             "store": False,
             "reasoning": {"effort": "minimal"},
-            "max_output_tokens": 1600,
+            "max_output_tokens": 4096,
             "input": [
                 {
                     "role": "user",
@@ -429,15 +441,27 @@ class StandardProvider:
             normalized = normalize_envelope(raw_json, receipt)
         except Exception as exc:
             raw_usage = raw_json.get('usage') if isinstance(raw_json, dict) else None
+            safe_usage = sanitize_usage(raw_usage)
             safe_receipt = {
                 'http_status': resp.status_code,
                 'request_id': resp.headers.get('x-request-id', req_id),
                 'requested_model': self.model_id,
                 'latency_sec': latency_sec,
                 'response_id': raw_json.get('id') if isinstance(raw_json, dict) else None,
-                'usage': sanitize_usage(raw_usage),
+                'usage': safe_usage,
+                'cost_usd': compute_cost_usd(safe_usage),
+                'max_output_tokens': 4096,
             }
             raise ProviderUnavailable('provider_response_rejected', charge_state='uncertain', receipt=safe_receipt, exc=exc)
+
+        receipt.update({
+            'status': normalized.get('status'),
+            'incomplete_reason': normalized.get('incomplete_reason'),
+            'response_id': normalized.get('response_id'),
+            'usage': normalized.get('usage'),
+            'cost_usd': compute_cost_usd(normalized.get('usage')),
+            'max_output_tokens': 4096,
+        })
 
         if normalized['status'] != 'completed':
             raise ProviderUnavailable(f'provider_{normalized["status"]}', charge_state='unconfirmed', receipt=receipt)

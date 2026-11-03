@@ -12,7 +12,25 @@ GitHub Issues is the selected destination, but no canonical issue is published; 
 
 ## Active work and next action
 
-V03-P1 bounded independent-persona execution is **JOURNEY-VERIFIED on d38ad2826816a294fb0070261505b41de2e6afc5 (integration 799a8b3881456506cf24942659b51f6ebf937d91)**, with Early Provisional Verdict streaming and positive note verification completed at commit **44c0ef7**:
+### 2026-11-03 Checkpoint: V03-RUNTIME-INCOMPLETE (WORKER-REPORTED)
+
+Prior statements claiming V03 was complete and transitioning to V04 were premature: owner reported a real local incomplete response failure on 2026-11-03 during a 140-call Flash run (139 accepted, 1 HTTP 200 incomplete with `reason="max_output_tokens"`), which caused premature run failure, lost metadata/usage, and misleading error UI. Local V03 remains the active scope.
+
+Antigravity implementation candidate for **V03-RUNTIME-INCOMPLETE** is **WORKER-REPORTED** on branch `codex/v03-incomplete-fix`:
+- **Outbound headroom raised:** Standard provider token ceiling for `verdict` and `notes` raised to 4096 tokens (from 1200 / 1600), eliminating artificial truncation when reasoning tokens consume response headroom.
+- **Metadata preservation:** Outbound error receipts on HTTP 200 incomplete responses preserve `status="incomplete"`, allowlisted `incomplete_reason`, `response_id`, request `max_output_tokens: 4096`, canonical numeric `usage`, and calculated `cost_usd`, while redacting raw model text and reasoning.
+- **Worker persona isolation:** Confirmed `max_output_tokens` incomplete failures isolate to the affected persona (checkpoint marked `failed`, 0 further scene dispatches to that persona), allowing other independent personas to continue and produce an honest incomplete report with effective cast denominator and full usage/cost accounted in run totals. Ambiguous transport or malformed receipts remain conservative run failures.
+- **Truthful error copy:** `apps/web/src/App.tsx` maps error codes to clear titles and explanations, replacing ambiguous "Try again" buttons with honest navigation ("Return to upload" and explicit "Delete uploaded video" confirmation modal).
+- **Verification:** 6/6 tests in `tests/test_v03_incomplete_fix.py` pass clean exit 0; 14/14 tests in `tests/test_normalized.py` pass clean; frontend builds clean in 1.25s. Controlled HTTP provider doubles used; zero live paid calls. Browser harness setup stopped at coordinator decision gate `msg_baab054d297d` for independent coordinator verification. See [evidence](evidence/v03-incomplete-fix.md).
+
+| Owner/state | Exact identity and scope |
+|---|---|
+| Coordinator | `C:/Users/Shrikar/viralist`, branch `codex/orchestration-readiness`. |
+| Antigravity — WORKER-REPORTED | V03-RUNTIME-INCOMPLETE, Task `task_416dfe1a4d64`, Dispatch `ctx_d98dbfd50ef5`, terminal `term_cf41b01f-c754-4e37-bce9-663dbf3c65a9`, Run `run_d3354faa0659`. Status: `WORKER-REPORTED`. |
+| Implementation worktree | `C:/Users/Shrikar/orca/workspaces/viralist/codex-v03-incomplete-fix`, branch `codex/v03-incomplete-fix`. |
+| Review queue | Pending independent review of `codex/v03-incomplete-fix` candidate. |
+
+V03-P1 bounded independent-persona execution was **JOURNEY-VERIFIED on d38ad2826816a294fb0070261505b41de2e6afc5 (integration 799a8b3881456506cf24942659b51f6ebf937d91)**, with Early Provisional Verdict streaming and positive note verification completed at commit **44c0ef7**:
 - Flash 50 real Standard provider journey on Video B portrait executed with 196 calls, costing 0.45438985 USD (well under $1.50 cap).
 - End-to-end report delivery reduced from 637.669s to 103.031s (6.19x speedup), resolving A01 timing failure (<300s target).
 - Early Provisional Verdict streaming implemented: `verdict.provisional` emitted atomically once all personas complete Scene 0 (~36.5s), resolving the <=90s rehearsal verdict gate. `GET /runs/{id}` recovers provisional verdict on reload. Frontend renders high-visibility Hook retention banner during `processing`.
@@ -29,7 +47,7 @@ See [journey evidence](evidence/v03-bounded-pool-journey.md). Supervised worker 
 
 [Full V03-P1 assignment](evidence/v03-bounded-pool-assignment.md) is frozen at89d9974 and was delivered in the actual dispatch. Startup receipt msg_6035f6a7d563 verified; reply msg_2a29aab0c121 approved implementation, delivery848b9026b97d acknowledged. Worker mislabeled its gitdir as repo root; coordinator verified the actual assigned top-level and corrected it. Excluded manifests means dependency files, not the authorized run-manifest field.
 
-**Next:** Milestone V03 complete. Transition to V04 Paired A/B comparison and session history.
+**Next:** Independent review of `codex/v03-incomplete-fix` candidate, followed by integration. V04 remains deferred until V03 reliability is accepted and integrated.
 
 Frozen pool contract at ecdcdde (`docs/contracts/live-standard.v1.md`, bounded-concurrency section): new Standard Flash manifest concurrency8; test/recorded1; historical missing1. Global HTTP max8 through PG session slots, one job leader, per-persona ordered next scene/own prior only, no later hints after stop, generation/lease heartbeat and post-slot fence. Stream each completed unit once; unresolved dispatches never resend; preserve notes byte/hash recovery/privacy and call ceilings. Prefer scene-frontier ordering. No schema/service/financial subsystem or real-key/model access by the worker. Own DB `viralist_v03_pool`, bucket `viralist-v03-pool`, port58007, private `.codex/viralist-v03-pool/`.
 

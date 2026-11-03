@@ -2,7 +2,18 @@
 
 ## Current execution: V03 in progress
 
-### Current checkpoint — 2026-11-02
+### Current checkpoint — 2026-11-03: V03-RUNTIME-INCOMPLETE (WORKER-REPORTED)
+
+**V03-RUNTIME-INCOMPLETE candidate is WORKER-REPORTED on `codex/v03-incomplete-fix`:**
+- Resolves HTTP 200 incomplete response failure on Standard provider (e.g. 139 accepted, 1 `max_output_tokens` incomplete).
+- Outbound token headroom raised to 4096 tokens for `verdict` and `notes`, preventing artificial response truncation.
+- Provider and worker preserve allowlisted metadata (`status="incomplete"`, `incomplete_reason`, `response_id`, canonical `usage`, `cost_usd`, `max_output_tokens: 4096`) while redacting raw prose/reasoning.
+- Confirmed `max_output_tokens` incomplete failures isolate to the affected persona (checkpoint marked `failed`, 0 further scene dispatches to that persona); remaining personas continue to completion, producing an honest incomplete report with effective cast denominator and full usage/cost accounted in run totals.
+- Frontend replaces ambiguous error codes and "Try again" buttons with honest, human-readable error explanations and navigation ("Return to upload" and explicit "Delete uploaded video" confirmation modal).
+- 6/6 tests in `tests/test_v03_incomplete_fix.py` pass clean exit 0; 14/14 tests in `tests/test_normalized.py` pass clean; frontend builds clean in 1.25s. Controlled HTTP provider doubles used; zero live paid calls. Browser harness setup stopped at coordinator decision gate `msg_baab054d297d` for independent coordinator verification. See [evidence](docs/evidence/v03-incomplete-fix.md).
+- Status is WORKER-REPORTED pending independent review. V03 remains the active scope; transition to V04 is deferred until this reliability fix is accepted and integrated.
+
+### Historical checkpoint — 2026-11-02
 
 **V03 is COMPLETE and JOURNEY-VERIFIED on d38ad2826816a294fb0070261505b41de2e6afc5 (integration 799a8b3881456506cf24942659b51f6ebf937d91), with Early Provisional Verdict streaming and positive note verification integrated at 44c0ef7.**
 - Flash 50 live journey on Video B portrait executed with 196 real provider calls costing $0.45438985 USD (within $1.50 cap).
