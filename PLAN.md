@@ -2,7 +2,14 @@
 
 ## Current execution: V03 in progress
 
-### Current checkpoint — 2026-11-02
+### Current checkpoint ? 2026-11-03: real notes contract gate
+
+- **V03-RUNTIME-INCOMPLETE: REVIEW-ACCEPTED + INTEGRATED df43e7d1077928756263c34ca1dd0036898d3070** in the clean preview branch, not the dirty coordinator source. One submitted correction accepted. [Independent review](docs/evidence/v03-runtime-independent-review.md).
+- **Live journey NOT accepted yet:** fresh50 reached all terminal personas and346 accepted real decisions, then notes HTTP400. Original owner139+1 incomplete run and new failed attempt are preserved; no blind resend. The original incomplete reason remains UNKNOWN. See docs/STATE.md for exact evidence and private artifact paths.
+- **V03-NOTES-STRICT ? IN PROGRESS, Antigravity:** correct NOTES_SCHEMA.required to include its declared limitations key, retaining strict:true. Official Meta strict subset requires all properties in required; no-charge baseline proof fails with missing limitations. Dedicated branch/worktree and task_19974038690e/ctx_05d0790af40e, baseline7de04c0. [Full assignment](docs/evidence/v03-notes-strict-assignment.md). Notes correction submissions0.
+- Next gate: independent frozen review, integrate only accepted change, then short synthetic fixture real-provider50 ? report ? supported evidence/playback ? refresh/restart ? owner-only deletion. No new accounting, readiness audit or benchmark cycle. V04/V05/deployment/release remain excluded. Formal p95/60s maximum-input gates still need applicable measured evidence.
+
+### Historical checkpoint — 2026-11-02
 
 **V03 is COMPLETE and JOURNEY-VERIFIED on d38ad2826816a294fb0070261505b41de2e6afc5 (integration 799a8b3881456506cf24942659b51f6ebf937d91), with Early Provisional Verdict streaming and positive note verification integrated at 44c0ef7.**
 - Flash 50 live journey on Video B portrait executed with 196 real provider calls costing $0.45438985 USD (within $1.50 cap).
