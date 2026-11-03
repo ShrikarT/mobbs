@@ -1,0 +1,22 @@
+# V03-RUNTIME-INCOMPLETE — independent review batch 1
+
+Decision: REVISION-REQUIRED on frozen candidate **47a40c76a3c5a7f35966f77f478cc814070ac470**. Author Antigravity; independent verifier Codex coordinator (did not implement the production change). Initial candidate reviewed; submitted correction count 0. This is the same logical task and review history as Orca task task_416dfe1a4d64 / dispatch ctx_d98dbfd50ef5, now settled/released. Do not reset the correction count.
+
+Observed independent evidence at this clean SHA:
+
+- Actual adapter/scheduler/PostgreSQL/report regression plus normalized suite: `python -m unittest tests.test_v03_incomplete_fix tests.test_normalized`, 20 tests PASS, 40.059s. External HTTP only doubled; no paid model calls.
+- Existing malformed/missing usage, transport canary redaction, post-slot deletion fence and provisional suite: 6 tests PASS, 60.263s. Existing TestClient expects origin58000; isolated review runtime supplied that origin for these tests. The initial wrong-origin fixture failed session creation; this was a harness configuration issue, not a product failure.
+- `npm run build`: PASS, TypeScript + Vite, 250ms Vite portion.
+- Real local API/static renderer on58012, source pinned to47a40c7, browse session viralist-v03-incomplete-review. Actual UI upload to isolated review DB, no background inference worker; seeded terminal failure provider_incomplete through DB solely to test error rendering. Zero provider calls. At320px both buttons fit (document width305; button right288). Screenshot private: `.codex/private-runs/viralist-v03-incomplete-review-20261103/47a40c7-error-320.private.png`. Mobile overflow hypothesis was disproved; no layout rewrite requested.
+- Existing request-capture test FAILED: tests/test_v03_standard_app.py:205 asserts max_output_tokens1200, actual4096. No other source failure was observed after correcting the test-runtime origin.
+
+## One numbered blocker batch
+
+1. **Honest, context-appropriate error copy.** App.tsx `formatRunErrorMessage` says provider_incomplete was caused by token bounds/truncation, although the original receipt lost the reason and this same code handles unknown incomplete reasons. Its default/fallback also promises no automatic/hidden charges and a preserved upload even when upload never succeeded or the run was deleted/not found. Remove these unsupported claims. Use neutral wording: provider_incomplete explanation `The provider returned an unfinished response, so this run stopped.` Default/fallback guidance can be `Return to upload to start a new analysis.` Explain lack of automatic resend without asserting absence of provider charges. Do not promise storage/preservation in generic errors with no verified video. Keep explicit Return to upload and confirmed Delete actions. Keep scope to copy; no new recovery API, retry, service or redesign.
+2. **Maintain the existing request-shape regression.** Update only the obsolete outbound cap assertion at tests/test_v03_standard_app.py:205 from1200 to4096, matching the intended bounded headroom. Preserve fixtures that intentionally return1200 tokens to reproduce truncation; do not blanket replace numeric usage. Run TestStandardProviderUnit using an isolated runtime whose origin matches its hardcoded TestClient origin58000. The current dedicated worker runtime is58011: create a private copy with origin58000 for this test if needed; never change preview runtime.
+
+## Correction contract and next gate
+
+Antigravity owns correction1; only App.tsx, the existing cap assertion, and scoped task evidence/PLAN/STATE updates. Backend source is already independently exercised and must remain byte-identical to47a40c7. No new fixtures, browser setup or broader changes. Build and the four TestStandardProviderUnit tests are sufficient worker checks for this correction; coordinator owns independent browser and combined verification. Commit a clean correction and stop editing. Read/ack this complete numbered batch before edits; record its acknowledgment and original task lineage. Two unsuccessful submitted corrections require reassessment. No live provider key/calls, no preview resources and no user data deletion.
+
+The coordinator stopped only its owned review API58012 before handing this tree back. User preview58010 remains on de3130a with original failed run/upload untouched. No code change is integrated or journey-accepted yet.

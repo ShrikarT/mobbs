@@ -1,0 +1,38 @@
+# V03-B2G corrective submission1
+
+You are a professional implementation engineer working as part of a multi-agent product team, not the product owner or integrator. Assume no shared conversation memory. BEFORE EDITS verify actual directory, repo root, exact committed HEAD, unique assigned worktree and branch against this assignment. Read shared/project AGENTS and ONLY the named relevant docs/code/original criteria. Report missing or conflicting rules; do not invent intent. Implement only the owned scope and authorized safe operations. No edits to another tree, main, unapproved interfaces, billing services, external messages, credentials or destructive data. Execute production guard/PG code for claimed behavior; doubles replace external boundaries only. Commit the candidate on the assigned branch, report SHA/changed paths/exact checks/results/limits/blockers, then stop editing for independent review. Completion means WORKER-REPORTED. One numbered review batch; correction history persists. No tool/test/deploy claims without execution. Preserve a commit and concise handoff on context pressure.
+
+## Identity and baseline
+
+- Antigravity ordinary implementation; no helpers. Logical Task **task_2ffdc9f26a08**, Run **run_d3354faa0659**; actual Dispatch/terminal in live preamble.
+- Assigned original path `C:/Users/Shrikar/orca/workspaces/viralist/codex-v03-budget`, branch `codex/v03-budget`, exact clean base **8edc79b097695a806f8c07038a6cf79ef8f4d546**. Its old author worktree was removed during settled cleanup; coordinator reconstructs it from the preserved branch before dispatch. Never read the reviewer tree as an editable target.
+- Original source requirements: immutable `1edff0bb042f539ccf1f2252f36959debdc880c0:docs/evidence/v03-budget-assignment.md` in FULL, including G1–G6. Dependencies remain accepted I2 **5a3025c46c043b7645d935c3831f95d733f19ab5** and SQL004 **c58fd52f2153b75e84a8a7ca819b3ecffe46b2b3**, whose inspected DDL was independently accepted in the review below. Whole guard is not accepted.
+- Read the FULL first review batch `docs/evidence/v03-budget-review-r1.md` and frozen correction interface `docs/contracts/budget-guard.v1.md` from the coordinator metadata commit supplied in dispatch. These newer docs need `git show` from the candidate baseline. This is the first correction submission: submitted0 / unsuccessful0. Prior infrastructure retries and initial review are not author correction failures.
+
+## Scope and interfaces
+
+Own only `apps/api/app/budget.py`, `budget_types.py`, `tests/test_v03_budget.py`, focused `tests/v03_budget_*` helpers and `docs/evidence/v03-budget-implementation.md`. Update tests to the supported BudgetGuard interface, preserving original behavioral coverage. Exclude production domain/db/config/worker/provider/API/report code, UI/e2e, migrations, manifests/locks, shared contracts/PLAN/STATE/AGENTS and other worktrees. SQL004 is frozen; if a genuine necessary schema gap remains, report it before changes. No service/dependency/transport rewrite.
+
+The eleven numbered findings in the review are the ONE correction batch. Fix every one, using the frozen interface to resolve the previously absent identity/transaction contract. Public guard operations own their financial transaction; require explicit expected ledger/database identity, verified immutable request/count basis, actual complete analysis lease tuple, immutable receipts/replays and durable uncertainty. Pause/stage/stale-debt checks apply at admission and send; uncertainty is monotonic; reconciliation needs specific recorded evidence; rejection classification/delayed retry is constrained; all usage and surviving fields are validated. Do not leave an alternate supported function that bypasses these controls. All production functions being claimed must execute in checks.
+
+## Verification/resources
+
+Use only existing owned DB **viralist_v03_budget**, private folder `C:/Users/Shrikar/.codex/viralist-v03-budget/`, existing read-only Python venv `C:/Users/Shrikar/.codex/viralist-v02-review/venv/Scripts/python.exe`. Actual PostgreSQL17 is healthy at127.0.0.1:55432; base named private runtime remains `C:/Users/Shrikar/.codex/private-runs/viralist-v02-local/runtime.json`. Read only DB fields needed, never print secrets. Inspect existing DB/fixture ownership; preserve data. No reset/drop, shared service start/restart, paid account, provider key/network/count call/spend, publication/push/deploy. UI writer uses separate tree/DB/API58003; guard has no HTTP/browser requirement.
+
+| Acceptance | Trigger → expected result | Required evidence |
+| --- | --- | --- |
+| Review1–4 / G1–G2 | actual fixture quote0.2225; malformed/underbound/identity/forged tuple/replay mismatch → refused before send; identical valid replay → one grant | Actual guard/PG through the frozen public interface, exact mismatches, concurrent distinct-job cap tests |
+| Review5–8 / G3–G4 | malformed/above-bound usage escaping caller context → durable uncertainty/pause/max debt; repeated recovery cannot reduce debt; paused/closed/stale-unit cannot send; recorded receipt recovery needs no new send; empty reconciliation fails | Fresh connections after public typed failures, real child exits and persisted reads; preserve valid current in-flight case |
+| Review9–10 / G4 | only known uncharged delayed429 retries once with immutable request; 5xx/timeout/denial cannot refund/retry; supplied total and all count bounds validate | Actual public transition regressions, exact Decimal values; controlled external evidence doubles explicitly labeled |
+| Review11 / G5 | nested/free text/unknown financial fields rejected across every writer; real domain deletion+late settlement retains debt and no private content/resurrection | Real production deletion with synthetic markers, inspect surviving financial JSON; no media/S3-erasure claim from empty metadata |
+| G6 / compatibility | no schema/paid seeding or weakening; original cap/opening/stage arithmetic preserved | Focused budget suite plus relevant existing guard/deletion controls, exact command/exit/time/limits |
+
+Canonical fixture:100k input/20k output costs0.21, conservative reservation0.2225; opening13.3842732+1.31327 gives14.6975432 exposure/15.3024568 headroom under cap30. Synthetic requests/count/rejections are external-boundary doubles, not real Meta proof. Do not mirror guard behavior in a fake database or weaken tests to return green.
+
+First short checkpoint: implement the public transaction/identity/admission path, run a valid quote plus forged identity and fresh-connection invalid-usage durability regression. Report actual outputs before broadening to remaining transitions. Normal local build iterations do not consume a correction submission.
+
+## Receipt and submission
+
+BEFORE EDITS send a BLOCKING Orca startup receipt with IDs, cwd/root/branch/clean HEAD, named sources read, owned/excluded files, explicit new public interface/lock order, all eleven findings understood, first checkpoint/full checks and DB resources. Await verified coordinator approval. Ask only for wrong baseline, conflicting requirements, unresolved shared interface, missing permission/capability, unsafe effects or impossibility; routine implementation choices proceed autonomously.
+
+Commit one coherent correction on the task branch. Return exact SHA, changed paths, observable guarantees, criteria evidence, commands/exit codes, process/PG/double boundaries and unverified items. Stop for independent exact-commit review. Keep all prior review findings/evidence; after two unsuccessful submitted corrections stop and redesign rather than renaming/restarting the count. No INTEGRATED/JOURNEY-VERIFIED/whole V03 or live-provider claim.

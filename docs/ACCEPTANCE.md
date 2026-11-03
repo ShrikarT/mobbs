@@ -1,6 +1,6 @@
 # Acceptance and test strategy
 
-No application check has run. This document defines executable outcomes for later code, not passes. Freeze the exact source SHA/container digest and fixture hashes before a verifier starts; any implementation correction invalidates affected evidence. Planning validation is recorded separately in STATE.
+Local V02's recorded three-person journey is verified at the exact integration commit in [the current evidence](evidence/v02-integrated-journey.md). The matrix below includes later Flash, comparison and release gates; it is not a list of passes. Freeze the exact source SHA/container digest and fixture hashes before a verifier starts; any implementation correction invalidates affected evidence. Current scope and acceptance states are recorded in STATE.
 
 ## Named user journeys
 

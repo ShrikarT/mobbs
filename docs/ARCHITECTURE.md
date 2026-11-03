@@ -1,6 +1,6 @@
-# Architecture proposal
+# Architecture — approved local V02 scope
 
-**Recommend a modular monolith with a separate durable media worker.** React/TypeScript web UI; Python/FastAPI API and worker sharing domain modules; PostgreSQL for ownership, run state, jobs/events and manifests; private object storage for media/derivatives; FFmpeg for probe/cut/audio measurements; Standard Meta adapters behind explicit capability contracts. Exact package versions and hosting are unselected. No stack is installed in this repo.
+**Owner approved a modular monolith with a separate durable media worker on 2026-10-28.** React/TypeScript web UI; Python/FastAPI API and worker sharing domain modules; PostgreSQL for ownership, run state, jobs/events and manifests; private object storage for media/derivatives; FFmpeg for probe/cut/audio measurements; Standard Meta adapters behind explicit capability contracts. MP4 <=60,000ms and <=200,000,000 bytes are approved upload boundaries. Local V02 is now integrated with pinned manifests; [exact runtime evidence](evidence/v02-integrated-journey.md) distinguishes recorded-provider behavior from future live inference. Hosting and new provider spend remain separately gated.
 
 Why: video decoding and multi-step inference must survive browser disconnects and process restarts. Keep one domain/data model; avoid a broker and microservice fleet at this scale. FastAPI request background tasks alone are not the durability mechanism. Postgres queue semantics are documented, but the task plan must prove our lease/recovery implementation. [References](RESEARCH.md)
 
@@ -35,7 +35,7 @@ flowchart LR
 | UI | `apps/web/src/` except generated code | UI implementer |
 | Test evidence | `tests/`, `docs/evidence/` | Verifier checks; author supplies fixtures |
 
-These directories do not yet exist. [Contract proposals](CONTRACTS.md) and their single [fixture](contracts/vertical-slice.v1.json) are the producer/consumer baseline to freeze before parallel work.
+`contracts/normalized.py` now owns the executable local envelope/reaction/note/profile/fixture boundary, consumed by focused tests and the future app. Other application directories remain unbuilt. [Contracts](CONTRACTS.md), the [synthetic report/deletion fixture](contracts/vertical-slice.v1.json) and [sanitized saved envelopes](contracts/provider-saved.v1.json) are the correction candidate to accept before V02. Saved evidence is replay only, bound to exact media hash; it cannot become fresh analysis of an unmatched upload.
 
 ## Data and invariants
 
@@ -55,7 +55,7 @@ Probe bytes, enforce 60s/200MB bounds and decoder limits, extract cuts and ≤5s
 
 Store clip-local OCR, transcript granularity, motion and RMS observations. Audio-free inputs continue with caveats. SAM is object-mask enrichment, not the scene clock. A meaningful proposed SAM consumer is a visible-product crop for a thumbnail; if that consumer is absent, do not call it merely for sponsor credit.
 
-Static archetype cards distinguish cited behavior from invented mood/attention priors. No asserted fidelity score or representative population. Default cast is 50 instances; batch at most five active personas per scene in the first experiment. Future scenes wait for the current verdict; skipped and failed personas are not forwarded. Fewer than 40 valid personas yields a visibly incomplete report, no full-cast completion claim; all failures produce a failed run, not empty “success.” This threshold is a proposal, not a statistical guarantee.
+Static archetype cards distinguish cited behavior from invented mood/attention priors. No asserted fidelity score or representative population. Flash cast is 50 instances; V02 uses a visibly labeled small test profile. Future scenes wait for current verdict; skipped and failed personas are not forwarded. CONTRACTS defines executable cast completion: stopped traces count as effective, failed/unfinished traces do not; all requested test traces yield complete_test_profile, while any missing terminal trace is incomplete (including Flash <40), and zero valid terminal traces after work ends is failed. Full Flash cost/latency and 60s worst-case evidence belong to V03, not the V02 adapter/schema prerequisite.
 
 Notes use deterministic triggers plus model wording constrained to stored evidence IDs. Proposed v1 detectors: segment stop fraction ≥15% of personas entering that segment; confusion flagged by ≥20% of valid segment respondents; measured silence ≥1.5s between 10% and 80% of video duration; or first detected CTA after 80% of duration. Each requires a cited observation and a supported concrete fix; a trigger alone does not prove causality. Rank by observed affected-persona fraction, with timestamp as stable tie-breaker; label ranking heuristic, never predicted recovery or reach uplift. Validate every quoted reason and time range; unsupported prose is rejected. Abuse/deception flag withholds optimization advice while allowing neutral findings. Model-generated user strings are escaped.
 
