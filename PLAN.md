@@ -2,12 +2,13 @@
 
 ## Current execution: V03 in progress
 
-### Current checkpoint ? 2026-11-03: real notes contract gate
+### Current checkpoint - 2026-11-03: usable local V03 verified
 
-- **V03-RUNTIME-INCOMPLETE: REVIEW-ACCEPTED + INTEGRATED df43e7d1077928756263c34ca1dd0036898d3070** in the clean preview branch, not the dirty coordinator source. One submitted correction accepted. [Independent review](docs/evidence/v03-runtime-independent-review.md).
-- **Live journey NOT accepted yet:** fresh50 reached all terminal personas and346 accepted real decisions, then notes HTTP400. Original owner139+1 incomplete run and new failed attempt are preserved; no blind resend. The original incomplete reason remains UNKNOWN. See docs/STATE.md for exact evidence and private artifact paths.
-- **V03-NOTES-STRICT ? IN PROGRESS, Antigravity:** correct NOTES_SCHEMA.required to include its declared limitations key, retaining strict:true. Official Meta strict subset requires all properties in required; no-charge baseline proof fails with missing limitations. Dedicated branch/worktree and task_19974038690e/ctx_05d0790af40e, baseline7de04c0. [Full assignment](docs/evidence/v03-notes-strict-assignment.md). Notes correction submissions0.
-- Next gate: independent frozen review, integrate only accepted change, then short synthetic fixture real-provider50 ? report ? supported evidence/playback ? refresh/restart ? owner-only deletion. No new accounting, readiness audit or benchmark cycle. V04/V05/deployment/release remain excluded. Formal p95/60s maximum-input gates still need applicable measured evidence.
+- Running source **095fd2ba112d99fef72db8535e2a7f81d4f075f3**, clean preview worktree, http://127.0.0.1:58010. Completed report left open for owner. Coordinator's unrelated V04/V05 drafts are preserved and not served.
+- V03-RUNTIME-INCOMPLETE: REVIEW-ACCEPTED / INTEGRATED df43e7d, correction1 accepted. V03-NOTES-STRICT: REVIEW-ACCEPTED / INTEGRATED095fd2b,0 corrections. Antigravity authored; Codex independently verified/integrated. All current workers settled/released; review queue empty.
+- Functional JOURNEY-VERIFIED095fd2b: fresh short synthetic Flash50 upload -> real streaming -> report/playback -> refresh/API restart -> UI deletion (104 object HEAD404s/content rows0). Additional real creator-video report recovered with one corrected notes call, preserving346 real decisions and earlier400 receipt; supported quote/video seek verified. No retry of owner's unknown incomplete call.
+- [Evidence/limitations](docs/evidence/v03-local-usable-journey.md), [state/recovery](docs/STATE.md). Local usability acceptance; full60s input and20-valid-attempt p95 gates remain pending. Custom accounting DEFERRED; no monetary/balance gate restored.
+- Next: owner uses visible report/app and provides concrete V03 feedback. No V04/V05, benchmark, deployment or release dispatched.
 
 ### Historical checkpoint — 2026-11-02
 
