@@ -13,10 +13,10 @@ except store.client.exceptions.ClientError as exc:
     store.client.create_bucket(Bucket=store.bucket)
 key = 'v02-health/'+uid()
 try:
-    store.put(key, b'viralist-roundtrip')
+    store.put(key, b'mobbs-roundtrip')
     obj = store.get(key)
     try:
-        assert obj['Body'].read() == b'viralist-roundtrip'
+        assert obj['Body'].read() == b'mobbs-roundtrip'
     finally:
         obj['Body'].close()
 finally:

@@ -183,7 +183,7 @@ class StandardProvider:
         headers = {
             'Authorization': f'Bearer {api_key or "DUMMY_KEY"}',
             'Content-Type': 'application/json',
-            'User-Agent': 'Viralist-StandardProvider/1.0',
+            'User-Agent': 'Mobbs-StandardProvider/1.0',
         }
         return httpx.Client(
             timeout=httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0),

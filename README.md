@@ -1,4 +1,4 @@
-# Viralist
+# Mobbs
 
 Local V03 is usable: the real Standard-provider Flash50 journey, supported notes/video evidence, refresh/recovery and deletion have been verified, including one constructed60s input. Formal p95 and the historical cost target remain open. See [current state](docs/STATE.md) for exact commits and journey evidence. Local V03 credit use is authorized under the [current owner decision](docs/decisions-v03-product-priority.md); custom accounting is deferred.
 
@@ -15,8 +15,8 @@ npm run build
 .venv/Scripts/python -m uvicorn apps.api.app.main:app --host 127.0.0.1 --port 58000 --no-access-log
 ```
 
-Private configuration defaults to `~/.codex/private-runs/viralist-v02-local/runtime.json`
-(override with `VIRALIST_RUNTIME`). Required keys: `database_url`, `s3_endpoint`,
+Private configuration defaults to `~/.codex/private-runs/mobbs-v02-local/runtime.json`
+(fallback to `viralist-v02-local/runtime.json`; override with `MOBBS_RUNTIME` or legacy `VIRALIST_RUNTIME`). Required keys: `database_url`, `s3_endpoint`,
 `s3_access_key`, `s3_secret_key`, `s3_bucket`, `provider_evidence_root`.
 Never commit this file. Existing coordinator-owned PostgreSQL 17 and RustFS services
 are required; `scripts.check_services` creates the configured private app bucket
@@ -48,13 +48,13 @@ npx playwright test
 
 # Historical experiment test suite
 python -m unittest discover -s experiments -p 'test_*.py' -v
-`
+```
 
 ### V03 UI Workbench Execution & End-to-End Verification
 
 To run and verify the V03-U1 Flash evidence workbench environment:
 
-`powershell
+```powershell
 # 1. Bootstrap isolated V03 database and private runtime config:
 .venv/Scripts/python scripts/v03_ui_setup.py
 

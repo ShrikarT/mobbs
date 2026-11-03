@@ -6,7 +6,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+os.environ.setdefault('MOBBS_RUNTIME', os.environ.get('VIRALIST_RUNTIME') or 'C:/Users/Shrikar/.codex/viralist-v03-standard-app/runtime.json')
 os.environ.setdefault('VIRALIST_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-standard-app/runtime.json')
+os.environ.setdefault('MOBBS_PROVIDER_MODE', 'standard')
 os.environ.setdefault('VIRALIST_PROVIDER_MODE', 'standard')
 os.environ.setdefault('MODEL_API_KEY', 'DUMMY_KEY_LOCAL')
 os.environ['PYTHONDONTWRITEBYTECODE'] = '1'

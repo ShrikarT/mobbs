@@ -1,4 +1,4 @@
-# Viralist current handoff — 2026-11-03
+# Mobbs current handoff — 2026-11-03
 
 This is the current snapshot. The complete prior state/history is preserved at **4394bf5bde767a9d0da97bbdad6154a489e22847**: `git show 4394bf5:docs/STATE.md`. Older active-task and budget-gate statements there are historical, not current authority.
 
@@ -8,9 +8,21 @@ Continue local V03 on the accepted V02 architecture: 50 fictional scene-aware in
 
 Owner removed monetary caps and balance/dashboard gates on 2026-11-02. Use existing provider credits efficiently; retain bounded calls, limited concurrency, no blind uncertain-unit resend and honest usage. Custom accounting implementation/reviews/fixtures remain **DEFERRED**. See [current scope decision](decisions-v03-product-priority.md). Credential is private/server-only; never put it in Git, messages or browser code. Fresh paid checks and their limitations are recorded in the current checkpoint below.
 
-GitHub Issues is the selected destination, but no canonical issue is published; **PLAN.md remains canonical locally**. No implementation PR/push/CI/deployment is claimed. Owner-selected origin is `https://github.com/ShrikarT/viralist.git`.
+GitHub Issues is the selected destination, but no canonical issue is published; **PLAN.md remains canonical locally**. Prior V03 was published and merged through GitHub PR1/main11142e6. Rename publication is tracked in the current task below; no CI/deployment/release claim. Owner-selected origin is `https://github.com/ShrikarT/mobbs.git`.
 
 ## Active work and next action
+
+### 2026-11-03: MOBBS-RENAME application and documentation rename
+
+**CURRENT RUNNING APP:** http://127.0.0.1:58010, clean `C:/Users/Shrikar/orca/workspaces/viralist/codex-mobbs-rename` at16a2fe6448e0a8d90a5ac8e3834b972177b230ae; API/worker running. Recovery: private `mobbs-rename-20261103/start.ps1 -Role api|worker -ExpectedCommit 16a2fe6448e0a8d90a5ac8e3834b972177b230ae`. New Mobbs title/header; existing report/session/media and original report provenance retained; data hashes unchanged. Worker settled/released, no review queue. Prior095fd2b running/recovery entries below describe the earlier milestone and are superseded by this artifact. Next: owner can refresh/use Mobbs; existing V03 performance/cost gaps remain, V04/V05/accounting remain deferred.
+
+- **Task & Lineage:** Logical task MOBBS-RENAME, Task `task_607bf4406c34`, Dispatch `ctx_11ade2923bb7`, Run `run_d3354faa0659`, Agent Antigravity.
+- **Base & Checkout:** Assigned worktree `C:/Users/Shrikar/orca/workspaces/viralist/codex-mobbs-rename`, branch `codex/mobbs-rename`, exact baseline HEAD `673e2631357f3869724e0edd2662351bee19cdab`. Startup receipt approved by coordinator (`msg_211bd080dc1d`).
+- **Status:** **REVIEW-ACCEPTED** candidate16a2fe6448e0a8d90a5ac8e3834b972177b230ae; **INTEGRATED**bb2bdf05025c3ef4f45e5ac152b8daa3c87df9ec, product files identical. Independent37tests/build and actual retained-report branding/config journey passed;0 corrections. [Independent evidence](evidence/mobbs-rename-independent-review.md).
+- **Implemented Scope:** Complete brand rename from Viralist to Mobbs across application UI (header 'Mobbs / Evidence desk', title 'Mobbs · Evidence desk', package 'mobbs-local'), API title ('Mobbs local evidence desk'), User-Agent ('Mobbs-StandardProvider/1.0'), temp prefixes ('mobbs-ingest-', 'mobbs-worker-'), and repository documentation.
+- **Config & Cookies:** Primary env vars `MOBBS_RUNTIME` and `MOBBS_PROVIDER_MODE` with explicit precedence and whitespace trimming; legacy `VIRALIST_*` fallback preserved. Worker operational pause marker uses identical effective runtime path. Default private runtime path `~/.codex/private-runs/mobbs-v02-local/runtime.json` with fallback to `viralist-v02-local/runtime.json`. Browser ownership cookies `vir_session` and `vir_csrf` strictly preserved without schema mutation.
+- **Checks:** 37 tests passing (including 6 new config precedence/trimming/safety unit tests in `tests/test_mobbs_config.py`), clean `npm run build` (tsc + vite, 17 modules). Full old-name inventory categorized in [docs/evidence/mobbs-rename.md](evidence/mobbs-rename.md).
+
 
 GitHub publication preparation: `codex/v03-usable` combines coordinator documentation at ff9747b with the accepted runtime branch095fd2b. All apps/contracts/migrations/scripts/manifests/tests match095fd2b byte-for-byte;31 focused regression tests passed in48.708s. Journey evidence belongs to095fd2b; no fresh paid journey or release is claimed for this documentation/integration packaging. Uncommitted V04/V05 drafts and private runtime/media remain local.
 

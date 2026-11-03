@@ -1,6 +1,6 @@
-# Viralist
+# Mobbs
 
-Viralist rehearses how a synthetic audience might respond to a product demo. Its outputs support editing decisions, not forecasts of real viewers.
+Mobbs rehearses how a synthetic audience might respond to a product demo. Its outputs support editing decisions, not forecasts of real viewers.
 
 ## Language
 

@@ -1,4 +1,5 @@
 import os
+os.environ.setdefault('MOBBS_RUNTIME', os.environ.get('VIRALIST_RUNTIME') or 'C:/Users/Shrikar/.codex/viralist-v03-pool/runtime.json')
 os.environ.setdefault('VIRALIST_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-pool/runtime.json')
 """Acceptance test suite for V03-P1 Bounded Independent-Persona Execution.
 
@@ -351,7 +352,9 @@ class TestV03BoundedPool(unittest.TestCase):
             d = Path(td)
             helper = str(Path(__file__).resolve().parent / 'v03_pool_worker.py')
             env = os.environ.copy()
-            env['VIRALIST_RUNTIME'] = str(Path(os.environ.get('VIRALIST_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-pool/runtime.json')).resolve())
+            env['MOBBS_RUNTIME'] = str(Path(os.environ.get('MOBBS_RUNTIME') or os.environ.get('VIRALIST_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-pool/runtime.json')).resolve())
+            env['VIRALIST_RUNTIME'] = str(Path(os.environ.get('VIRALIST_RUNTIME') or os.environ.get('MOBBS_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-pool/runtime.json')).resolve())
+            env['MOBBS_PROVIDER_MODE'] = 'standard'
             env['VIRALIST_PROVIDER_MODE'] = 'standard'
             env['MODEL_API_KEY'] = 'DUMMY_KEY_LOCAL'
             env['PYTHONDONTWRITEBYTECODE'] = '1'
@@ -430,7 +433,9 @@ class TestV03BoundedPool(unittest.TestCase):
             d = Path(td)
             helper = str(Path(__file__).resolve().parent / 'v03_pool_worker.py')
             env = os.environ.copy()
-            env['VIRALIST_RUNTIME'] = str(Path(os.environ.get('VIRALIST_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-pool/runtime.json')).resolve())
+            env['MOBBS_RUNTIME'] = str(Path(os.environ.get('MOBBS_RUNTIME') or os.environ.get('VIRALIST_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-pool/runtime.json')).resolve())
+            env['VIRALIST_RUNTIME'] = str(Path(os.environ.get('VIRALIST_RUNTIME') or os.environ.get('MOBBS_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-pool/runtime.json')).resolve())
+            env['MOBBS_PROVIDER_MODE'] = 'standard'
             env['VIRALIST_PROVIDER_MODE'] = 'standard'
             env['MODEL_API_KEY'] = 'DUMMY_KEY_LOCAL'
             env['PYTHONDONTWRITEBYTECODE'] = '1'
@@ -473,7 +478,9 @@ class TestV03BoundedPool(unittest.TestCase):
             d = Path(td)
             helper = str(Path(__file__).resolve().parent / 'v03_pool_worker.py')
             env = os.environ.copy()
-            env['VIRALIST_RUNTIME'] = str(Path(os.environ.get('VIRALIST_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-pool/runtime.json')).resolve())
+            env['MOBBS_RUNTIME'] = str(Path(os.environ.get('MOBBS_RUNTIME') or os.environ.get('VIRALIST_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-pool/runtime.json')).resolve())
+            env['VIRALIST_RUNTIME'] = str(Path(os.environ.get('VIRALIST_RUNTIME') or os.environ.get('MOBBS_RUNTIME', 'C:/Users/Shrikar/.codex/viralist-v03-pool/runtime.json')).resolve())
+            env['MOBBS_PROVIDER_MODE'] = 'standard'
             env['VIRALIST_PROVIDER_MODE'] = 'standard'
             env['MODEL_API_KEY'] = 'DUMMY_KEY_LOCAL'
             env['PYTHONDONTWRITEBYTECODE'] = '1'
