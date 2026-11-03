@@ -4,6 +4,8 @@
 
 ### Current checkpoint - 2026-11-03: usable local V03 verified
 
+**Owner continuation:** owner confirmed the website works and asked to continue. V03-MAX60-VERIFY is one bounded QA task on unchanged095fd2b:60.1s real upload rejection passed (422,0 stored uploads/runs/dispatches); next exactly60s derived owned clip through real Flash50. No implementation workers, source changes or large p95 batch. Existing reports/site stay available. Evidence private-runs/viralist-v03-max60-20261103/.
+
 - Running source **095fd2ba112d99fef72db8535e2a7f81d4f075f3**, clean preview worktree, http://127.0.0.1:58010. Completed report left open for owner. Coordinator's unrelated V04/V05 drafts are preserved and not served.
 - V03-RUNTIME-INCOMPLETE: REVIEW-ACCEPTED / INTEGRATED df43e7d, correction1 accepted. V03-NOTES-STRICT: REVIEW-ACCEPTED / INTEGRATED095fd2b,0 corrections. Antigravity authored; Codex independently verified/integrated. All current workers settled/released; review queue empty.
 - Functional JOURNEY-VERIFIED095fd2b: fresh short synthetic Flash50 upload -> real streaming -> report/playback -> refresh/API restart -> UI deletion (104 object HEAD404s/content rows0). Additional real creator-video report recovered with one corrected notes call, preserving346 real decisions and earlier400 receipt; supported quote/video seek verified. No retry of owner's unknown incomplete call.
