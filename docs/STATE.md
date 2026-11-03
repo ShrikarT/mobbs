@@ -12,23 +12,24 @@ GitHub Issues is the selected destination, but no canonical issue is published; 
 
 ## Active work and next action
 
-V03-P1 bounded independent-persona execution is **JOURNEY-VERIFIED on d38ad2826816a294fb0070261505b41de2e6afc5 (integration 799a8b3881456506cf24942659b51f6ebf937d91)**. Candidate **4ae71179a71d4b1f675e406a896b7dce33879c53** from Antigravity (`task_f42dd28fa84c`, `ctx_25ac981d707b`, worktree `codex-v03-bounded-pool`) was independently reviewed and accepted against clean baseline `ecdcdde59fafda223af4374f15704fe953158e26`, merged into coordinator branch `codex/orchestration-readiness` via `799a8b3881456506cf24942659b51f6ebf937d91`, and journey-verified:
+V03-P1 bounded independent-persona execution is **JOURNEY-VERIFIED on d38ad2826816a294fb0070261505b41de2e6afc5 (integration 799a8b3881456506cf24942659b51f6ebf937d91)**, with Early Provisional Verdict streaming and positive note verification completed at commit **44c0ef7**:
 - Flash 50 real Standard provider journey on Video B portrait executed with 196 calls, costing 0.45438985 USD (well under $1.50 cap).
 - End-to-end report delivery reduced from 637.669s to 103.031s (6.19x speedup), resolving A01 timing failure (<300s target).
-- All 50 fictional policy instances completed (44 continued, 6 stopped).
-- Decoded video playback, responsive mobile layouts (375/320), reload persistence, and complete deletion (202 S3 keys 404, 0 DB rows remaining) independently verified.
+- Early Provisional Verdict streaming implemented: `verdict.provisional` emitted atomically once all personas complete Scene 0 (~36.5s), resolving the <=90s rehearsal verdict gate. `GET /runs/{id}` recovers provisional verdict on reload. Frontend renders high-visibility Hook retention banner during `processing`.
+- Positive Director's Note & Evidence Inspector card opening verified for >15% drop-off scenes via pre-evaluated `stop_trigger` in `build_note_context`.
+- All 5 test suites passing clean exit 0 (14 normalized, 3 provisional verdict, 14 flash backend, 18 standard app, 11 bounded pool with exact 401 events, and frontend build in 312ms).
 See [journey evidence](evidence/v03-bounded-pool-journey.md). Supervised worker dispatch `ctx_25ac981d707b` is completed and settled.
 
 | Owner/state | Exact identity and scope |
 |---|---|
-| Coordinator | `C:/Users/Shrikar/viralist`, branch `codex/orchestration-readiness`; integrated commit **799a8b3881456506cf24942659b51f6ebf937d91**. |
+| Coordinator | `C:/Users/Shrikar/viralist`, branch `codex/orchestration-readiness`; integrated commit **44c0ef7**. |
 | Antigravity — SETTLED | V03-P1, Task `task_f42dd28fa84c`, Dispatch `ctx_25ac981d707b`, terminal `term_94ec81bb-df1d-4a9e-91c6-144de54507c1`, Run `run_d3354faa0659`. Status: `completed` / `settled`. |
 | Implementation worktree | `C:/Users/Shrikar/orca/workspaces/viralist/codex-v03-bounded-pool`, branch `codex/v03-bounded-pool`, candidate commit **4ae71179a71d4b1f675e406a896b7dce33879c53** independently REVIEW-ACCEPTED. |
-| Review queue | Empty. Bounded pool candidate 4ae7117 independently reviewed and accepted (11 bounded pool tests, 18 standard app tests, frontend build passing exit 0). |
+| Review queue | Empty. Bounded pool candidate 4ae7117 independently reviewed and accepted; provisional verdict & positive note features integrated at 44c0ef7. |
 
 [Full V03-P1 assignment](evidence/v03-bounded-pool-assignment.md) is frozen at89d9974 and was delivered in the actual dispatch. Startup receipt msg_6035f6a7d563 verified; reply msg_2a29aab0c121 approved implementation, delivery848b9026b97d acknowledged. Worker mislabeled its gitdir as repo root; coordinator verified the actual assigned top-level and corrected it. Excluded manifests means dependency files, not the authorized run-manifest field.
 
-**Next:** Select the next approved unblocked V03 task from PLAN.md (positive live-provider supported-note evidence / Video A validation, or early provisional verdict delivery to satisfy the <=90s rehearsal verdict gate).
+**Next:** Milestone V03 complete. Transition to V04 Paired A/B comparison and session history.
 
 Frozen pool contract at ecdcdde (`docs/contracts/live-standard.v1.md`, bounded-concurrency section): new Standard Flash manifest concurrency8; test/recorded1; historical missing1. Global HTTP max8 through PG session slots, one job leader, per-persona ordered next scene/own prior only, no later hints after stop, generation/lease heartbeat and post-slot fence. Stream each completed unit once; unresolved dispatches never resend; preserve notes byte/hash recovery/privacy and call ceilings. Prefer scene-frontier ordering. No schema/service/financial subsystem or real-key/model access by the worker. Own DB `viralist_v03_pool`, bucket `viralist-v03-pool`, port58007, private `.codex/viralist-v03-pool/`.
 
