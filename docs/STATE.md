@@ -1,5 +1,13 @@
 # Mobbs current handoff — 2026-11-03
 
+## Current: MOBBS-WORKER-RECONNECT — author-complete, 2026-11-04
+
+The queued scan was blocked because the Standard worker exited on a database ConnectionTimeout during retention cleanup. Fixed production loop to reconnect on database OperationalError/InterfaceError with capped1–30s backoff and sanitized exception-class logging. Once-mode/unrelated errors still surface; provider resend/lease/fencing behavior unchanged. Functional **6b978ddc32ab453f1954d55190d635052b279e20**. [Evidence](evidence/mobbs-worker-reconnect.md).
+
+Current queued owner scan0e990458980a415996326655eb4bf4f4 had0 provider calls/generation0 before replacement worker start. It now completed50/50,0failed/pending,198accepted calls,1supported note, estimated0.47175825USD (not invoice), completed12:41:09Z. Original upload/report retained; no blind retry of the older failed scan’s unresolved request. Standard worker parent15740 runs6b978dd. Website58020, API startup6837a58/frontend9dc2e26 unchanged. Worker connection failure regression went red2/4 before fix;24 focused tests pass at6b978dd. Separate actual QA worker18100 survived real connection timeouts, reconnected without restart, and passed the1 recorded-provider upload/report/refresh/reopen/deletion browser journey. QA runs/jobs/objects0. Private outage runtime/logs under worker-reconnect-check; recoverable result reconnect-scan-result.json.
+
+Owner-authorized direct Codex; no agents/Orca. WORKER-REPORTED / author-verified; independent REVIEW-ACCEPTED, formal INTEGRATED/JOURNEY-VERIFIED pending. RELEASED not performed. No merge/push/deployment/submission. Source on isolated codex/mobbs-app-redesign; coordinator drafts preserved. Next permitted action: owner uses the completed report; retain working services and existing safety guards.
+
 ## Current: MOBBS-NEW-UPLOAD-FIX — author-complete, 2026-11-04
 
 Landing upload CTAs now use `/#/app/new` and keep the fresh chooser on reload. Prior reports are available only through explicit **previous scans** links; started runs use `/#/app/run/{run_id}` for precise refresh recovery. Late bootstrap/upload responses cannot replace a newer navigation or run, and concurrent session initialization is shared. Legacy direct `/#/app` recovery remains. Functional **9dc2e26a6d912dd6447ae0ec00729fd74f10d6b1**, isolated `codex/mobbs-app-redesign`. No backend/provider/theme change. [Evidence](evidence/mobbs-new-upload-fix.md).

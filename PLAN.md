@@ -1,5 +1,9 @@
 # Mobbs delivery plan
 
+## Current: MOBBS-WORKER-RECONNECT — WORKER-REPORTED / author-verified
+
+Fixed a database timeout terminating the Standard worker and leaving new scans queued. Reconnection/backoff now preserves the worker loop. Functional6b978dd;24 focused tests plus1 actual recorded-provider browser journey after a real isolated connection outage passed. Owner’s existing queued scan completed50/50 with1supported note,198accepted calls and no failed/pending personas. No duplicate upload or unresolved-request replay. Current STATE/evidence have source, costs and recovery. No agents, merge or release.
+
 ## Current: MOBBS-NEW-UPLOAD-FIX — WORKER-REPORTED / author-verified
 
 Fixed the landing CTA restoring an old video. New upload route stays fresh; explicit owned-run links preserve reports and precise refresh recovery; stale async responses are fenced. Functional9dc2e26.8 UI regressions and1 actual recorded-inference upload/report/reopen/deletion journey passed. See current STATE and docs/evidence/mobbs-new-upload-fix.md. Local58020 bundle updated; refresh existing owner tab. Direct Codex per owner, no agents; no customer content mutation, paid calls, merge or release.
