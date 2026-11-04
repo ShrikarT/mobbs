@@ -397,8 +397,20 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
             close()
 
 
+def uncertain_call_blocks(conn, run_id, isolate_personas=False):
+    # A failed persona is excluded permanently, so it cannot be dispatched again.
+    # Uncertainty in shared preparation/notes still blocks those dependent units.
+    return conn.execute(
+        "SELECT 1 FROM provider_calls WHERE run_id=%s AND status='failed' "
+        "AND (receipt->'error'->>'charge_state'='uncertain' OR receipt->'error'->>'code'='unresolved_dispatched_call') "
+        "AND (NOT %s OR unit !~ '^p[0-9]{3}:[0-9]+$') LIMIT 1",
+        (run_id, isolate_personas),
+    ).fetchone()
+
+
 def _run_prepared_analysis(lease, provider, run_row, mode, profile, concurrency, before_publish):
     manifest = run_row.get('manifest') or {}
+    isolate_personas = mode == 'standard' and manifest.get('media_pipeline') == 'scene-av-v1'
     prepare(lease, provider)
 
     with connection() as conn:
@@ -408,6 +420,18 @@ def _run_prepared_analysis(lease, provider, run_row, mode, profile, concurrency,
         requested = manifest.get('requested', len(provider.persona_ids))
         preparation_calls = 2 * scenes_count if manifest.get('media_pipeline') == 'scene-av-v1' else 0
         max_calls = min(40 if profile == 'test' else 651, requested * scenes_count + 1) + preparation_calls
+
+        if isolate_personas:
+            # A crash may leave multiple in-flight personas. Exclude each one;
+            # preserve its audit and never send that persona another scene.
+            unresolved_personas = conn.execute(
+                "SELECT unit FROM provider_calls WHERE run_id=%s AND status='dispatched' AND unit ~ '^p[0-9]{3}:[0-9]+$'",
+                (lease['run_id'],),
+            ).fetchall()
+            for call in unresolved_personas:
+                conn.execute("UPDATE provider_calls SET status='failed',receipt=%s WHERE run_id=%s AND unit=%s",
+                             (Jsonb({'mode':'standard','model_id':provider.model_id,'error':{'code':'unresolved_dispatched_call','error_class':'WorkerCrash','charge_state':'uncertain'}}),lease['run_id'],call['unit']))
+                conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND persona_id=%s",(lease['run_id'],call['unit'].split(':')[0]))
 
         # 1. Unresolved dispatched unit check from a prior crash
         unresolved = conn.execute("SELECT * FROM provider_calls WHERE run_id=%s AND status='dispatched' LIMIT 1", (lease['run_id'],)).fetchone()
@@ -446,6 +470,10 @@ def _run_prepared_analysis(lease, provider, run_row, mode, profile, concurrency,
             video = fence(conn, lease)
             existing_call = conn.execute("SELECT * FROM provider_calls WHERE run_id=%s AND unit=%s", (lease['run_id'], unit)).fetchone()
             if existing_call:
+                if isolate_personas and existing_call['status'] == 'failed':
+                    conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND persona_id=%s",(lease['run_id'],cp['persona_id']))
+                    if concurrency == 1: release(conn, lease, done=False)
+                    return True
                 if existing_call['status'] == 'accepted':
                     rx_row = conn.execute("SELECT * FROM reactions WHERE run_id=%s AND persona_id=%s AND scene_id=%s", (lease['run_id'], cp['persona_id'], scene['scene_id'])).fetchone()
                     if rx_row:
@@ -487,11 +515,8 @@ def _run_prepared_analysis(lease, provider, run_row, mode, profile, concurrency,
                         halt_event.set()
                     return False
 
-                uncertain_call = conn.execute(
-                    "SELECT 1 FROM provider_calls WHERE run_id=%s AND status='failed' AND (receipt->'error'->>'charge_state'='uncertain' OR receipt->'error'->>'code'='unresolved_dispatched_call') LIMIT 1",
-                    (lease['run_id'],)
-                ).fetchone()
-                if uncertain_call or (mode == 'standard' and is_operationally_paused()):
+                uncertain_call = uncertain_call_blocks(conn, lease['run_id'], isolate_personas)
+                if uncertain_call or (mode == 'standard' and not isolate_personas and is_operationally_paused()):
                     conn.execute("UPDATE checkpoints SET status='failed' WHERE run_id=%s AND status='active'", (lease['run_id'],))
                     conn.execute("UPDATE runs SET error_code='uncertain_provider_charge',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
                     if halt_event is not None:
@@ -549,7 +574,7 @@ def _run_prepared_analysis(lease, provider, run_row, mode, profile, concurrency,
                         and is_valid_usage
                     )
 
-                    if is_confirmed_incomplete:
+                    if is_confirmed_incomplete or (isolate_personas and err_receipt['error']['charge_state'] == 'uncertain'):
                         if scene['scene_id'] == 0 and not provisional_emitted[0]:
                             with provisional_lock:
                                 if not provisional_emitted[0]:
@@ -826,11 +851,8 @@ def _run_prepared_analysis(lease, provider, run_row, mode, profile, concurrency,
                         release(conn, lease, True)
                         return
                     # 2. Uncertainty / operational pause check before admitting new notes call
-                    uncertain_call = conn.execute(
-                        "SELECT 1 FROM provider_calls WHERE run_id=%s AND status='failed' AND (receipt->'error'->>'charge_state'='uncertain' OR receipt->'error'->>'code'='unresolved_dispatched_call') LIMIT 1",
-                        (lease['run_id'],)
-                    ).fetchone()
-                    if uncertain_call or (mode == 'standard' and is_operationally_paused()):
+                    uncertain_call = uncertain_call_blocks(conn, lease['run_id'], isolate_personas)
+                    if uncertain_call or (mode == 'standard' and not isolate_personas and is_operationally_paused()):
                         conn.execute("UPDATE runs SET error_code='uncertain_provider_charge',status='failed',stage='failed' WHERE id=%s", (lease['run_id'],))
                         release(conn, lease, True)
                         return

@@ -486,6 +486,8 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
         trust['live_calls'] = sum(1 for r in receipts if isinstance(r, dict) and r.get('mode') == 'standard')
         if receipts and receipts[0].get('pricing_version'):
             trust['pricing_version'] = receipts[0]['pricing_version']
+        if has_uncertain_cost:
+            trust['limitations'].append('Some provider requests have unconfirmed outcomes. Affected persona traces are excluded, and those requests were not retried. Total provider cost remains uncertain.')
     elif total_cost > 0:
         trust['total_cost_usd'] = round(total_cost, 8)
 

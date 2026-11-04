@@ -68,11 +68,10 @@ def durable_feature(lease, unit, send):
 def enrich_scenes(lease, provider, path, directory, scenes, audio_present):
     # Shared once per scene, never once per persona; inline media leaves no Files API ID.
     models = SceneModels(provider)
-    from .worker import standard_concurrency_gate, is_operationally_paused
+    from .worker import standard_concurrency_gate
     for scene in scenes:
         with connection() as conn:
             fence(conn, lease)
-            if is_operationally_paused(): raise ProviderUnavailable('uncertain_provider_charge')
             conn.execute("UPDATE runs SET stage='reading_video',status='processing' WHERE id=%s", (lease['run_id'],))
         index, duration = scene['scene_id'], (scene['end_ms'] - scene['start_ms']) / 1000
         clip = directory / f'scene-{index}.mp4'

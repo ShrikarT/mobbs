@@ -50,6 +50,12 @@ class MultimodalJourneyTests(unittest.TestCase):
                 if not process_once(): break
 
     def test_audio_visual_context_report_and_no_post_skip_dispatch(self):
+        self.verify_journey()
+
+    def test_unknown_persona_response_is_not_replayed_and_other_personas_finish(self):
+        self.verify_journey(timeout_persona=True)
+
+    def verify_journey(self, timeout_persona=False):
         run = self.start()
         counts = {'visual': 0, 'audio': 0}
         seen = []
@@ -68,6 +74,8 @@ class MultimodalJourneyTests(unittest.TestCase):
                 pid = context['viewer']['persona_id'];scene = context['current_segment'];index = scene['scene_id']
                 seen.append((pid,index))
                 self.assertEqual(scene['features']['transcript']['text'], 'opening words' if index == 0 else 'future words')
+                if timeout_persona and pid == 'p001':
+                    raise httpx.ReadTimeout('unknown persona outcome')
                 return httpx.Response(200, json=envelope({'verdicts': [{'persona_id': pid, 'still_watching': pid != 'p001', 'reason': 'Test simulated reason', 'impression': 'Test impression', 'actions': []}]}))
             return httpx.Response(200, json=envelope({'notes': [], 'limitations': []}))
         def factory(media_hash, duration, profile='test', lease=None):
@@ -86,9 +94,15 @@ class MultimodalJourneyTests(unittest.TestCase):
         self.assertIn('muse-voice-transcribe-1.0', report['trust']['model_ids'])
         self.assertEqual(counts, {'visual': 2, 'audio': 2})
         self.assertNotIn(('p001',1), seen)
-        self.assertEqual(report['cast']['effective'],3)
+        self.assertEqual(report['cast']['effective'],2 if timeout_persona else 3)
+        self.assertEqual(report['cast']['failed'],1 if timeout_persona else 0)
+        if timeout_persona:
+            self.assertEqual(report['cast']['status'],'incomplete')
+            self.assertEqual(report['trust']['total_cost_usd'],'uncertain')
+            self.assertEqual(seen.count(('p001',0)),1)
         with connection() as conn:
-            self.assertFalse(conn.execute("SELECT 1 FROM provider_calls WHERE run_id=%s AND status!='accepted'",(run,)).fetchone())
+            failed=conn.execute("SELECT count(*) AS n FROM provider_calls WHERE run_id=%s AND status!='accepted'",(run,)).fetchone()['n']
+            self.assertEqual(failed,1 if timeout_persona else 0)
         self.assertEqual(self.client.get('/runs/'+run+'/report').json(),report)
 
     def test_accepted_feature_reused_and_ambiguous_unit_never_resent(self):

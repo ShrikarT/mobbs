@@ -197,7 +197,7 @@ class StandardProvider:
             'User-Agent': 'Mobbs-StandardProvider/1.0',
         }
         return httpx.Client(
-            timeout=httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0),
+            timeout=httpx.Timeout(connect=10.0, read=90.0, write=10.0, pool=10.0),
             limits=httpx.Limits(max_connections=8, max_keepalive_connections=8, keepalive_expiry=60.0),
             transport=self.transport,
             headers=headers,
