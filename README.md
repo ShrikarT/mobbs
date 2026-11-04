@@ -2,7 +2,26 @@
 
 Local V03 is usable: the real Standard-provider Flash50 journey, supported notes/video evidence, refresh/recovery and deletion have been verified, including one constructed60s input. Formal p95 and the historical cost target remain open. See [current state](docs/STATE.md) for exact commits and journey evidence. Local V03 credit use is authorized under the [current owner decision](docs/decisions-v03-product-priority.md); custom accounting is deferred.
 
-Local V02 development (Windows, Python 3.10.2 / Node 26.7.0). Run the worker and API in separate terminals using the same private configuration:
+## Current website and app design
+
+The approved landing page and V03 app share Space Mono, Patrick Hand, cobalt ink and lavender hand-drawn artwork. The landing **drop a video** button opens `/#/app`; this hash route also survives refresh with the existing API server. `/#/sample` is explicitly illustrative and never starts inference. `/#/roadmap` retains V04, V05, Deep, multi-platform, accounts/API and calibration research as future work.
+
+[Editable Figma app screens](https://www.figma.com/design/HNAM1otmM0c7FUlsLK72Ub/mobbs.fun?node-id=56-56) live in the same file as the full landing motion. The mobbs space scatters characters with a stable per-run layout. Waiting characters are neutral; observed labels, actions and inspectable reaction quotes come from saved simulation events. Position/face styling is decorative. Pause freezes the view; processing continues. Reduced-motion, hidden-tab and offscreen states stop decorative animation. Fonts are self-hosted.
+
+```powershell
+# Presentation browser checks; automatically starts Vite. API responses are controlled.
+npx playwright test --config playwright.ui.config.ts
+# Point those checks at a running production build:
+$env:MOBBS_UI_BASE_URL='http://127.0.0.1:58020'
+npx playwright test --config playwright.ui.config.ts
+# Actual recorded-inference app journeys; requires API/worker/private fixtures:
+$env:MOBBS_E2E_BASE_URL='http://127.0.0.1:58021'
+npx playwright test --config playwright.v03.config.ts
+```
+
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE` optionally selects an installed Chromium executable. Recorded journeys exercise the production API, scheduler, persistence, report renderer and deletion with saved provider inference; they do not establish a fresh live-provider result. See STATE for exact revision evidence and the current local service ports. Deployment/release remains a separate milestone.
+
+Local development (Windows, Python 3.10.2 / Node 26.7.0). Run the worker and API in separate terminals using the same private configuration:
 
 ```powershell
 python -m venv .venv
@@ -21,9 +40,9 @@ Private configuration defaults to `~/.codex/private-runs/mobbs-v02-local/runtime
 Never commit this file. Existing coordinator-owned PostgreSQL 17 and RustFS services
 are required; `scripts.check_services` creates the configured private app bucket
 if absent and checks a disposable object. Open `http://127.0.0.1:58000`.
-This is a local restricted application, with paid inference disabled.
+Recorded mode uses hash-bound saved inference. Standard mode uses the server-only provider key under the current V03 authorization.
 
-Test a short product demo with a simulated audience, inspect timestamped editing notes, and compare your next cut.
+Test a short MP4 with a simulated audience and inspect timestamped editing notes. V04 edited-cut comparison and V05 Thumbnail Lab are planned, not available.
 
 **Local V02 recorded-inference slice; acceptance is tracked in `docs/STATE.md`.** Real local upload, durable PostgreSQL worker, hash-bound recorded 3-person Meta adapter simulation, supported Director's Note with concrete fix and suppressed note disclosure, persistent reloadable workbench UI, and complete deletion lifecycle.
 

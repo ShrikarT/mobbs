@@ -26,10 +26,10 @@ test.describe('Mobbs V03 Browser Journey', () => {
   }) => {
     test.setTimeout(180000);
     // 1. Visit workbench
-    await page.goto('/');
-    await expect(page).toHaveTitle(/Mobbs/);
-    await expect(page.locator('.brand-title')).toHaveText('Mobbs / Evidence desk');
-    await expect(page.locator('.hero-heading')).toHaveText('A clearer next cut.');
+    await page.goto('/#/app');
+    await expect(page).toHaveTitle(/mobbs/i);
+    await expect(page.locator('.brand-title')).toHaveText('mobbs.fun');
+    await expect(page.locator('.hero-heading')).toHaveText('what are we watching?');
     await expect(page.locator('.session-badge')).toContainText('Session:');
 
     // Select Test (3 personas) profile for Video B
@@ -42,7 +42,7 @@ test.describe('Mobbs V03 Browser Journey', () => {
 
     // 3. Verify processing screen, indeterminate progress, and event ticker
     await expect(page.locator('.running-container')).toBeVisible({ timeout: 30000 });
-    await expect(page.locator('text=Analyzing audience retention')).toBeVisible({ timeout: 100000 });
+    await expect(page.getByRole('heading', {name:'a little crowd. big feelings.'})).toBeVisible({ timeout: 100000 });
     await expect(page.locator('.progress-bar.indeterminate')).toBeVisible();
 
     // 4. Wait for analysis to complete and report to render
@@ -156,15 +156,15 @@ test.describe('Mobbs V03 Browser Journey', () => {
 
     // Reset back to upload
     await page.locator('button:has-text("Start new upload")').click();
-    await expect(page.locator('.hero-heading')).toHaveText('A clearer next cut.');
+    await expect(page.locator('.hero-heading')).toHaveText('what are we watching?');
   });
 
   test('Video A journey (Flash 50): 50 requested, live graph, 33.8s duration, 8 scenes, 8 retention rows, 0 supported notes, 1 suppressed note', async ({
     page,
   }) => {
     test.setTimeout(450000);
-    await page.goto('/');
-    await expect(page.locator('.hero-heading')).toHaveText('A clearer next cut.');
+    await page.goto('/#/app');
+    await expect(page.locator('.hero-heading')).toHaveText('what are we watching?');
     await expect(page.locator('.session-badge')).toContainText('Session:');
 
     // Verify Flash (50 personas) is active by default
@@ -241,7 +241,7 @@ test.describe('Mobbs V03 Browser Journey', () => {
 
   test('Video B with Flash requested: truthful error handling and recovery', async ({ page }) => {
     test.setTimeout(180000);
-    await page.goto('/');
+    await page.goto('/#/app');
     await expect(page.locator('.session-badge')).toContainText('Session:');
 
     // Select Flash profile
@@ -262,12 +262,12 @@ test.describe('Mobbs V03 Browser Journey', () => {
     await tryAgainBtn.click();
 
     // Returns to upload landing desk
-    await expect(page.locator('.hero-heading')).toHaveText('A clearer next cut.');
+    await expect(page.locator('.hero-heading')).toHaveText('what are we watching?');
   });
 
   test('Processing cancellation, modal containment, and pending/completed truth', async ({ page }) => {
     test.setTimeout(180000);
-    await page.goto('/');
+    await page.goto('/#/app');
     await expect(page.locator('.session-badge')).toContainText('Session:');
 
     // Select Test 3 profile for quick start
@@ -309,7 +309,7 @@ test.describe('Mobbs V03 Browser Journey', () => {
   test('Mobile viewport (320px) header, profile selector, and horizontal overflow', async ({ page }) => {
     test.setTimeout(60000);
     await page.setViewportSize({ width: 320, height: 640 });
-    await page.goto('/');
+    await page.goto('/#/app');
 
     await expect(page.locator('.brand-title')).toBeVisible();
     await expect(page.locator('.hero-heading')).toBeVisible();

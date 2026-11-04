@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
+import {Brand,Doodle} from './Doodles';
+import {MobbsSpace} from './MobbsSpace';
 import {
   ensureSession,
   uploadVideo,
@@ -671,7 +673,7 @@ export function App({
       {/* 56px utility header with responsive wrap at 320px */}
       <header className="app-header">
         <div className="brand-group">
-          <span className="brand-title">Mobbs / Evidence desk</span>
+          <Brand/>
           {effectiveMode === 'standard' ? (
             <span className="badge-recorded" style={{ background: '#2e1065', borderColor: '#7c3aed', color: '#e9d5ff' }}>
               Standard mode · Meta muse-spark-1.3
@@ -689,7 +691,8 @@ export function App({
         </div>
       </header>
 
-      <main className="app-main">
+      <main className="app-main" id="main-content">
+        <nav className="app-stepper" aria-label="Scan steps"><span aria-current={viewState==='idle'||viewState==='uploading'?'step':undefined}>01 / drop a video</span><span aria-current={viewState==='processing'?'step':undefined}>02 / meet your mobbs</span><span aria-current={viewState==='ready'?'step':undefined}>03 / director’s notes</span></nav>
         {sessionError && (
           <div className="alert-box error" role="alert">
             <strong>Session error:</strong> {sessionError}
@@ -699,10 +702,35 @@ export function App({
         {/* View 1: Upload Landing Desk */}
         {viewState === 'idle' && (
           <div className="upload-container">
-            <h1 className="hero-heading">A clearer next cut.</h1>
+            <h1 className="hero-heading">what are we watching?</h1>
             <p className="hero-subtitle">
-              See where a simulated audience loses interest, why, and what concrete edit to make before posting.
+              give your next cut a small, simulated crowd before you post it.
             </p>
+
+            <div
+              className="dropzone"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files?.[0]) handleUpload(e.dataTransfer.files[0]);
+              }}
+            >
+              <label htmlFor="file-upload" className="dropzone-label">
+                <Doodle name="upload"/>
+                <span>drop your video here</span>
+                <small>or click to upload</small>
+              </label>
+              <p className="dropzone-hint">MP4 · up to 60 seconds · up to 200 MB</p>
+              <input
+                id="file-upload"
+                type="file"
+                accept="video/mp4"
+                className="hidden-input"
+                onChange={(e) => {
+                  if (e.target.files?.[0]) handleUpload(e.target.files[0]);
+                }}
+              />
+            </div>
 
             {/* Profile Selection */}
             <div className="profile-selector-box" role="group" aria-label="Audience simulation profile">
@@ -729,31 +757,8 @@ export function App({
               </div>
             </div>
 
-            <div
-              className="dropzone"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                if (e.dataTransfer.files?.[0]) handleUpload(e.dataTransfer.files[0]);
-              }}
-            >
-              <label htmlFor="file-upload" className="dropzone-label">
-                Drop your MP4 here or click to browse
-              </label>
-              <p className="dropzone-hint">MP4 · up to 60 seconds · up to 200 MB</p>
-              <input
-                id="file-upload"
-                type="file"
-                accept="video/mp4"
-                className="hidden-input"
-                onChange={(e) => {
-                  if (e.target.files?.[0]) handleUpload(e.target.files[0]);
-                }}
-              />
-            </div>
-
-            <div className="disclosure-box">
-              <strong>V03 Workbench Operating Disclosure</strong>
+            <details className="disclosure-box">
+              <summary>before you upload / privacy + simulation details</summary>
               <ul className="disclosure-list">
                 <li>Server validates MP4 container, codec, and duration before any dispatch.</li>
                 <li>Simulated personas: 50 instances for Flash, 3 for Test. All audience outcomes are simulated models, never real people.</li>
@@ -764,7 +769,7 @@ export function App({
                 )}
                 <li>All uploaded video files, derivatives, and reports can be deleted at any time with access revoked immediately.</li>
               </ul>
-            </div>
+            </details>
           </div>
         )}
 
@@ -785,7 +790,7 @@ export function App({
           <div className="running-container wide">
             <div className="processing-header">
               <span className="stage-badge">{runState?.stage || 'decoding'}</span>
-              <h2>Analyzing audience retention</h2>
+            <h2>a little crowd. big feelings.</h2>
               <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>
                 Stage: <strong className="mono">{runState?.stage || 'decoding'}</strong> · Cast:{' '}
                 {runState?.requested || (selectedProfile === 'flash' ? 50 : 3)} requested ·{' '}
@@ -798,12 +803,12 @@ export function App({
               <div className="progress-bar indeterminate"></div>
             </div>
 
-            {/* Provisional Executive Finding: Hook Retention Banner */}
+            {/* early hook reaction · provisional Banner */}
             {provisionalVerdict && (
               <div
                 className="provisional-verdict-banner"
                 role="region"
-                aria-label="Provisional Executive Finding: Hook Retention"
+                aria-label="early hook reaction · provisional"
                 style={{
                   background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(59, 130, 246, 0.08) 100%)',
                   border: '1px solid var(--accent, #3b82f6)',
@@ -828,10 +833,10 @@ export function App({
                         letterSpacing: '0.05em',
                       }}
                     >
-                      Early Rehearsal Gate
+                      first look · provisional
                     </span>
                     <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>
-                      Provisional Executive Finding: Hook Retention
+                      early hook reaction · provisional
                     </h3>
                   </div>
                   <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
@@ -889,12 +894,13 @@ export function App({
               </div>
             )}
 
-            {/* Live 50-Persona Grid / Graph */}
+            {/* Saved simulation events and owner-authorized source video. */}
+            <div className="processing-body">
             <div className="live-graph-panel">
               <div className="graph-controls-header">
                 <div className="graph-title-group">
-                  <strong>Simulated Audience Grid ({personaDecisionsCount} decisions observed):</strong>
-                  <span className="graph-subtext">Word + shape + color encoded state per persona</span>
+                  <strong>the mobbs space · {personaDecisionsCount} decisions observed</strong>
+                  <span className="graph-subtext">a fictional crowd, with real saved simulation events. tap a mob to hear its reason.</span>
                 </div>
                 <button
                   type="button"
@@ -912,38 +918,7 @@ export function App({
                 </div>
               )}
 
-              {/* Persona Node Grid */}
-              <div className="persona-grid" role="region" aria-label="Simulated personas state grid">
-                {allExpectedPersonaIds.map((pid) => {
-                  const state = personaStateMap.get(pid);
-                  const isStopped = state?.status === 'stopped';
-                  const isWatching = state?.status === 'watching';
-                  const hasActions = state?.actions && state.actions.length > 0;
-                  const reasonText = state?.reason ? ` · Quote: "${state.reason}"` : '';
-
-                  return (
-                    <div
-                      key={pid}
-                      className={`persona-node ${isStopped ? 'stopped' : isWatching ? 'watching' : 'pending'}`}
-                      title={`${pid}: ${isStopped ? `Stopped (scene ${state?.lastScene})${reasonText}` : isWatching ? `Watching (scene ${state?.lastScene})${reasonText}` : 'Pending'}`}
-                    >
-                      <span className="persona-id mono">{pid}</span>
-                      <span className={`persona-indicator ${isStopped ? 'indicator-stopped' : isWatching ? 'indicator-watching' : 'indicator-pending'}`}>
-                        {isStopped ? '■ STOP' : isWatching ? '● WATCH' : '○ WAIT'}
-                      </span>
-                      {hasActions && (
-                        <div className="node-action-badges">
-                          {state?.actions.map((act) => (
-                            <span key={act} className="mini-action-badge" title={act}>
-                              {act === 'like' ? '♥' : act === 'share' ? '↗' : act === 'save' ? '★' : '💬'}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <MobbsSpace ids={allExpectedPersonaIds} states={personaStateMap} events={events} paused={isGraphPaused} seed={runId || 'pending'} />
 
               {/* Accessible Ordered Event Log */}
               <details className="event-log-details">
@@ -982,6 +957,13 @@ export function App({
               </details>
             </div>
 
+            {videoId && <aside className="run-video-card">
+              <span className="eyebrow">your video</span>
+              <video src={`/videos/${videoId}/media`} controls playsInline preload="metadata" aria-label="Your uploaded video"/>
+              <p>the mobbs watch scene by scene. their reactions are simulated.</p>
+              <p className="run-video-tip">tap any mob to inspect its saved reason. pause the view whenever you need a breather.</p>
+            </aside>}
+            </div>
             <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center' }}>
               <button
                 type="button"

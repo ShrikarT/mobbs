@@ -275,3 +275,8 @@ Author “implemented” advances only to WORKER-REPORTED. Independent exact-com
 M0: V00/V01 resolve feasibility; M1: V02 proves a thin real path; M2: V03–V05 prove the demo loop; M3: V06 independently checks the combined artifact; M4: V07 prepares/authorizes release. Estimates are risk indicators, not a promise to finish every item before the event. If the critical path fails, present actual status and an honestly labeled replay; do not silently cut scope or fake completion.
 
 Retained roadmap epics (NOT READY tasks): Deep 300–500/native hybrid/full notes/unwatermarked reports → multi-platform → lawful niche benchmarks → accounts/credits/custom audience/API/sharing expansion → opt-in posted actuals/public accuracy dashboard. Larger archetype library, automated trend ingestion, richer what-if and 500-node graph performance enter those epics. Each requires its own contract and acceptance before dispatch. Calibration requires actual data and an explicit change to the current no-accuracy mandate.
+
+
+## MOBBS-APP-REDESIGN — active (2026-11-04)
+
+Owner: Codex directly, by explicit owner override; no Orca/agents. Scope: same-file Figma app screens, approved landing design integration, V03 upload/live/report redesign and actual local browser verification. V04/V05 remain roadmap. Baseline6c47b22 in isolated `C:/Users/Shrikar/mobbs-app-redesign`; see current docs/STATE.md checkpoint. Acceptance pending; deployment/release not performed.

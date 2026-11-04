@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const chromiumPath = 'C:/Users/Shrikar/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe';
+const chromiumPath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || 'C:/Users/Shrikar/AppData/Local/ms-playwright/chromium-1243/chrome-win64/chrome.exe';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -10,7 +10,7 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   use: {
-    baseURL: 'http://127.0.0.1:58003',
+    baseURL: process.env.MOBBS_E2E_BASE_URL || 'http://127.0.0.1:58003',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     launchOptions: {

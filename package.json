@@ -5,8 +5,21 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p apps/web/tsconfig.json && vite build --config apps/web/vite.config.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:ui": "playwright test --config playwright.ui.config.ts"
   },
-  "dependencies": {"react":"19.3.1","react-dom":"19.3.1"},
-  "devDependencies": {"@types/react":"19.2.14","@types/react-dom":"19.2.3","typescript":"5.9.3","vite":"8.3.5","@playwright/test":"1.64.1"}
+  "dependencies": {
+    "@fontsource/patrick-hand": "5.3.0",
+    "@fontsource/space-mono": "5.3.0",
+    "animejs": "4.5.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "typescript": "5.9.3",
+    "vite": "8.3.5"
+  }
 }

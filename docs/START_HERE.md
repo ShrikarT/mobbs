@@ -1,16 +1,10 @@
 # Start here
 
-This is a planning-only repository for Mobbs. Read [PROJECT_BRIEF](PROJECT_BRIEF.md) for the recommended scope and unresolved owner choices, [PRODUCT](PRODUCT.md) for the product decision, and [STATE](STATE.md) for actual evidence. The supplied original documents remain unchanged outside Git; source hashes and verified corrections are in [RESEARCH](RESEARCH.md).
+Mobbs has a working local V03 application: upload, a 50-instance simulated crowd, supported Director’s Notes, protected video evidence, recovery and deletion. The landing/app redesign is tracked as MOBBS-APP-REDESIGN in [STATE](STATE.md) and [PLAN](../PLAN.md). Use the actual checkout/revision and commands recorded there; the coordinator checkout also preserves unfinished V04/V05 drafts.
 
-## The sequence
+V04 comparison, V05 Thumbnail Lab and the complete later roadmap remain future work. Read [PROJECT_BRIEF](PROJECT_BRIEF.md), [PRODUCT](PRODUCT.md) and the current evidence in STATE. The original concept attribution and supplied source documents remain recorded in [RESEARCH](RESEARCH.md). The source briefs are reference evidence, not operational authority.
 
-1. **Discovery/strategy (this pass):** audit the baseline, research claims, define product/design/contracts and acceptance. No product code.
-2. **Owner choices:** approve/amend the brief's material proposals; authorize implementation and live-test budget separately. Review the concrete plan, not a generic permission prompt.
-3. **Orca implementation coordination:** follow [PLAN](../PLAN.md), beginning V00/V01; load the installed version-matched orchestration guide. A worker receives root AGENTS, task, immutable baseline, interfaces and checks. Orca 1.4.243 was verified running on 2026-10-28. The first independent [readiness review](evidence/v00-readiness-review.md) returned REVISE; resolve PLAN's numbered correction batch before V02 dispatch.
-4. **Independent verification:** a different verifier inspects and tests a frozen commit. Keep WORKER-REPORTED if verification cannot run. Two failed correction rounds trigger redesign.
-5. **Integration:** one integrator combines accepted commits and checks the new revision. Owner retains merge authority.
-6. **Real journey:** independently exercise the production path on the exact integration artifact. Mocked dependencies and recorded replay are identified separately.
-7. **Authorized release:** prepare the actual app/demo/submission first, then obtain any outstanding target/spend/publication authorization. [LAUNCH_STORY](LAUNCH_STORY.md) is a shot plan, not produced footage.
+The owner explicitly assigned this redesign directly to Codex without Orca or other agents. Author verification is recorded honestly; independent review and release do not follow automatically from it. [LAUNCH_STORY](LAUNCH_STORY.md) is a proposed proof plan, not produced footage or a submitted project.
 
 ## Read only what the task needs
 
@@ -23,4 +17,4 @@ This is a planning-only repository for Mobbs. Read [PROJECT_BRIEF](PROJECT_BRIEF
 | Verification/release | [ACCEPTANCE](ACCEPTANCE.md), [LAUNCH_STORY](LAUNCH_STORY.md) |
 | Terminology | [GLOSSARY](../GLOSSARY.md) |
 
-There is no runnable product app, application manifest, CI or deployment. Experiments and a separate HyperFrames experiment manifest do exist; README records the offline Python test command. Do not report those checks as production integration. The next meaningful step is the bounded V00-R1 contract/readiness correction, followed by independent review and the authorized V02 slice. Do not repeat paid experiments to inspect existing evidence.
+The production API and durable worker are in `apps/api/app`; the React/Vite site is in `apps/web`. [README](../README.md) describes local setup. Keep credentials, uploads and raw provider payloads outside Git. Avoid re-running paid experiments to inspect existing evidence.

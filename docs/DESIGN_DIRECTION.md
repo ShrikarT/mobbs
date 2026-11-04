@@ -1,5 +1,16 @@
 # Design direction — an editor's evidence desk
 
+## Approved mobbs.fun direction — 2026-11-04
+
+The owner approved the existing Figma landing design and requested matching app screens in that same file before local integration. This supersedes the earlier neutral evidence-desk visual treatment below; the truthfulness and accessibility rules remain applicable.
+
+- Figma file `HNAM1otmM0c7FUlsLK72Ub`; full landing motion `50:43`; editable eight-screen app board `56:56`, live room `56:102`. Desktop upload/live/report and supporting states, mobile upload/live/report, full roadmap. All illustrative design numbers are labeled SAMPLE.
+- Ink `#2000C8`, gray canvas `#D9D9D9`, lavender `#C6BEDC`, paper `#F4F3F8`. Space Mono regular/bold for product text; Patrick Hand for reaction bubbles. Self-hosted fonts. Reuse original Figma face paths and original phone/laptop artwork. Rounded irregular outlines, generous whitespace, 44px minimum interactive targets and visible focus states.
+- Desktop stage places scattered mob characters beside the uploaded video. Stable per-run decorative positions never represent audience clustering. Waiting remains explicitly waiting. Labels/actions/quotes reflect saved events; quotes are escaped text. Inspect by keyboard/click, retain the ordered event log, preserve pause/resume and reduced-motion behavior. Decorations never imply an actual model reaction or a real person.
+- Actual MP4 limit stays 60 seconds / 200 MB; reference images showing MOV or two minutes are visual references, not product authority. V04 comparison and V05 Thumbnail Lab remain planned. The sample and the landing loop are expressly illustrative.
+- Full landing includes header, hero, features/three steps and footer. Its bounded 19.2s loop has pause, hidden-tab/offscreen suspension and a static reduced-motion poster. Mobile uses the static phone composition. No paid-video/ElevenLabs insertion is part of the accepted scope.
+
+
 One direction: a focused editorial workbench. The user's video occupies the center; timestamped findings and their evidence sit beside it. The product should feel precise and approachable enough that a founder can decide on an edit without learning an analytics tool. The audience graph supplies an explanatory live moment, not the report's permanent visual hierarchy.
 
 ## Layout and typography
