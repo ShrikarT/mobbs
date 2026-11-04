@@ -397,7 +397,8 @@ class TestStandardAppRoutesAndManifest(unittest.TestCase):
             self.assertEqual(manifest['provider_mode'], 'standard')
             self.assertEqual(manifest['profile'], 'test')
             self.assertEqual(manifest['model_id'], 'muse-spark-1.3')
-            self.assertEqual(manifest['prompt_version'], 'spark13-standard-v1')
+            self.assertEqual(manifest['prompt_version'], 'spark13-scene-av-v1')
+            self.assertEqual(manifest['media_pipeline'], 'scene-av-v1')
             self.assertEqual(manifest['cast_hash'], get_cast_hash('test'))
             self.assertEqual(manifest['requested'], 3)
 
@@ -450,6 +451,11 @@ class TestStandardAppRoutesAndManifest(unittest.TestCase):
 
 class TestStandardWorkerAndLifecycle(unittest.TestCase):
     def setUp(self):
+        # These frozen responses exercise recovery of the historical frame-only
+        # manifests. New AV manifests have separate production-worker journeys.
+        legacy_pipeline = patch('apps.api.app.main.STANDARD_MEDIA_PIPELINE', None)
+        legacy_pipeline.start()
+        self.addCleanup(legacy_pipeline.stop)
         clear_operational_pause()
         self.client = TestClient(app, base_url='http://127.0.0.1:58000')
         self.headers = create_session(self.client)
