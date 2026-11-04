@@ -245,6 +245,8 @@ def start_run(body: RunBody,request: Request):
             cast_hash=cast_hash,
             prompt_version='spark13-standard-v1' if provider_mode == 'standard' else 'spark13-recorded-v1',
         )
+        if provider_mode == 'standard':
+            manifest.update(media_pipeline='scene-av-v1', prompt_version='spark13-scene-av-v1')
 
         run_id = uid()
         conn.execute('INSERT INTO runs(id,video_id,manifest) VALUES(%s,%s,%s)', (run_id, body.video_id, Jsonb(manifest)))

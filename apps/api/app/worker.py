@@ -66,14 +66,17 @@ def stage(conn, run_id, value):
 
 def project(scene, checkpoint):
     # No whole FeatureBundle, raw transcript, other personas or future refs cross this boundary.
-    return dict(persona_id=checkpoint['persona_id'],
+    value = dict(persona_id=checkpoint['persona_id'],
         scene={k: scene[k] for k in ('scene_id', 'start_ms', 'end_ms')},
         allowed_media_refs=[scene['frame_ref']], max_visible_ms=scene['end_ms'],
         own_impression=checkpoint['impression'])
+    if scene.get('media_pipeline') == 'scene-av-v1':
+        value['scene_features'] = {k: scene.get(k) for k in ('transcript', 'observations', 'ocr')}
+    return value
 
 
 def validate_projection(value, scene, checkpoint):
-    require(set(value) == {'persona_id', 'scene', 'allowed_media_refs', 'max_visible_ms', 'own_impression'}, 'unapproved scene context')
+    require(set(value) == set(project(scene, checkpoint)), 'unapproved scene context')
     require(value == project(scene, checkpoint), 'future/peer/context mismatch')
     require(checkpoint['status'] == 'active' and checkpoint['next_scene'] == scene['scene_id'], 'post-stop or out-of-order dispatch')
 
@@ -86,9 +89,14 @@ def source_sha():
 
 
 def prepare(lease, provider):
+    from .multimodal import enrich_scenes, preparation_lease
     with connection() as conn:
         video = fence(conn, lease)
+        manifest = conn.execute('SELECT manifest FROM runs WHERE id=%s', (lease['run_id'],)).fetchone()['manifest']
+        multimodal = manifest.get('media_pipeline') == 'scene-av-v1'
         if video['features']:
+            if multimodal and video['features'].get('media_pipeline') != 'scene-av-v1':
+                raise ProviderUnavailable('fresh_upload_required_for_multimodal')
             has_cp = conn.execute('SELECT 1 FROM checkpoints WHERE run_id=%s LIMIT 1', (lease['run_id'],)).fetchone()
             if not has_cp:
                 for pid in provider.persona_ids:
@@ -114,14 +122,19 @@ def prepare(lease, provider):
                 fence(conn, lease)
                 put_reserved(conn, video['id'], key, scene.pop('frame_path').read_bytes(), 'image/jpeg')
             scene['frame_ref'] = key
+        if multimodal:
+            with preparation_lease(lease):
+                enrich_scenes(lease, provider, path, directory, scenes, video['metadata'].get('audio_present', False))
         bundle = dict(
             schema_version='normalized-1',
             extractor_version='ffmpeg-local-v02',
             timebase='milliseconds',
             scenes=scenes,
-            caveats=video['metadata']['caveats'] + ['No local transcript or OCR extraction.'],
+            caveats=video['metadata']['caveats'] + (['Speech is machine-transcribed per segment; timing is approximate. Visual observations and text are model interpretations.'] if multimodal else ['No local transcript or OCR extraction.']),
             provenance=['Decoded from uploaded bytes; scene frames regenerated locally.'],
         )
+        if multimodal:
+            bundle.update(media_pipeline='scene-av-v1', extractor_version='scene-audio-visual-v1')
         with connection() as conn:
             fence(conn, lease)
             conn.execute('UPDATE videos SET features=%s WHERE id=%s', (Jsonb(bundle), video['id']))
@@ -393,7 +406,8 @@ def _run_prepared_analysis(lease, provider, run_row, mode, profile, concurrency,
         scenes = video['features']['scenes']
         scenes_count = len(scenes)
         requested = manifest.get('requested', len(provider.persona_ids))
-        max_calls = min(40 if profile == 'test' else 651, requested * scenes_count + 1)
+        preparation_calls = 2 * scenes_count if manifest.get('media_pipeline') == 'scene-av-v1' else 0
+        max_calls = min(40 if profile == 'test' else 651, requested * scenes_count + 1) + preparation_calls
 
         # 1. Unresolved dispatched unit check from a prior crash
         unresolved = conn.execute("SELECT * FROM provider_calls WHERE run_id=%s AND status='dispatched' LIMIT 1", (lease['run_id'],)).fetchone()

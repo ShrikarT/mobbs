@@ -194,7 +194,6 @@ class StandardProvider:
 
         headers = {
             'Authorization': f'Bearer {api_key or "DUMMY_KEY"}',
-            'Content-Type': 'application/json',
             'User-Agent': 'Mobbs-StandardProvider/1.0',
         }
         return httpx.Client(
@@ -279,7 +278,8 @@ class StandardProvider:
                 "current_segment": {
                     "scene_id": scene["scene_id"],
                     "start_ms": scene["start_ms"],
-                    "end_ms": scene["end_ms"]
+                    "end_ms": scene["end_ms"],
+                    **({'features': projection['scene_features']} if 'scene_features' in projection else {}),
                 }
             }, ensure_ascii=False)
         )
@@ -573,4 +573,8 @@ def build_note_context(manifest: dict, video: dict, checkpoints: list, rows: lis
             'excluded_persona_ids': sorted(list(failed_pids | pending_pids)),
         },
         'supported_triggers': supported_triggers,
+        'scene_features': [
+            {k: scene.get(k) for k in ('scene_id', 'start_ms', 'end_ms', 'transcript', 'observations')}
+            for scene in scenes if scene.get('media_pipeline')
+        ],
     }

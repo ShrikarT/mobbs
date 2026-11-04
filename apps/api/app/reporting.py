@@ -438,6 +438,8 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
     config_dict = {'profile': manifest['profile'], 'mode': manifest['provider_mode']}
     if raw_concurrency is not None:
         config_dict['provider_concurrency'] = concurrency
+    if manifest.get('media_pipeline'):
+        config_dict['media_pipeline'] = manifest['media_pipeline']
     trust.update(
         app_source_sha=source_sha,
         observed_at=utc(),
@@ -448,6 +450,15 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
         usage_ledger=receipts,
         provider_concurrency=concurrency,
     )
+    multimodal = video['features'].get('media_pipeline') == 'scene-av-v1'
+    transcript_coverage = any(isinstance(s.get('transcript'), dict) for s in video['features']['scenes'])
+    if multimodal:
+        trust['model_ids'] = ['muse-spark-1.3'] + (['muse-voice-transcribe-1.0'] if transcript_coverage else [])
+        trust['reported_versions'] = [None] * len(trust['model_ids'])
+        trust['label'] = 'Standard inference · Spark scene video' + (' + Muse Voice Transcribe' if transcript_coverage else ' · no audio track')
+        trust['prompt_sha256'] = content_hash({'projection': 'current-scene-audio-visual-v1'})
+        trust['limitations'] = [x for x in trust['limitations'] if 'Transcript and OCR were not extracted' not in x]
+        trust['limitations'].append('Native clips interpreted once per scene; personas receive scene-local observations, frame and transcript. Speech timing is approximate; visual text is model-read. Not human-calibrated.')
     has_missing_cost = False
     has_uncertain_cost = False
     total_cost = 0.0
@@ -503,8 +514,8 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
     failed_pids = sorted(list({c['persona_id'] for c in checkpoints if c.get('status') == 'failed'}))
 
     coverage = dict(
-        transcript=False,
-        ocr=False,
+        transcript=transcript_coverage,
+        ocr=multimodal,
         confused=None,
         cta_understood=None,
         trend_fit=None,

@@ -17,6 +17,8 @@ The shared schema/saved-adapter correction was accepted at `715be0ee31f8ed3229e6
 
 ## Wire and domain conventions
 
+New Standard run manifests select `media_pipeline: scene-av-v1`. Preparation cuts native silent MP4 and WAV per authoritative scene interval before external interpretation/transcription. Each paid preparation unit is marked dispatched before sending; accepted output and its source hash are persisted and reused, while ambiguous/failed units are not resent. Files are sent inline/multipart, without Files API IDs. A persona projection may add `scene_features` containing only that scene's observations, model-read text and transcript; projection validation and post-skip fencing apply unchanged. Voice timestamps remain approximate turn boundaries. Historical manifests/reports retain their original path. Report model IDs/coverage/usage reflect the performed preparation; call ceilings add at most two preparation calls per scene.
+
 Server-generated opaque identifiers; milliseconds as nonnegative integers; UTC ISO timestamps; bounded strings; discriminated event/error types; unknown schema versions fail validation. Reject NaN/Infinity and invalid ranges. Ownership stays server-side and is never trusted from a request body. `impression_update` is a bounded summary of past/current content only.
 
 Scenes are contiguous over accepted duration, max five seconds for Flash, with a 0–3s hook boundary (or the video end when shorter). Decoder scene cuts can create shorter intervals. Regular actions are within `[start_ms,end_ms)`; stop decisions may occur exactly at `end_ms`. Transcript overlap is clipped by time. When a segment's semantics span a boundary, do not leak later words into the earlier prompt; flag coarse timing instead.

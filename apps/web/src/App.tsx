@@ -77,6 +77,16 @@ function formatRunErrorMessage(code?: string | null): { title: string; explanati
       explanation: 'This scan was not found in your current session.',
       guidance: 'Return to upload to start a new scan. Your other saved scans remain available.',
     },
+    media_preparation_failed: {
+      title: 'Audio or video preparation failed',
+      explanation: 'The model provider could not finish preparing this video.',
+      guidance: 'Your upload is preserved. No automatic request retry was sent.',
+    },
+    fresh_upload_required_for_multimodal: {
+      title: 'A fresh upload is needed',
+      explanation: 'This older upload was prepared with the previous visual-only pipeline.',
+      guidance: 'Upload it again to run speech transcription and scene-video analysis. Its saved report is preserved.',
+    },
     provider_connection_unavailable: {
       title: 'Could not connect to the model provider',
       explanation: 'The connection failed before a request could be sent, including one bounded connection retry.',
@@ -710,7 +720,7 @@ export function App({
           <Brand/>
           {effectiveMode === 'standard' ? (
             <span className="badge-recorded" style={{ background: '#2e1065', borderColor: '#7c3aed', color: '#e9d5ff' }}>
-              Standard mode · Meta muse-spark-1.3
+              Standard mode · Spark + Muse Voice
             </span>
           ) : (
             <span className="badge-recorded">Recorded mode · Standard Meta Spark 1.3</span>
@@ -797,7 +807,7 @@ export function App({
                 <li>Server validates MP4 container, codec, and duration before any dispatch.</li>
                 <li>Simulated personas: 50 instances for Flash, 3 for Test. All audience outcomes are simulated models, never real people.</li>
                 {effectiveMode === 'standard' ? (
-                  <li>Live Standard provider inference via Meta muse-spark-1.3; bounded calls per run with concurrency {selectedProfile === 'flash' ? 8 : 1}. Simulation is sequential scene-by-scene per persona without native whole-video understanding, audio extraction, or human calibration.</li>
+                  <li>Live Standard provider inference via Meta muse-spark-1.3; bounded calls per run with concurrency {selectedProfile === 'flash' ? 8 : 1}. New scans combine Spark scene-video observations with Muse Voice Transcribe for audio-bearing uploads. Each persona receives only its current scene and own prior impression. Transcription timing is approximate; simulations are not human-calibrated.</li>
                 ) : (
                   <li>Exact hash-bound recorded inference; no new provider latency or spend claimed.</li>
                 )}
@@ -1525,21 +1535,21 @@ export function App({
                       {effectiveMode === 'standard' ? (
                         (report.cast.profile === 'flash' || report.manifest?.profile === 'flash') && (report.cast.requested === 50 || report.manifest?.requested === 50) ? (
                           <>
-                            <strong>Persona library disclosure:</strong> The Flash 50 cast contains 50 fictional candidate persona policies from fifty-policies.json. This is a synthetic persona library; behavioral distinction was not calibrated against human viewers. Personas evaluate visual frame extractions without live audio, transcript, or OCR processing; intervals represent simulated correlation without causal claims.
+                            <strong>Persona library disclosure:</strong> The Flash 50 cast contains 50 fictional candidate persona policies from fifty-policies.json. This is a synthetic persona library; behavioral distinction was not calibrated against human viewers. {report.coverage?.transcript ? 'Personas receive scene-local frames, video observations and machine-transcribed speech with approximate timing.' : report.coverage?.ocr ? 'Personas receive scene-local frames and native-video observations; no speech transcript is available.' : 'This saved run used visual frames without speech transcription or OCR.'} Intervals represent simulated correlation without causal claims.
                           </>
                         ) : (
                           <>
-                            <strong>Persona library disclosure:</strong> The {report.cast.profile === 'test' ? 'Test 3' : `${report.cast.profile} ${report.cast.requested}`} cast contains 3 fictional candidate persona policies. This is a synthetic persona library; behavioral distinction was not calibrated against human viewers. Personas evaluate visual frame extractions without live audio, transcript, or OCR processing; intervals represent simulated correlation without causal claims.
+                            <strong>Persona library disclosure:</strong> The {report.cast.profile === 'test' ? 'Test 3' : `${report.cast.profile} ${report.cast.requested}`} cast contains 3 fictional candidate persona policies. This is a synthetic persona library; behavioral distinction was not calibrated against human viewers. {report.coverage?.transcript ? 'Personas receive scene-local frames, video observations and machine-transcribed speech with approximate timing.' : report.coverage?.ocr ? 'Personas receive scene-local frames and native-video observations; no speech transcript is available.' : 'This saved run used visual frames without speech transcription or OCR.'} Intervals represent simulated correlation without causal claims.
                           </>
                         )
                       ) : (
                         (report.cast.profile === 'flash' || report.manifest?.profile === 'flash') && (report.cast.requested === 50 || report.manifest?.requested === 50) ? (
                           <>
-                            <strong>Persona library disclosure:</strong> The Flash 50 cast contains 50 simulated personas derived from five archetypes; this is a synthetic persona library, not 50 distinct human behaviors. Behavioral distinction was not calibrated against human viewers. Personas evaluate visual frame extractions without live audio, transcript, or OCR processing; intervals represent simulated correlation without causal claims.
+                            <strong>Persona library disclosure:</strong> The Flash 50 cast contains 50 simulated personas derived from five archetypes; this is a synthetic persona library, not 50 distinct human behaviors. Behavioral distinction was not calibrated against human viewers. {report.coverage?.transcript ? 'Personas receive scene-local frames, video observations and machine-transcribed speech with approximate timing.' : report.coverage?.ocr ? 'Personas receive scene-local frames and native-video observations; no speech transcript is available.' : 'This saved run used visual frames without speech transcription or OCR.'} Intervals represent simulated correlation without causal claims.
                           </>
                         ) : (
                           <>
-                            <strong>Persona library disclosure:</strong> The {report.cast.profile === 'test' ? 'Test 3' : `${report.cast.profile} ${report.cast.requested}`} cast contains 3 simulated viewers; this is a synthetic persona library and not a representative audience. Behavioral distinction was not calibrated against human viewers. Personas evaluate visual frame extractions without live audio, transcript, or OCR processing; intervals represent simulated correlation without causal claims.
+                            <strong>Persona library disclosure:</strong> The {report.cast.profile === 'test' ? 'Test 3' : `${report.cast.profile} ${report.cast.requested}`} cast contains 3 simulated viewers; this is a synthetic persona library and not a representative audience. Behavioral distinction was not calibrated against human viewers. {report.coverage?.transcript ? 'Personas receive scene-local frames, video observations and machine-transcribed speech with approximate timing.' : report.coverage?.ocr ? 'Personas receive scene-local frames and native-video observations; no speech transcript is available.' : 'This saved run used visual frames without speech transcription or OCR.'} Intervals represent simulated correlation without causal claims.
                           </>
                         )
                       )}
