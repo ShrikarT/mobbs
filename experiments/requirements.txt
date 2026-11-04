@@ -1,3 +1,0 @@
-# Exact versions observed during the local Python 3.10 experiment.
-requests==2.32.5
-Pillow==12.2.0

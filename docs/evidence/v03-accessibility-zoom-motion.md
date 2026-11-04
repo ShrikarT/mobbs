@@ -1,9 +1,0 @@
-# Native zoom, reduced motion and rendered text — 2026-11-02
-
-Independent coordinator check at clean **26fc644ccf3694190389bf549cb098899214f047**; product source/build inputs unchanged from accepted c714c2c. Actual FastAPI, PostgreSQL/RustFS, production worker/RecordedProvider and browser renderer. Existing canonical B, Test3; no external provider/network double, no paid calls. This is accessibility evidence, not another live50/performance claim.
-
-Private `a11y/check.cjs` exit0. Native Chromium extension `chrome.tabs.setZoom(2)`/`getZoom()` observed2; viewport1262→631CSSpx and devicePixelRatio1→2 while body CSS zoom remained1. Document631px fits viewport631px. Keyboard note seek/evidence inspection and real UI deletion succeeded at200%. Actual reduced-motion media query matched; progress animation0.00001seconds, one iteration.164 rendered direct-text elements had no contrast-ratio failures against the script's4.5:1 normal/3:1 large-text thresholds, using opaque ancestor backgrounds. No full WCAG certification, cross-browser or assistive-technology coverage claim.
-
-Method follows primary [Playwright extension guidance](https://playwright.dev/docs/chrome-extensions) and [Chrome's native zoom API](https://developer.chrome.com/docs/extensions/reference/api/tabs#method-setZoom). Helper extension was confined to an owned persistent Chromium test profile and loopback host; no user browser profile or app code was modified. JSON/actual full-page screenshot/scripts are private under `C:/Users/Shrikar/.codex/private-runs/viralist-v03-live/a11y/`.
-
-Owned API58006/worker/browser stopped after UI deletion. Actual follow-up query observed runs/objects/reactions/events/provider_calls/checkpoints each0 and owned bucket0objects. Shared services and pool worker's separate database/bucket/58007 were untouched. No production/deployment/release.

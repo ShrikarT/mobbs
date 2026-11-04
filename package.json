@@ -1,12 +1,10 @@
 {
-  "name": "mobbs-local",
+  "name": "mobbs",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
-    "build": "tsc -p apps/web/tsconfig.json && vite build --config apps/web/vite.config.ts",
-    "test:e2e": "playwright test",
-    "test:ui": "playwright test --config playwright.ui.config.ts"
+    "build": "tsc -p apps/web/tsconfig.json && vite build --config apps/web/vite.config.ts"
   },
   "dependencies": {
     "@fontsource/patrick-hand": "5.3.0",
@@ -16,7 +14,6 @@
     "react-dom": "19.3.1"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "typescript": "5.9.3",
