@@ -1,5 +1,17 @@
 # Mobbs current handoff — 2026-11-03
 
+## Current: MOBBS-APP-REDESIGN — author-complete, 2026-11-04
+
+**Working website:** http://127.0.0.1:58020/ (app `/#/app`); same-file [Figma app board56:56](https://www.figma.com/design/HNAM1otmM0c7FUlsLK72Ub/mobbs.fun?node-id=56-56). Owner explicitly authorized direct Codex work without Orca or other agents. [Complete author evidence](evidence/mobbs-app-redesign.md).
+
+- Final functional source **6837a583cad2b77914e26463d0f7242d10c7637a**, isolated `C:/Users/Shrikar/mobbs-app-redesign`, `codex/mobbs-app-redesign`. Later evidence/license packaging changes no application JS/CSS/API behavior. Artifact **16c0f30f3b5a1b360004a804dd4a9695307c9cb4a476c60563332884730759c5**. Existing full landing/motion/header/features/footer preserved; app upload/live/report/mobile/supporting states implemented. V04/V05 and the full later roadmap remain planned.
+- Author-observed: clean build; **5/5 final UI checks +4/4 actual recorded-provider app journeys** on6837a58;20 normalized/config and3 provisional regression checks passed on unchanged backend. Real Standard4s functional run ate85cd25:50/50,0failed/pending,99calls,0.23176410USD estimate,0supported notes. Final renderer recovered/decoded/sought/refreshed that actual report, passed375/320 and foreign protection; UI deletion returned report/media404, all103 objects HEAD404, content rows0. All task-owned recorded/unit uploads also deleted; pending QA deletions0. No uncertain/provider retry, no ElevenLabs call.
+- A subsequent **non-QA user upload** is processing in the live preview. It is not part of this QA cost or cleanup. Preserve it and its API/worker; do not restart or erase its work merely to synchronize documentation packaging. API startup source is6837a58; final JS/CSS/API bytes are identical. No more QA generation is needed.
+- Docker is healthy after reversible zero-byte socket-folder backup/recreation. Existing volume/image retained; PG **58032** in mobbs-redesign-postgres (old55432 container stopped, single writer); RustFS59000. Original historical databases/uploads preserved. New QA environments isolated. Private helper `C:/Users/Shrikar/.codex/private-runs/mobbs-app-redesign-20261104/start.ps1` supports api/worker,standard/recorded and clean ExpectedCommit guard; use current HEAD on future restart. Standard58020 is left running; recorded58021 is test-only.
+- Disk recovery complete: task node_modules and default npm cache use original-path junctions to D:/mobbs-redesign-runtime; npm cache verify passed. C: ~1.3GB free. Ephemeral npx remainders/partial copies retained in named backup folders (see evidence), no background transfer remains. Decoder TEMP/TMP is on D:. Provider key/cookies/media/raw responses remain private, outside Git/browser code.
+- **WORKER-REPORTED / author-verified**. Independent REVIEW-ACCEPTED and formal JOURNEY-VERIFIED pending because owner excluded other agents. Formal INTEGRATED acceptance pending; running local composition exists on the isolated branch, coordinator dirty drafts not merged over. **RELEASED: not performed**. No public deploy/push/submission. Historical p95/cost/accuracy gaps remain; short synthetic input is not performance or prediction validation.
+
+
 This is the current snapshot. The complete prior state/history is preserved at **4394bf5bde767a9d0da97bbdad6154a489e22847**: `git show 4394bf5:docs/STATE.md`. Older active-task and budget-gate statements there are historical, not current authority.
 
 ## 2026-11-04 — MOBBS-APP-REDESIGN (active)

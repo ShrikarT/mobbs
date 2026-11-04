@@ -1,5 +1,10 @@
 # Mobbs delivery plan
 
+## Current task: MOBBS-APP-REDESIGN — WORKER-REPORTED / author-verified
+
+Owner-authorized direct Codex execution, no Orca/agents. Same-file Figma app board56:56 plus approved landing and actual V03 app are implemented locally in `C:/Users/Shrikar/mobbs-app-redesign`, branch `codex/mobbs-app-redesign`. Final functional6837a58;5 UI+4 recorded app checks passed, one bounded real Standard functional run verified and deleted. See [current STATE](docs/STATE.md) and [evidence](docs/evidence/mobbs-app-redesign.md). Subsequent user upload is preserved and processing. Independent acceptance and release remain pending/not performed; V04/V05/full roadmap stay future. Historical tasks below are retained as provenance.
+
+
 ## Current execution: V03 in progress
 
 ### 2026-11-03: MOBBS-RENAME accepted and running
