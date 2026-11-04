@@ -1,5 +1,15 @@
 # Mobbs current handoff — 2026-11-03
 
+## Current: MOBBS-MULTIMODAL-SCAN — author-complete and pushed, 2026-11-04
+
+Owner requested restoring the missing multi-model scan, then explicitly authorized running the server and pushing changes. New Standard scans now use Spark1.3 on isolated native-video scenes plus Muse Voice Transcribe1.0 on physically cut scene audio. Persona inputs are current-scene frame/observations/text/transcript plus own prior impression. Native observations and speech are shared once per scene, durable, bounded, lease-fenced and never blindly retried. Reports show actual models/coverage/cost estimates; historical visual-only reports remain intact. Image thumbnails/Wonder/SAM remain outside this V03 scan. [Evidence](evidence/mobbs-multimodal-scan.md).
+
+Functionaldbd63a9; default-preserving legacy fixture compatibilityed4de13.34 focused tests,2 production-component controlled-model AV integration checks,4 legacy route/recovery checks and8 UI regressions passed. Real Standard smoke3/3 followed by Flash50/50 used both models with real nonempty speech in both scenes, all114 calls accepted,0failed/pending,0post-skip later dispatches. Estimates0.02799225+0.30895720=0.33694945USD, not invoice; short7s checks do not establish p95/accuracy/max60 performance. Live report browser playback/refresh/model disclosure/375&320/main upload passed with0page errors. Full details and initial fixture/observer failures are recorded in evidence.
+
+Local app **http://127.0.0.1:58020/**. Docker restarted after it had stopped; retained PG58032 and RustFS59000 volumes preserved. Main API/worker use hidden detached WMI launch, private multimodal/detached.ps1; check private logs/PIDs for current processes. Private check API58022/runtime/evidence under .../mobbs-app-redesign-20261104/multimodal. `/` and `/health` returned200. Existing customer reports/uploads untouched. No new inference retry of the older unresolved run.
+
+Completed implementation branch **codex/mobbs-app-redesign** pushed to **ShrikarT/mobbs**, remoteed4de13 verified; this final evidence packaging follows on the same branch. Coordinator unrelated dirty V04/V05 drafts excluded/preserved. No merge, public hosting deployment, release or submission. Direct Codex per owner, no agents. WORKER-REPORTED / author-verified; independent REVIEW-ACCEPTED and formal INTEGRATED/JOURNEY-VERIFIED pending. Source checkout C:/Users/Shrikar/mobbs-app-redesign remains canonical for the running app.
+
 ## Current: MOBBS-WORKER-RECONNECT — author-complete, 2026-11-04
 
 The queued scan was blocked because the Standard worker exited on a database ConnectionTimeout during retention cleanup. Fixed production loop to reconnect on database OperationalError/InterfaceError with capped1–30s backoff and sanitized exception-class logging. Once-mode/unrelated errors still surface; provider resend/lease/fencing behavior unchanged. Functional **6b978ddc32ab453f1954d55190d635052b279e20**. [Evidence](evidence/mobbs-worker-reconnect.md).

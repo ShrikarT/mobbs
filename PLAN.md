@@ -1,5 +1,9 @@
 # Mobbs delivery plan
 
+## Current: MOBBS-MULTIMODAL-SCAN — WORKER-REPORTED / author-verified / pushed
+
+Restored native scene-video observations plus Muse Voice Transcribe to new V03 Standard scans, including isolated persona context, durable preparation, truthful coverage/models and existing recovery/deletion. Functionaldbd63a9 + compatibilityed4de13. Real3/3 and50/50 scans passed with both models;34 focused,2 AV integration,4 legacy checks and8 UI regressions passed. Main58020 running; Docker/retained volumes recovered. Completed landing/app/reliability/multimodal branch codex/mobbs-app-redesign pushed to ShrikarT/mobbs per owner request. Evidence/state packaging follows. Existing coordinator V04/V05 drafts preserved; no merge/deployment/release/submission. See STATE and multimodal evidence.
+
 ## Current: MOBBS-WORKER-RECONNECT — WORKER-REPORTED / author-verified
 
 Fixed a database timeout terminating the Standard worker and leaving new scans queued. Reconnection/backoff now preserves the worker loop. Functional6b978dd;24 focused tests plus1 actual recorded-provider browser journey after a real isolated connection outage passed. Owner’s existing queued scan completed50/50 with1supported note,198accepted calls and no failed/pending personas. No duplicate upload or unresolved-request replay. Current STATE/evidence have source, costs and recovery. No agents, merge or release.
