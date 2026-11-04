@@ -1,5 +1,13 @@
 # Mobbs current handoff — 2026-11-03
 
+## Current: MOBBS-NEW-UPLOAD-FIX — author-complete, 2026-11-04
+
+Landing upload CTAs now use `/#/app/new` and keep the fresh chooser on reload. Prior reports are available only through explicit **previous scans** links; started runs use `/#/app/run/{run_id}` for precise refresh recovery. Late bootstrap/upload responses cannot replace a newer navigation or run, and concurrent session initialization is shared. Legacy direct `/#/app` recovery remains. Functional **9dc2e26a6d912dd6447ae0ec00729fd74f10d6b1**, isolated `codex/mobbs-app-redesign`. No backend/provider/theme change. [Evidence](evidence/mobbs-new-upload-fix.md).
+
+Author verification on9dc2e26:8/8 browser regressions and1 real production-component recorded-provider journey passed, including fresh upload with an existing report, refresh, explicit prior-report reopen and deletion. Build/TypeScript passed; actual local browse CTA/input verified. First recorded attempt was blocked by its stopped QA worker, then scoped QA cleanup/restart and rerun passed. QA content0; no user video mutation or paid calls. Website remains http://127.0.0.1:58020/ with updated bundle; owner should refresh their existing tab. Backend startup6837a58 unchanged; main worker219e0ff retained. Fresh recorded worker16476 started at9dc2e26. Private13-file manifest new-upload-build.json, mapping SHA2560f1cecd80e4aa05ec4dd77bc93b00c84580b5c26adb1ef03357847a345837670.
+
+Owner-authorized Codex exception, no Orca/agents. WORKER-REPORTED / author-verified; independent REVIEW-ACCEPTED, formal INTEGRATED/JOURNEY-VERIFIED pending, RELEASED not performed. No merge/push/deployment/submission; original coordinator drafts and customer data preserved.
+
 ## Current: MOBBS-ANIMATION-SCAN-FIX — author-complete, 2026-11-04
 
 Owner’s two reported bugs are fixed locally on `codex/mobbs-app-redesign`, `C:/Users/Shrikar/mobbs-app-redesign`. Final functional **219e0ff0638c24e3ac6993ea3e970c22eb88ce7c**, frontenda8b3c4a. [Complete verification/limits](evidence/mobbs-animation-scan-fix.md). Artifact **5bf404b1886a889e6003611f49ac7e67cff00f67b1b3f852e30ed52548a62bc7**. Full landing retained; nested SVG viewport dimensions corrected,9-beat/wrap regression passes.26 focused normalized/config/transport tests and6 UI+4 actual recorded-provider browser checks pass. No new dependency.

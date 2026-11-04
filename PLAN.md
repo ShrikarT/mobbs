@@ -1,5 +1,9 @@
 # Mobbs delivery plan
 
+## Current: MOBBS-NEW-UPLOAD-FIX — WORKER-REPORTED / author-verified
+
+Fixed the landing CTA restoring an old video. New upload route stays fresh; explicit owned-run links preserve reports and precise refresh recovery; stale async responses are fenced. Functional9dc2e26.8 UI regressions and1 actual recorded-inference upload/report/reopen/deletion journey passed. See current STATE and docs/evidence/mobbs-new-upload-fix.md. Local58020 bundle updated; refresh existing owner tab. Direct Codex per owner, no agents; no customer content mutation, paid calls, merge or release.
+
 ## Current: MOBBS-ANIMATION-SCAN-FIX — WORKER-REPORTED / author-verified
 
 Two owner-reported issues fixed locally: native-sized hero SVGs and pooled/cached/bounded-retry scan transport. Final functional219e0ff, frontenda8b3c4a. Saved failed scan recovered to50/50 with117 original decisions preserved;26 focused tests and10 browser checks pass. See current STATE/evidence for exact source, initial test failures/reruns and practical latency limits. Reload original owner browser tab; reports remain protected/preserved. No agents, merge, deployment or submission.
