@@ -6,6 +6,7 @@ from contextlib import contextmanager
 """Separate durable worker. Each unit commits checkpoint, verdict and event atomically."""
 import argparse
 import json
+import logging
 import math
 import random
 import subprocess
@@ -911,9 +912,25 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--once', action='store_true')
     args = parser.parse_args()
+    connection_failures = 0
     while True:
-        retention_cleanup()
-        worked = process_once()
+        try:
+            retention_cleanup()
+            worked = process_once()
+        except (psycopg.OperationalError, psycopg.InterfaceError) as exc:
+            if args.once:
+                raise
+            # Recover the database connection, not a provider request. Durable
+            # leases and dispatched-call guards still decide what may resume.
+            connection_failures = min(connection_failures + 1, 6)
+            delay = min(30, 2 ** (connection_failures - 1))
+            logging.getLogger(__name__).warning(
+                'Worker database unavailable (%s); reconnecting in %ss',
+                type(exc).__name__, delay,
+            )
+            time.sleep(delay)
+            continue
+        connection_failures = 0
         if args.once:
             return
         time.sleep(.1 if worked else .5)
