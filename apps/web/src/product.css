@@ -46,3 +46,5 @@
 @media(max-width:520px){.mob-visitor-position{width:120px}.little-thought{max-width:120px;font-size:21px}}
 
 @media(max-width:600px){.report-verdict{flex-direction:column;gap:22px}.verdict-stamp{width:auto;height:auto;flex-direction:row;gap:10px;border-radius:18px;padding:10px 14px;transform:rotate(-3deg);font-size:25px}.verdict-stamp small{font-size:17px;max-width:none}}
+
+.understanding-results>div{display:grid;grid-template-columns:1fr auto;column-gap:16px;row-gap:4px}.understanding-results>div>small{grid-column:1/-1;font-size:9px;color:var(--muted)}
