@@ -3,6 +3,7 @@ import json
 import re
 import secrets
 import tempfile
+from urllib.parse import urlsplit
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -38,7 +39,7 @@ async def conflict(_, exc): return error(str(exc),409)
 @app.middleware('http')
 async def security(request, call_next):
     cfg = settings()
-    if request.headers.get('host') != cfg.origin.removeprefix('http://'):
+    if request.headers.get('host','').lower() != urlsplit(cfg.origin).netloc.lower():
         return error('invalid_host',403)
     if request.method in ('POST','PUT','PATCH','DELETE'):
         if request.headers.get('origin') != cfg.origin or request.headers.get('sec-fetch-site') == 'cross-site':
@@ -80,8 +81,9 @@ def session(request: Request):
         token,csrf = secrets.token_urlsafe(32),secrets.token_urlsafe(32)
         row = conn.execute("INSERT INTO owner_sessions(id,token_hash,csrf_hash,expires_at) VALUES(%s,%s,%s,now()+interval '24 hours') RETURNING expires_at",(uid(),digest(token.encode()),digest(csrf.encode()))).fetchone()
     response = JSONResponse(dict(csrf=csrf,expires_at=row['expires_at'].isoformat(),retention_hours=24,provider_mode=provider_mode),status_code=201)
-    response.set_cookie('vir_session',token,httponly=True,samesite='strict',max_age=86400,path='/')
-    response.set_cookie('vir_csrf',csrf,httponly=False,samesite='strict',max_age=86400,path='/')
+    secure=settings().origin.startswith('https://')
+    response.set_cookie('vir_session',token,httponly=True,secure=secure,samesite='strict',max_age=86400,path='/')
+    response.set_cookie('vir_csrf',csrf,httponly=False,secure=secure,samesite='strict',max_age=86400,path='/')
     return response
 
 
@@ -248,7 +250,7 @@ def start_run(body: RunBody,request: Request):
             prompt_version='spark13-standard-v1' if provider_mode == 'standard' else 'spark13-recorded-v1',
         )
         if provider_mode == 'standard' and STANDARD_MEDIA_PIPELINE:
-            manifest.update(media_pipeline=STANDARD_MEDIA_PIPELINE, prompt_version='spark13-scene-av-v1')
+            manifest.update(media_pipeline=STANDARD_MEDIA_PIPELINE, prompt_version='spark13-engagement-v2', signals_version='engagement-v2')
 
         run_id = uid()
         conn.execute('INSERT INTO runs(id,video_id,manifest) VALUES(%s,%s,%s)', (run_id, body.video_id, Jsonb(manifest)))
@@ -258,43 +260,54 @@ def start_run(body: RunBody,request: Request):
         return result
 
 
+def run_snapshot(conn, row):
+    run_id = row['id']
+    manifest = row['manifest']
+    requested = manifest['requested']
+    cast = conn.execute("SELECT status,count(*) AS count FROM checkpoints WHERE run_id=%s GROUP BY status",(run_id,)).fetchall()
+    counts = {r['status']:r['count'] for r in cast}
+    stopped = counts.get('stopped', 0)
+    completed = counts.get('complete', 0)
+    failed = counts.get('failed', 0)
+    active = counts.get('active', 0)
+    effective = completed + stopped
+    if row['status'] in ('complete', 'incomplete', 'failed'):
+        pending = 0
+    else:
+        pending = active if cast else requested
+    prov_event = conn.execute(
+        "SELECT payload FROM events WHERE run_id=%s AND type='verdict.provisional' ORDER BY sequence ASC LIMIT 1",
+        (run_id,)
+    ).fetchone()
+    provisional_verdict = prov_event['payload'] if prov_event else None
+    decisions = conn.execute('SELECT count(*) AS n FROM reactions WHERE run_id=%s',(run_id,)).fetchone()['n']
+    job = conn.execute("SELECT status,lease_until>now() AS active FROM jobs WHERE run_id=%s AND kind='analysis' LIMIT 1",(run_id,)).fetchone()
+    return dict(
+        run_id=run_id,
+        created_at=row['created_at'].isoformat(),
+        observed_reactions=decisions,
+        worker_active=bool(job and job['status']=='leased' and job['active']),
+        video_id=row['video_id'],
+        status=row['status'],
+        stage=row['stage'],
+        error_code=row['error_code'],
+        sequence=row['sequence'],
+        manifest=manifest,
+        requested=requested,
+        effective=effective,
+        failed=failed,
+        pending=pending,
+        stopped=stopped,
+        provisional_verdict=provisional_verdict,
+    )
+
+
+
 @app.get('/runs/{run_id}')
 def run_state(run_id: str,request: Request):
     with connection() as conn:
         row = owned_run(conn,owner(request),run_id)
-        manifest = row['manifest']
-        requested = manifest['requested']
-        cast = conn.execute("SELECT status,count(*) AS count FROM checkpoints WHERE run_id=%s GROUP BY status",(run_id,)).fetchall()
-        counts = {r['status']:r['count'] for r in cast}
-        stopped = counts.get('stopped', 0)
-        completed = counts.get('complete', 0)
-        failed = counts.get('failed', 0)
-        active = counts.get('active', 0)
-        effective = completed + stopped
-        if row['status'] in ('complete', 'incomplete', 'failed'):
-            pending = 0
-        else:
-            pending = active if cast else requested
-        prov_event = conn.execute(
-            "SELECT payload FROM events WHERE run_id=%s AND type='verdict.provisional' ORDER BY sequence ASC LIMIT 1",
-            (run_id,)
-        ).fetchone()
-        provisional_verdict = prov_event['payload'] if prov_event else None
-        return dict(
-            run_id=run_id,
-            video_id=row['video_id'],
-            status=row['status'],
-            stage=row['stage'],
-            error_code=row['error_code'],
-            sequence=row['sequence'],
-            manifest=manifest,
-            requested=requested,
-            effective=effective,
-            failed=failed,
-            pending=pending,
-            stopped=stopped,
-            provisional_verdict=provisional_verdict,
-        )
+        return run_snapshot(conn,row)
 
 
 @app.get('/runs/{run_id}/evidence/{evidence_id}')
@@ -332,8 +345,11 @@ def events(run_id: str,request: Request,after: int=0):
             after = event_row['sequence']
         if after > run['sequence']: return error('invalid_cursor')
         rows = conn.execute('SELECT * FROM events WHERE run_id=%s AND sequence>%s ORDER BY sequence LIMIT 1000',(run_id,after)).fetchall()
+        snapshot = run_snapshot(conn, run)
     # Finite SSE response: browser reconnects with last persisted ID. Polling is also available.
     text = ''.join(f"id: {r['event_id']}\nevent: {r['type']}\ndata: {json.dumps(r)}\n\n" for r in rows)
+    # Ephemeral state has no SSE id, preserving the persisted Last-Event-ID cursor.
+    text += 'event: run.snapshot\ndata: ' + json.dumps(dict(type='run.snapshot', sequence=snapshot['sequence'], payload=dict(state=snapshot))) + '\n\n'
     return StreamingResponse(iter([text or ': heartbeat\n\n']),media_type='text/event-stream')
 
 

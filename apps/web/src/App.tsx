@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {Brand,Doodle} from './Doodles';
-import {MobbsSpace} from './MobbsSpace';
+import {ScanExperience} from './ScanExperience';
+import {ProductReport} from './ProductReport';
+import './product.css';
 import {
   ensureSession,
   uploadVideo,
@@ -165,12 +167,16 @@ export function App({
   const [videoId, setVideoId] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
   const [runState, setRunState] = useState<RunState | null>(null);
+  const latestServerState = useRef<RunState|null>(null);
+  const [connectionIssue,setConnectionIssue] = useState(false);
+  const pausedViewRef = useRef(false);
   const [report, setReport] = useState<ReportData | null>(initialReport || null);
   const [provisionalVerdict, setProvisionalVerdict] = useState<ProvisionalVerdict | null>(null);
 
   // Persisted events and live graph state
   const [events, setEvents] = useState<SimulationEvent[]>([]);
   const [isGraphPaused, setIsGraphPaused] = useState<boolean>(false);
+  useEffect(()=>{pausedViewRef.current=isGraphPaused;},[isGraphPaused]);
   const bufferedEventsRef = useRef<SimulationEvent[]>([]);
 
   // Selected note / evidence for player seeking & highlight
@@ -320,6 +326,14 @@ export function App({
     const abortCtrl = new AbortController();
     pollAbortControllerRef.current = abortCtrl;
     const activeRunId = runId;
+    const acceptState=(state:RunState)=>{
+      const previous=latestServerState.current;
+      if(previous?.run_id===state.run_id && (state.sequence<previous.sequence || (state.status==='queued' && previous.status!=='queued')))return previous;
+      latestServerState.current=state;
+      setRunState(state);setConnectionIssue(false);
+      if(state.provisional_verdict)setProvisionalVerdict(state.provisional_verdict);
+      return state;
+    };
 
     let pollTimeout: ReturnType<typeof setTimeout> | null = null;
     let isPollBusy = false;
@@ -370,9 +384,9 @@ export function App({
       if (!isMounted || runFenceRef.current !== currentFence || isPollBusy) return;
       isPollBusy = true;
       try {
-        const state = await fetchRun(activeRunId, abortCtrl.signal);
+        const fetched = await fetchRun(activeRunId, abortCtrl.signal);
         if (!isMounted || runFenceRef.current !== currentFence) return;
-        setRunState(state);
+        const state=acceptState(fetched);
         if (state.provisional_verdict) {
           setProvisionalVerdict(state.provisional_verdict);
         }
@@ -401,6 +415,7 @@ export function App({
           return; // terminal failure, do not reschedule
         }
       } catch (err: any) {
+        if(isMounted && !abortCtrl.signal.aborted)setConnectionIssue(true);
         if (err.name === 'AbortError' || !isMounted || runFenceRef.current !== currentFence) {
           return; // request was aborted or superseded by newer generation
         }
@@ -433,6 +448,9 @@ export function App({
         if (!isMounted || runFenceRef.current !== currentFence) return;
         try {
           const parsed = JSON.parse(e.data);
+          if(parsed?.type==='run.snapshot' && parsed.payload?.state?.run_id===activeRunId){
+            acceptState(parsed.payload.state);return;
+          }
           if (parsed && parsed.event_id) {
             const evItem: SimulationEvent = {
               event_id: parsed.event_id,
@@ -446,7 +464,7 @@ export function App({
               setProvisionalVerdict(evItem.payload as any);
             }
 
-            if (isGraphPaused) {
+            if (pausedViewRef.current) {
               bufferedEventsRef.current.push(evItem);
             } else {
               setEvents((prev) => {
@@ -471,7 +489,7 @@ export function App({
       if (pollTimeout) clearTimeout(pollTimeout);
       if (eventSource) eventSource.close();
     };
-  }, [viewState, runId, isGraphPaused]);
+  }, [viewState, runId]);
 
   // Pause / Resume graph presentation helper
   const handleTogglePauseGraph = () => {
@@ -720,10 +738,10 @@ export function App({
           <Brand/>
           {effectiveMode === 'standard' ? (
             <span className="badge-recorded" style={{ background: '#2e1065', borderColor: '#7c3aed', color: '#e9d5ff' }}>
-              Standard mode · Spark + Muse Voice
+              your private screening room
             </span>
           ) : (
-            <span className="badge-recorded">Recorded mode · Standard Meta Spark 1.3</span>
+            <span className="badge-recorded">{effectiveMode==='recorded'?'recorded example':'design preview'}</span>
           )}
         </div>
         <div className="header-meta">
@@ -835,778 +853,12 @@ export function App({
           </div>
         )}
 
-        {/* View 3: Processing / Simulating with Live Persona Graph */}
-        {viewState === 'processing' && (
-          <div className="running-container wide">
-            <div className="processing-header">
-              <span className="stage-badge">{runState?.stage || 'decoding'}</span>
-            <h2>a little crowd. big feelings.</h2>
-              <p style={{ color: 'var(--text-muted)', marginTop: '8px' }}>
-                Stage: <strong className="mono">{runState?.stage || 'decoding'}</strong> · Cast:{' '}
-                {runState?.requested || (selectedProfile === 'flash' ? 50 : 3)} requested ·{' '}
-                {runState?.effective ?? 0} finished · {runState?.pending ?? (selectedProfile === 'flash' ? 50 : 3)} active
-                {runState?.failed ? ` · ${runState.failed} failed` : ''}
-                {' · '}{personaDecisionsCount} saved reactions
-              </p>
-            </div>
+        {viewState === 'processing' && <>
+          <ScanExperience state={runState} events={events} verdict={provisionalVerdict} videoId={videoId} paused={isGraphPaused} onPause={handleTogglePauseGraph} connectionIssue={connectionIssue}/>
+          <div className="scan-cancel"><button className="text-button" type="button" onClick={e=>{triggerRef.current=e.currentTarget;setShowDeleteModal(true);}}>cancel scan & delete video</button></div>
+        </>}
 
-            <div className="progress-track" role="progressbar" aria-label="Analyzing audience retention" aria-busy="true">
-              <div className="progress-bar indeterminate"></div>
-            </div>
-
-            {/* early hook reaction · provisional Banner */}
-            {provisionalVerdict && (
-              <div
-                className="provisional-verdict-banner"
-                role="region"
-                aria-label="early hook reaction · provisional"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.12) 0%, rgba(59, 130, 246, 0.08) 100%)',
-                  border: '1px solid var(--accent, #3b82f6)',
-                  borderRadius: '8px',
-                  padding: '16px 20px',
-                  marginBottom: '20px',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span
-                      className="badge"
-                      style={{
-                        background: 'var(--accent, #2563eb)',
-                        color: '#ffffff',
-                        fontWeight: 700,
-                        fontSize: '0.75rem',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em',
-                      }}
-                    >
-                      first look · provisional
-                    </span>
-                    <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>
-                      early hook reaction · provisional
-                    </h3>
-                  </div>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    Scene 0 ({provisionalVerdict.start_ms}–{provisionalVerdict.end_ms}ms) · {provisionalVerdict.total_personas} Personas Evaluated
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'baseline', marginTop: '12px' }}>
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>Hook Retention</span>
-                    <strong style={{ fontSize: '1.75rem', color: provisionalVerdict.retention_pct >= 85 ? 'var(--success, #16a34a)' : (provisionalVerdict.retention_pct >= 60 ? 'var(--warning, #d97706)' : 'var(--danger, #dc2626)') }}>
-                      {provisionalVerdict.retention_pct}%
-                    </strong>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginLeft: '6px' }}>
-                      ({provisionalVerdict.retained_count}/{provisionalVerdict.total_personas})
-                    </span>
-                  </div>
-
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block' }}>Hook Drop Rate</span>
-                    <strong style={{ fontSize: '1.75rem', color: provisionalVerdict.drop_pct > 15 ? 'var(--danger, #dc2626)' : 'var(--text-muted)' }}>
-                      {provisionalVerdict.drop_pct}%
-                    </strong>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginLeft: '6px' }}>
-                      ({provisionalVerdict.dropped_count}/{provisionalVerdict.total_personas})
-                    </span>
-                  </div>
-                </div>
-
-                {provisionalVerdict.top_drop_reasons && provisionalVerdict.top_drop_reasons.length > 0 ? (
-                  <div style={{ marginTop: '14px', borderTop: '1px solid rgba(0, 0, 0, 0.08)', paddingTop: '10px' }}>
-                    <strong style={{ fontSize: '0.85rem', color: 'var(--text, #111827)', display: 'block', marginBottom: '6px' }}>
-                      Top Drop Reasons &amp; Evidence Quotes:
-                    </strong>
-                    <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '0.875rem' }}>
-                      {provisionalVerdict.top_drop_reasons.map((r, idx) => (
-                        <li key={idx} style={{ marginBottom: '4px' }}>
-                          <span>
-                            <strong>{r.reason}</strong> ({r.count} personas, {r.percentage}%)
-                          </span>
-                          {r.evidence_quotes && r.evidence_quotes.length > 0 && (
-                            <div style={{ fontStyle: 'italic', color: 'var(--text-muted)', fontSize: '0.825rem', marginTop: '2px' }}>
-                              &ldquo;{r.evidence_quotes[0].quote}&rdquo; — <span className="mono">{r.evidence_quotes[0].persona_id}</span>
-                            </div>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : (
-                  <div style={{ marginTop: '10px', fontSize: '0.85rem', color: 'var(--success, #16a34a)' }}>
-                    Zero personas dropped in opening hook. 100% of simulated audience continued past Scene 0.
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Saved simulation events and owner-authorized source video. */}
-            <div className="processing-body">
-            <div className="live-graph-panel">
-              <div className="graph-controls-header">
-                <div className="graph-title-group">
-                  <strong>the mobbs space · {personaDecisionsCount} decisions observed</strong>
-                  <span className="graph-subtext">a fictional crowd, with real saved simulation events. tap a mob to hear its reason.</span>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={handleTogglePauseGraph}
-                  aria-pressed={isGraphPaused}
-                >
-                  {isGraphPaused ? '▶ Resume view' : '⏸ Pause view'}
-                </button>
-              </div>
-
-              {isGraphPaused && (
-                <div className="graph-paused-banner" role="status">
-                  Live display paused. Ingestion and background simulation continue normally. Click Resume to view all latest events.
-                </div>
-              )}
-
-              <MobbsSpace ids={allExpectedPersonaIds} states={personaStateMap} events={events} paused={isGraphPaused} seed={runId || 'pending'} />
-
-              {/* Accessible Ordered Event Log */}
-              <details className="event-log-details">
-                <summary className="event-log-summary">
-                  Ordered event sequence log ({events.length} persisted records)
-                </summary>
-                <div className="event-log-feed mono">
-                  {events.length === 0 ? (
-                    <div className="event-feed-empty">Awaiting scene checkpoints...</div>
-                  ) : (
-                    events.map((ev) => {
-                      const p = ev.payload;
-                      const isStop = ev.type === 'persona.stopped';
-                      return (
-                        <div key={ev.event_id} className={`event-log-item ${isStop ? 'event-stop' : 'event-continue'}`}>
-                          <span className="ev-seq">#{ev.sequence}</span>
-                          <span className="ev-type">{ev.type}</span>
-                          <span className="ev-pid mono">{p.persona_id}</span>
-                          <span className="ev-scene">scene {p.scene_id}</span>
-                          {p.at_ms !== undefined && <span className="ev-time">{p.at_ms}ms</span>}
-                          {p.reason && (
-                            <span className="ev-reason">
-                              {isStop ? 'stop quote: ' : 'quote: '}&ldquo;{p.reason}&rdquo;
-                            </span>
-                          )}
-                          {p.actions && p.actions.length > 0 && (
-                            <span className="ev-actions">
-                              actions: {p.actions.map((a) => (typeof a === 'object' && a ? a.type : String(a))).join(', ')}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </details>
-            </div>
-
-            {videoId && <aside className="run-video-card">
-              <span className="eyebrow">your video</span>
-              <video src={`/videos/${videoId}/media`} controls playsInline preload="metadata" aria-label="Your uploaded video"/>
-              <p>the mobbs watch scene by scene. their reactions are simulated.</p>
-              <p className="run-video-tip">tap any mob to inspect its saved reason. pause the view whenever you need a breather.</p>
-            </aside>}
-            </div>
-            <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'center' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={(e) => {
-                  triggerRef.current = e.currentTarget;
-                  setShowDeleteModal(true);
-                }}
-              >
-                Cancel &amp; delete video
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* View 4: Report Workbench */}
-        {viewState === 'ready' && report && (
-          <div className="workbench-grid">
-            {/* Left: Video player, interactive timeline, & retention drop-off table */}
-            <div className="player-column">
-              <div className="video-container">
-                <video
-                  ref={videoRef}
-                  src={`/videos/${videoId}/media`}
-                  controls
-                  playsInline
-                  preload="auto"
-                  aria-label="Uploaded video preview"
-                  className="video-element"
-                />
-              </div>
-
-              {/* Interactive Timeline Scrubber */}
-              <div className="timeline-card">
-                <div className="timeline-header">
-                  <span>Scene timeline {scenes.length > 0 ? `(${scenes.length} scenes)` : '(scenes unavailable)'}</span>
-                  <span className="mono">{durationSec !== null ? `0.0s – ${durationSec}s` : 'Duration unavailable'}</span>
-                </div>
-                {scenes.length > 0 ? (
-                  <div className="timeline-track" role="region" aria-label="Scene timeline">
-                    {scenes.map((scene, idx) => {
-                      const startSec = (scene.start_ms / 1000).toFixed(scene.start_ms % 1000 === 0 ? 0 : 1);
-                      const endSec = (scene.end_ms / 1000).toFixed(scene.end_ms % 1000 === 0 ? 0 : 1);
-                      const trigger = report.observations?.find(
-                        (o: any) => o.scene_id === scene.scene_id || (o.start_ms <= scene.start_ms && o.end_ms >= scene.end_ms)
-                      );
-                      const hasTrigger = Boolean(trigger);
-                      const isSelected = selectedNote && selectedNote.start_ms <= scene.end_ms && selectedNote.end_ms >= scene.start_ms;
-                      const flexVal = Math.max(1, (scene.end_ms - scene.start_ms) / 1000);
-
-                      const seekToThis = () => {
-                        if (videoRef.current) videoRef.current.currentTime = scene.start_ms / 1000;
-                        if (hasTrigger && report.notes.length > 0) {
-                          setSelectedNote(report.notes[0]);
-                        }
-                      };
-
-                      return (
-                        <div
-                          key={scene.scene_id ?? idx}
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Scene ${idx + 1}: ${startSec}s to ${endSec}s${hasTrigger ? ' (Drop trigger detected)' : ''}`}
-                          className={`timeline-segment ${hasTrigger ? 'has-trigger' : ''} ${isSelected ? 'active-note' : ''}`}
-                          style={{ flex: flexVal }}
-                          onClick={seekToThis}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              seekToThis();
-                            }
-                          }}
-                          title={`${startSec}s - ${endSec}s${hasTrigger ? ' (Stop trigger detected: >=15% drop)' : ''}`}
-                        >
-                          {startSec}–{endSec}s{hasTrigger ? ' (Drop)' : ''}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="timeline-unavailable">
-                    Scene boundaries unavailable for this legacy report.
-                  </div>
-                )}
-              </div>
-
-              {/* Retention & Drop-Off Table / Curve */}
-              {report.retention && report.retention.length > 0 ? (
-                <div className="retention-card">
-                  <div className="retention-header">
-                    <h3>Scene Retention &amp; Drop-Off ({report.retention.length} scenes)</h3>
-                    <span className="mono text-muted">200 whole-persona resamples · p10–p90</span>
-                  </div>
-                  <div className="retention-table-container">
-                    <table className="retention-table">
-                      <thead>
-                        <tr>
-                          <th>Scene</th>
-                          <th>Timing</th>
-                          <th>Entrants</th>
-                          <th>Stopped</th>
-                          <th>Survival Rate</th>
-                          <th>Drop Rate</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {report.retention.map((row: RetentionRow) => {
-                          const sSec = (row.start_ms / 1000).toFixed(1);
-                          const eSec = (row.end_ms / 1000).toFixed(1);
-                          const survObs = row.survival.observed !== null && row.survival.observed !== undefined ? `${row.survival.observed?.toFixed(1)}%` : 'Unavailable';
-                          const survRange = row.survival.range ? `[${row.survival.range.low.toFixed(0)}%–${row.survival.range.high.toFixed(0)}%]` : '';
-
-                          // Honest zero-entrant disclosure
-                          const dropObs = row.drop_rate.observed !== null && row.drop_rate.observed !== undefined
-                            ? `${row.drop_rate.observed?.toFixed(1)}%`
-                            : 'Unavailable';
-                          const dropReason = row.drop_rate.unavailable_reason
-                            ? ` (${formatUnavailableReason(row.drop_rate.unavailable_reason)})`
-                            : '';
-                          const dropRange = row.drop_rate.range ? `[${row.drop_rate.range.low.toFixed(0)}%–${row.drop_rate.range.high.toFixed(0)}%]` : '';
-
-                          return (
-                            <tr key={row.scene_id}>
-                              <td className="mono">Scene {row.scene_id}</td>
-                              <td className="mono">{sSec}s–{eSec}s</td>
-                              <td className="mono">{row.entrants}</td>
-                              <td className="mono">{row.stopped}</td>
-                              <td className="mono">
-                                <strong>{survObs}</strong> {survRange && <span className="range-text">{survRange}</span>}
-                              </td>
-                              <td className="mono">
-                                <strong>{dropObs}</strong>
-                                {dropRange && <span className="range-text">{dropRange}</span>}
-                                {dropReason && <span className="unavailable-tag">{dropReason}</span>}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ) : (
-                <div className="retention-card">
-                  <div className="retention-header">
-                    <h3>Scene Retention &amp; Drop-Off</h3>
-                  </div>
-                  <div className="section-unavailable-banner">
-                    Scene retention curve unavailable: report does not contain retention intervals.
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Right: Evidence, Findings, Scores, Notes, & Provenance */}
-            <div className="evidence-column">
-              <div className="report-header">
-                <h2 className="verdict-title">Executive finding</h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '16px' }}>
-                  Audience retention simulation with {report.cast.effective} simulated synthetic personas.
-                </p>
-
-                {/* Cohort coverage disclosure */}
-                <div className="cohort-coverage-card">
-                  {report.cast.effective < report.cast.requested || report.cast.status !== 'complete' || report.cast.failed > 0 || report.cast.pending > 0 ? (
-                    <div className="alert-box caution">
-                      <strong>Partial cohort:</strong> Simulated {report.cast.effective} of {report.cast.requested} requested personas ({report.cast.failed} failed, {report.cast.pending} pending; status: {report.cast.status}). Metrics represent observed effective sample only, not a complete requested cohort.
-                    </div>
-                  ) : (
-                    <div className="cohort-complete-badge mono" style={{ fontSize: '12px', color: 'var(--text-subtle)' }}>
-                      Complete cohort: {report.cast.effective} / {report.cast.requested} personas simulated (status: {report.cast.status})
-                    </div>
-                  )}
-
-                  {report.coverage?.excluded_traces &&
-                    ((report.coverage.excluded_traces.failed && report.coverage.excluded_traces.failed.length > 0) ||
-                      (report.coverage.excluded_traces.pending && report.coverage.excluded_traces.pending.length > 0)) && (
-                      <div className="excluded-traces-alert mono" style={{ fontSize: '12px', marginTop: '6px', color: 'var(--caution)' }}>
-                        <strong>Excluded traces:</strong>{' '}
-                        {report.coverage.excluded_traces.failed && report.coverage.excluded_traces.failed.length > 0 &&
-                          `Failed: [${report.coverage.excluded_traces.failed.join(', ')}] `}
-                        {report.coverage.excluded_traces.pending && report.coverage.excluded_traces.pending.length > 0 &&
-                          `Pending: [${report.coverage.excluded_traces.pending.join(', ')}]`}
-                      </div>
-                    )}
-                </div>
-
-                {/* Approved hierarchy: Editing finding / Notes appear BEFORE metric grids */}
-                <div className="primary-finding-section" style={{ marginBottom: '20px' }}>
-                  {report.notes.length === 0 ? (
-                    <div className="no-notes-banner">
-                      <p style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: 600, marginBottom: '6px' }}>
-                        No supported edit found.
-                      </p>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.4', marginBottom: '10px' }}>
-                        {report.observations && report.observations.length > 0 ? (
-                          <span>
-                            Observed drop triggers evaluated: {report.observations.map((obs) => {
-                              const pct = (obs.value * 100).toFixed(1);
-                              const threshPct = (obs.threshold * 100).toFixed(1);
-                              return `Scene ${obs.scene_id} (${(obs.start_ms / 1000).toFixed(1)}s–${(obs.end_ms / 1000).toFixed(1)}s: ${obs.numerator}/${obs.denominator} stopped, ${pct}%, threshold ${threshPct}%)`;
-                            }).join('; ')}. No candidate director notes satisfied the deterministic support criteria for these triggers.
-                          </span>
-                        ) : (
-                          <span>
-                            Observed dropout triggers are unavailable for this report.
-                          </span>
-                        )}
-                      </div>
-                      {report.observations && report.observations.length > 0 && (
-                        <div className="suppressed-note-alert">
-                          <strong>Notice:</strong> {suppressedCount} unsupported candidate {suppressedCount === 1 ? 'note was' : 'notes were'} suppressed by the deterministic stop-fraction detector.
-                          Only findings backed by observed dropout triggers are surfaced.
-                          {report.note_rejections && (
-                            <div className="rejection-breakdown mono" style={{ fontSize: '11px', marginTop: '6px' }}>
-                              Rejection breakdown: unsupported_trigger: {report.note_rejections.unsupported_trigger} (Trigger not supported), quote_mismatch: {report.note_rejections.quote_mismatch}, invalid_time: {report.note_rejections.invalid_time}, invalid_reference: {report.note_rejections.invalid_reference}, malformed: {report.note_rejections.malformed_candidate}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div>
-                      <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>
-                        Director&apos;s Notes ({report.notes.length})
-                      </h3>
-                      {report.notes.map((note) => (
-                        <div
-                          key={note.id}
-                          className={`note-card ${selectedNote?.id === note.id ? 'selected' : ''}`}
-                          onClick={() => handleSelectNote(note)}
-                          tabIndex={0}
-                          role="region"
-                          onKeyDown={(e) => {
-                            if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
-                              e.preventDefault();
-                              handleSelectNote(note);
-                            }
-                          }}
-                          aria-label={`Note at ${(note.start_ms / 1000).toFixed(1)} seconds: ${note.interpretation}`}
-                        >
-                          <div className="note-timestamp mono">
-                            {(note.start_ms / 1000).toFixed(1)}s – {(note.end_ms / 1000).toFixed(1)}s (Click note to seek)
-                          </div>
-                          <div className="note-finding">{note.interpretation}</div>
-                          <div className="note-fix">
-                            <strong>Suggested edit:</strong> {note.fix}
-                          </div>
-
-                          {/* Expanding simulated quotes */}
-                          {note.quotes && note.quotes.length > 0 && (
-                            <div className="quotes-section">
-                              <div className="quotes-heading">Simulated persona reason</div>
-                              {note.quotes.map((q, idx) => (
-                                <button
-                                  key={q.evidence_id || idx}
-                                  type="button"
-                                  className="quote-button"
-                                  aria-label={`Inspect evidence quote ${idx + 1}: "${q.text}"`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleSelectEvidence(q.evidence_id);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                      e.stopPropagation();
-                                    }
-                                  }}
-                                  title="Click or press Enter/Space to inspect evidence and seek player"
-                                >
-                                  &ldquo;{q.text}&rdquo;
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-
-                      {/* Evidence Inspector Card */}
-                      {selectedEvidence && (
-                        <div className="evidence-inspector-card">
-                          <div className="inspector-header">
-                            <strong>Evidence Inspector: {selectedEvidence.id}</strong>
-                            <button
-                              type="button"
-                              className="btn-close-sm"
-                              onClick={() => setSelectedEvidence(null)}
-                              aria-label="Close evidence inspector"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                          <div className="inspector-body mono">
-                            <div>Persona: <strong>{selectedEvidence.persona_id}</strong></div>
-                            <div>Scene: <strong>Scene {selectedEvidence.scene_id} ({selectedEvidence.start_ms}ms–{selectedEvidence.end_ms}ms)</strong></div>
-                            <div>Still watching: <strong>{selectedEvidence.still_watching ? 'Yes' : 'No (Dropped)'}</strong></div>
-                            {selectedEvidence.reason && <div>Reason: &ldquo;{selectedEvidence.reason}&rdquo;</div>}
-                            {selectedEvidence.quote && <div>Quote: &ldquo;{selectedEvidence.quote}&rdquo;</div>}
-                          </div>
-                        </div>
-                      )}
-
-                      {report.observations && report.observations.length > 0 && (
-                        <div className="suppressed-note-alert">
-                          <strong>Notice:</strong> {suppressedCount} unsupported candidate {suppressedCount === 1 ? 'note was' : 'notes were'} suppressed by the deterministic stop-fraction detector.
-                          Only findings backed by observed dropout triggers are surfaced.
-                          {report.note_rejections && (
-                            <div className="rejection-breakdown mono" style={{ fontSize: '11px', marginTop: '6px' }}>
-                              Rejection breakdown: unsupported_trigger: {report.note_rejections.unsupported_trigger} (Trigger not supported), quote_mismatch: {report.note_rejections.quote_mismatch}, invalid_time: {report.note_rejections.invalid_time}, invalid_reference: {report.note_rejections.invalid_reference}, malformed: {report.note_rejections.malformed_candidate}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Simulated cast metrics summary */}
-                <div className="metrics-summary">
-                  <div className="metric-pill">
-                    Cast: <strong>{report.cast.effective} / {report.cast.requested} viewers</strong> ({report.cast.effective < report.cast.requested ? 'Partial cohort' : 'Complete cohort'} · {report.cast.profile} profile · synthetic)
-                  </div>
-                  <div className="metric-pill">
-                    Completion rate:{' '}
-                    <strong>{report.completion.observed !== null && report.completion.observed !== undefined ? `${report.completion.observed?.toFixed(1)}%` : 'Unavailable'}</strong>
-                    {report.completion.observed !== null && report.completion.observed !== undefined && (
-                      <span className="mono" style={{ color: 'var(--text-subtle)' }}>
-                        {' '}({report.completion.denominator ? `${Math.round(((report.completion.observed || 0) / 100) * report.completion.denominator)} / ${report.completion.denominator}` : `${report.cast.effective - report.cast.stopped} / ${report.cast.effective}`})
-                      </span>
-                    )}
-                    {report.completion.range && (
-                      <span className="mono" style={{ color: 'var(--text-subtle)' }}>
-                        {' '}[{report.completion.range.low.toFixed(0)}%–{report.completion.range.high.toFixed(0)}%]
-                      </span>
-                    )}
-                    {report.completion.range?.method && (
-                      <div className="metric-method mono">
-                        nearest-rank {report.completion.range.method}
-                      </div>
-                    )}
-                  </div>
-                  <div className="metric-pill">
-                    Stopped viewers: <strong>{report.cast.stopped} / {report.cast.effective}</strong> ({report.cast.effective > 0 ? ((report.cast.stopped / report.cast.effective) * 100).toFixed(1) : '0.0'}%)
-                  </div>
-                </div>
-
-                {/* Score Indices: Hook, Pacing, and unobserved signals */}
-                {report.scores ? (
-                  <div className="scores-card">
-                    <h3 className="section-subheading">Retention &amp; Quality Indices</h3>
-                    <div className="scores-grid">
-                      <div className="score-item">
-                        <span className="score-label">Hook Score (min 3s)</span>
-                        <span className="score-value mono">
-                          {report.scores.hook?.observed !== null && report.scores.hook?.observed !== undefined ? `${report.scores.hook?.observed?.toFixed(1)}%` : 'Unavailable'}
-                        </span>
-                        <span className="score-denominator mono" style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
-                          {report.scores.hook?.denominator !== null && report.scores.hook?.denominator !== undefined
-                            ? `(denominator: ${report.scores.hook.denominator})`
-                            : '(denominator unavailable)'}
-                        </span>
-                        {report.scores.hook?.range && (
-                          <span className="score-range mono">
-                            [{report.scores.hook.range.low.toFixed(0)}%–{report.scores.hook.range.high.toFixed(0)}%]
-                          </span>
-                        )}
-                      </div>
-                      <div className="score-item">
-                        <span className="score-label">Pacing Score (80% dur)</span>
-                        <span className="score-value mono">
-                          {report.scores.pacing?.observed !== null && report.scores.pacing?.observed !== undefined ? `${report.scores.pacing?.observed?.toFixed(1)}%` : 'Unavailable'}
-                        </span>
-                        <span className="score-denominator mono" style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
-                          {report.scores.pacing?.denominator !== null && report.scores.pacing?.denominator !== undefined
-                            ? `(denominator: ${report.scores.pacing.denominator})`
-                            : '(denominator unavailable)'}
-                        </span>
-                        {report.scores.pacing?.range && (
-                          <span className="score-range mono">
-                            [{report.scores.pacing.range.low.toFixed(0)}%–{report.scores.pacing.range.high.toFixed(0)}%]
-                          </span>
-                        )}
-                      </div>
-                      <div className="score-item unavailable">
-                        <span className="score-label">Clarity Index</span>
-                        <span className="score-tag">Unavailable</span>
-                        <span className="score-reason">{formatUnavailableReason(report.scores.clarity?.unavailable_reason)}</span>
-                      </div>
-                      <div className="score-item unavailable">
-                        <span className="score-label">CTA Index</span>
-                        <span className="score-tag">Unavailable</span>
-                        <span className="score-reason">{formatUnavailableReason(report.scores.cta?.unavailable_reason)}</span>
-                      </div>
-                      <div className="score-item unavailable">
-                        <span className="score-label">Trend Fit</span>
-                        <span className="score-tag">Unavailable</span>
-                        <span className="score-reason">{formatUnavailableReason(report.scores.trend?.unavailable_reason)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="scores-card">
-                    <h3 className="section-subheading">Retention &amp; Quality Indices</h3>
-                    <div className="section-unavailable-banner">
-                      Quality indices unavailable: report does not contain score indices.
-                    </div>
-                  </div>
-                )}
-
-                {/* Engagement Rates */}
-                {report.engagement ? (
-                  <div className="engagement-card">
-                    <h3 className="section-subheading">Engagement Actions (Simulated personas taking action)</h3>
-                    <div className="engagement-grid">
-                      {(['like', 'share', 'save', 'comment', 'follow'] as const).map((act) => {
-                        const item: MetricItem | undefined = report.engagement?.[act];
-                        if (!item) return null;
-                        const isUnavail = item.observed === null || item.observed === undefined;
-                        const den = item.denominator ?? report.cast.effective;
-                        const actionCount = !isUnavail && den ? Math.round(((item.observed || 0) / 100) * den) : null;
-                        return (
-                          <div key={act} className={`engagement-item ${isUnavail ? 'unavailable' : ''}`}>
-                            <span className="act-name">{act.toUpperCase()}</span>
-                            <span className="act-value mono">
-                              {isUnavail ? 'Unavailable' : `${item.observed?.toFixed(1)}%`}
-                            </span>
-                            {!isUnavail && actionCount !== null && (
-                              <span className="mono" style={{ fontSize: '11px', color: 'var(--text-subtle)' }}>
-                                ({actionCount} / {den})
-                              </span>
-                            )}
-                            {item.range && (
-                              <span className="act-range mono">
-                                [{item.range.low.toFixed(0)}%–{item.range.high.toFixed(0)}%]
-                              </span>
-                            )}
-                            {item.unavailable_reason && (
-                              <span className="act-reason">{formatUnavailableReason(item.unavailable_reason)}</span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="engagement-card">
-                    <h3 className="section-subheading">Engagement Actions (Simulated personas taking action)</h3>
-                    <div className="section-unavailable-banner">
-                      Engagement telemetry unavailable: report does not contain action telemetry.
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Trust & Provenance Manifest */}
-              <div className="trust-manifest">
-                <details>
-                  <summary className="trust-summary">Trust manifest &amp; simulation provenance</summary>
-                  <div className="trust-details">
-                    <dl>
-                      <dt>Inference mode:</dt>
-                      <dd>{report.trust.mode === 'standard' ? 'Standard inference' : 'Recorded replay'} ({report.trust.label || (report.trust.mode === 'standard' ? 'Standard Meta Spark 1.3' : 'Recorded inference')})</dd>
-                      <dt>Model ID:</dt>
-                      <dd>{report.trust.model_ids.join(', ')}</dd>
-                      <dt>Provider version:</dt>
-                      <dd>{report.trust.reported_versions?.[0] || 'not provided'}</dd>
-                      <dt>Training cutoff:</dt>
-                      <dd>{report.trust.training_cutoff || 'not provided'}</dd>
-                      <dt>Range method:</dt>
-                      <dd className="mono">{report.completion.range?.method || report.methodology?.range_kind}</dd>
-                      <dt>Ranking rule:</dt>
-                      <dd>{report.methodology?.ranking || 'heuristic stop fraction'}</dd>
-                      <dt>Source commit:</dt>
-                      <dd className="mono">{report.trust.app_source_sha || report.trust.source_sha}</dd>
-                      <dt>Media SHA-256:</dt>
-                      <dd className="mono">{report.trust.media_sha256}</dd>
-                      {report.trust.mode === 'standard' ? (
-                        <>
-                          <dt>Provider concurrency:</dt>
-                          <dd className="mono">{report.trust.provider_concurrency ?? 1} (sequential scenes per persona)</dd>
-                          <dt>Live provider calls:</dt>
-                          <dd className="mono">{report.trust.live_calls ?? 0}</dd>
-                          <dt>Estimated cost (USD):</dt>
-                          <dd className="mono">
-                            {typeof report.trust.total_cost_usd === 'number'
-                              ? `$${report.trust.total_cost_usd.toFixed(6)}`
-                              : String(report.trust.total_cost_usd || 'unavailable')}
-                          </dd>
-                          {report.trust.pricing_version && (
-                            <>
-                              <dt>Pricing version:</dt>
-                              <dd className="mono">{report.trust.pricing_version}</dd>
-                            </>
-                          )}
-                        </>
-                      ) : (
-                        <>
-                          <dt>Live calls / spend:</dt>
-                          <dd>0 live calls / $0.00 (Recorded replay)</dd>
-                        </>
-                      )}
-                      {report.trust.feature_sha256 && (
-                        <>
-                          <dt>Feature SHA-256:</dt>
-                          <dd className="mono">{report.trust.feature_sha256}</dd>
-                        </>
-                      )}
-                      {report.trust.cast_sha256 && (
-                        <>
-                          <dt>Cast SHA-256:</dt>
-                          <dd className="mono">{report.trust.cast_sha256}</dd>
-                        </>
-                      )}
-                    </dl>
-
-                    {/* Persona library disclosure - accurate candidate policies without false calibration or archetype claims */}
-                    <div className="thin-cast-notice" style={{ marginTop: '12px', padding: '8px 12px', background: 'var(--caution-tint)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '12px', lineHeight: '1.4' }}>
-                      {effectiveMode === 'standard' ? (
-                        (report.cast.profile === 'flash' || report.manifest?.profile === 'flash') && (report.cast.requested === 50 || report.manifest?.requested === 50) ? (
-                          <>
-                            <strong>Persona library disclosure:</strong> The Flash 50 cast contains 50 fictional candidate persona policies from fifty-policies.json. This is a synthetic persona library; behavioral distinction was not calibrated against human viewers. {report.coverage?.transcript ? 'Personas receive scene-local frames, video observations and machine-transcribed speech with approximate timing.' : report.coverage?.ocr ? 'Personas receive scene-local frames and native-video observations; no speech transcript is available.' : 'This saved run used visual frames without speech transcription or OCR.'} Intervals represent simulated correlation without causal claims.
-                          </>
-                        ) : (
-                          <>
-                            <strong>Persona library disclosure:</strong> The {report.cast.profile === 'test' ? 'Test 3' : `${report.cast.profile} ${report.cast.requested}`} cast contains 3 fictional candidate persona policies. This is a synthetic persona library; behavioral distinction was not calibrated against human viewers. {report.coverage?.transcript ? 'Personas receive scene-local frames, video observations and machine-transcribed speech with approximate timing.' : report.coverage?.ocr ? 'Personas receive scene-local frames and native-video observations; no speech transcript is available.' : 'This saved run used visual frames without speech transcription or OCR.'} Intervals represent simulated correlation without causal claims.
-                          </>
-                        )
-                      ) : (
-                        (report.cast.profile === 'flash' || report.manifest?.profile === 'flash') && (report.cast.requested === 50 || report.manifest?.requested === 50) ? (
-                          <>
-                            <strong>Persona library disclosure:</strong> The Flash 50 cast contains 50 simulated personas derived from five archetypes; this is a synthetic persona library, not 50 distinct human behaviors. Behavioral distinction was not calibrated against human viewers. {report.coverage?.transcript ? 'Personas receive scene-local frames, video observations and machine-transcribed speech with approximate timing.' : report.coverage?.ocr ? 'Personas receive scene-local frames and native-video observations; no speech transcript is available.' : 'This saved run used visual frames without speech transcription or OCR.'} Intervals represent simulated correlation without causal claims.
-                          </>
-                        ) : (
-                          <>
-                            <strong>Persona library disclosure:</strong> The {report.cast.profile === 'test' ? 'Test 3' : `${report.cast.profile} ${report.cast.requested}`} cast contains 3 simulated viewers; this is a synthetic persona library and not a representative audience. Behavioral distinction was not calibrated against human viewers. {report.coverage?.transcript ? 'Personas receive scene-local frames, video observations and machine-transcribed speech with approximate timing.' : report.coverage?.ocr ? 'Personas receive scene-local frames and native-video observations; no speech transcript is available.' : 'This saved run used visual frames without speech transcription or OCR.'} Intervals represent simulated correlation without causal claims.
-                          </>
-                        )
-                      )}
-                    </div>
-
-                    {report.methodology?.assumptions && report.methodology.assumptions.length > 0 && (
-                      <div style={{ marginTop: '10px' }}>
-                        <strong>Methodology assumptions:</strong>
-                        <ul style={{ paddingLeft: '16px', marginTop: '4px' }}>
-                          {report.methodology.assumptions.map((a: string, i: number) => (
-                            <li key={i}>{a}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {report.trust.limitations && report.trust.limitations.length > 0 && (
-                      <div style={{ marginTop: '10px' }}>
-                        <strong>Simulation limitations:</strong>
-                        <ul style={{ paddingLeft: '16px', marginTop: '4px' }}>
-                          {report.trust.limitations.map((lim: string, i: number) => (
-                            <li key={i}>{lim}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {report.caveats && report.caveats.length > 0 && (
-                      <div style={{ marginTop: '10px' }}>
-                        <strong>Caveats:</strong>
-                        <ul style={{ paddingLeft: '16px', marginTop: '4px' }}>
-                          {report.caveats.map((c, i) => (
-                            <li key={i}>{c}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                </details>
-              </div>
-
-              {/* Deletion action */}
-              <div className="actions-footer">
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={(e) => {
-                    triggerRef.current = e.currentTarget;
-                    setShowDeleteModal(true);
-                  }}
-                >
-                  Delete video &amp; report
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {viewState === 'ready' && report && <ProductReport report={report} videoId={videoId} videoRef={videoRef} selectedNote={selectedNote} selectedEvidence={selectedEvidence} onNote={handleSelectNote} onEvidence={handleSelectEvidence} onCloseEvidence={()=>setSelectedEvidence(null)} onNew={handleReset} onDelete={e=>{triggerRef.current=e.currentTarget;setShowDeleteModal(true);}}/>}
 
         {/* View 5: Deleting / Deleted Progress with honest app-owned copy limits */}
         {(viewState === 'deleting' || viewState === 'deleted') && deletionState && (

@@ -24,7 +24,7 @@ from contracts.normalized import (
     validate_reaction,
     require,
 )
-from .config import ROOT, settings, get_effective_runtime_path
+from .config import ROOT, settings, get_effective_runtime_path, BUILD_COMMIT
 from .db import connection, uid, Jsonb
 from .domain import (
     fence,
@@ -64,7 +64,7 @@ def stage(conn, run_id, value):
     conn.execute("UPDATE runs SET stage=%s,status='processing' WHERE id=%s", (value, run_id))
 
 
-def project(scene, checkpoint):
+def project(scene, checkpoint, signals_version=None):
     # No whole FeatureBundle, raw transcript, other personas or future refs cross this boundary.
     value = dict(persona_id=checkpoint['persona_id'],
         scene={k: scene[k] for k in ('scene_id', 'start_ms', 'end_ms')},
@@ -72,20 +72,19 @@ def project(scene, checkpoint):
         own_impression=checkpoint['impression'])
     if scene.get('media_pipeline') == 'scene-av-v1':
         value['scene_features'] = {k: scene.get(k) for k in ('transcript', 'observations', 'ocr')}
+    if signals_version == 'engagement-v2':
+        value['signals_version'] = signals_version
     return value
 
 
-def validate_projection(value, scene, checkpoint):
-    require(set(value) == set(project(scene, checkpoint)), 'unapproved scene context')
-    require(value == project(scene, checkpoint), 'future/peer/context mismatch')
+def validate_projection(value, scene, checkpoint, signals_version=None):
+    require(set(value) == set(project(scene, checkpoint, signals_version)), 'unapproved scene context')
+    require(value == project(scene, checkpoint, signals_version), 'future/peer/context mismatch')
     require(checkpoint['status'] == 'active' and checkpoint['next_scene'] == scene['scene_id'], 'post-stop or out-of-order dispatch')
 
 
 def source_sha():
-    try:
-        return subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
-    except Exception:
-        return 'unknown'
+    return BUILD_COMMIT
 
 
 def prepare(lease, provider):
@@ -460,8 +459,8 @@ def _run_prepared_analysis(lease, provider, run_row, mode, profile, concurrency,
 
     def execute_persona_scene(cp, scene, halt_event=None):
         unit = f"{cp['persona_id']}:{scene['scene_id']}"
-        projection = project(scene, cp)
-        validate_projection(projection, scene, cp)
+        projection = project(scene, cp, manifest.get('signals_version'))
+        validate_projection(projection, scene, cp, manifest.get('signals_version'))
 
         if halt_event is not None and halt_event.is_set():
             return False
@@ -574,7 +573,7 @@ def _run_prepared_analysis(lease, provider, run_row, mode, profile, concurrency,
                         and is_valid_usage
                     )
 
-                    if is_confirmed_incomplete or (isolate_personas and err_receipt['error']['charge_state'] == 'uncertain'):
+                    if is_confirmed_incomplete or (isolate_personas and (err_receipt['error']['charge_state'] == 'uncertain' or getattr(exc,'code',None)=='provider_response_rejected')):
                         if scene['scene_id'] == 0 and not provisional_emitted[0]:
                             with provisional_lock:
                                 if not provisional_emitted[0]:
@@ -618,6 +617,7 @@ def _run_prepared_analysis(lease, provider, run_row, mode, profile, concurrency,
                 evidence_id=evidence['id'],
                 actions=reaction['actions'],
                 reason=evidence['quote'],
+                quick_reaction=evidence.get('quick_reaction'),
             )
             event(conn, lease['run_id'], 'persona.continued' if reaction['still_watching'] else 'persona.stopped', event_payload)
             if scene['scene_id'] == 0 and not provisional_emitted[0]:
@@ -762,6 +762,11 @@ def _run_prepared_analysis(lease, provider, run_row, mode, profile, concurrency,
 
         if unit_error[0] is not None:
             exc = unit_error[0]
+            if isinstance(exc, (psycopg.OperationalError, psycopg.InterfaceError)):
+                # Let the supervisor reconnect. The lease and once-only request
+                # markers survive; unresolved responses are excluded on recovery.
+                raise exc
+            logging.getLogger(__name__).error('Scan unit stopped (%s)', type(exc).__name__)
             with connection() as conn:
                 try:
                     fence(conn, lease)
@@ -932,7 +937,10 @@ def process_once(provider_factory=None, before_publish=None):
             process_analysis(lease, provider_factory, before_publish)
     except LeaseLost:
         pass  # Tombstone/another generation owns all future publication.
+    except (psycopg.OperationalError, psycopg.InterfaceError):
+        raise  # Recover the database connection without resending model requests.
     except Exception as exc:
+        logging.getLogger(__name__).error('Scan stopped (%s)', type(exc).__name__)
         with connection() as conn:
             try:
                 fence(conn, lease)

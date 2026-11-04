@@ -47,6 +47,7 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
         if r['evidence_id'] in evidence_by_id
     }
 
+    action_kinds = ('like', 'share', 'save', 'comment', 'follow')
     traces = {}
     for pid in valid_pids:
         p_reactions = sorted(reactions_by_pid.get(pid, []), key=lambda x: x['scene_id'])
@@ -64,6 +65,8 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
             reactions=p_reactions,
             stopped_scene=stopped_scene,
             actions=actions,
+            clear=(not any(rx.get('signals',{}).get('confused') for rx in p_reactions)) if any(type(rx.get('signals',{}).get('confused')) is bool for rx in p_reactions) else None,
+            cta=any(rx.get('signals',{}).get('cta_understood') for rx in p_reactions) if any(type(rx.get('signals',{}).get('cta_understood')) is bool for rx in p_reactions) else None,
         )
 
     # 3. Scene setup for retention and score boundaries
@@ -86,10 +89,11 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
 
     survival_samples = {s['scene_id']: [] for s in scenes}
     drop_rate_samples = {s['scene_id']: [] for s in scenes}
-    action_samples = {act: [] for act in ('like', 'share', 'save', 'comment')}
+    action_samples = {act: [] for act in action_kinds}
     hook_samples = []
     pacing_samples = []
     completion_samples = []
+    signal_samples = {key: [] for key in ('clear','cta')}
 
     if effective > 0:
         for _ in range(200):
@@ -110,9 +114,13 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
                     drop_rate_samples[sid].append(None)
 
             # Actions in this resample
-            for act in ('like', 'share', 'save', 'comment'):
+            for act in action_kinds:
                 act_count = sum(act in t['actions'] for t in sample_traces)
                 action_samples[act].append((act_count / effective) * 100.0)
+
+            for key in signal_samples:
+                observed = [trace[key] for trace in sample_traces if trace[key] is not None]
+                signal_samples[key].append(sum(observed)/len(observed)*100 if observed else None)
 
             # Hook & Pacing in this resample
             hook_surv = sum(t['stopped_scene'] is None or t['stopped_scene'] > hook_scene_id for t in sample_traces)
@@ -207,7 +215,7 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
 
     # 6. Engagement metrics
     engagement = {}
-    for act in ('like', 'share', 'save', 'comment'):
+    for act in action_kinds:
         act_pids = {pid for pid, t in traces.items() if act in t['actions']}
         act_ev_ids = [
             r['evidence_id']
@@ -235,15 +243,17 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
                 unavailable_reason='no_effective_traces',
             )
 
-    engagement['follow'] = dict(
-        kind='simulation_range',
-        unit='percent',
-        observed=None,
-        denominator=effective,
-        range=None,
-        evidence_ids=[],
-        unavailable_reason='action_not_observed_by_legacy_provider',
-    )
+    if manifest.get('signals_version') != 'engagement-v2':
+        engagement['follow'] = dict(
+            kind='simulation_range',
+            unit='percent',
+            observed=None,
+            denominator=effective,
+            range=None,
+            evidence_ids=[],
+            unavailable_reason='action_not_observed_by_legacy_provider',
+        )
+
 
     # 7. Scores
     hook_ev_ids = [r['evidence_id'] for r in terminal_reactions if r['scene_id'] == hook_scene_id]
@@ -321,6 +331,15 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
             unavailable_reason='grounded_trend_rules_unavailable',
         ),
     )
+
+    if manifest.get('signals_version') == 'engagement-v2':
+        for name,key in [('clarity','clear'),('cta','cta')]:
+            observed = [trace[key] for trace in traces.values() if trace[key] is not None]
+            scores[name] = dict(kind='heuristic_index',unit='percent',
+                observed=sum(observed)/len(observed)*100 if observed else None,
+                denominator=len(observed),range=compute_range(signal_samples[key]),
+                evidence_ids=[rx['evidence_id'] for rx in terminal_reactions if rx.get('signals',{}).get('confused' if key=='clear' else 'cta_understood') is not None],
+                unavailable_reason=None if observed else 'no_simulated_signal_returned')
 
     # 8. Completion metric
     completed_pids = {c['persona_id'] for c in checkpoints if c['status'] == 'complete'}
@@ -505,8 +524,8 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
 
     caveats = list(video['features'].get('caveats', [])) + [
         f'{suppressed} unsupported note(s) suppressed.',
-        'Signals for confusion, CTA understanding and trend fit unavailable.',
-        'Action follow not observed in legacy responses.',
+        ('Clarity and CTA ratings are simulated persona judgements; grounded trend fit is not evaluated.' if manifest.get('signals_version')=='engagement-v2' else 'Signals for confusion, CTA understanding and trend fit unavailable.'),
+        ('Follow is simulated intent, not a real gained follower.' if manifest.get('signals_version')=='engagement-v2' else 'Action follow not observed in legacy responses.'),
         'No causal, virality, reach or audience calibration claim.',
     ]
 
@@ -518,8 +537,8 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
     coverage = dict(
         transcript=transcript_coverage,
         ocr=multimodal,
-        confused=None,
-        cta_understood=None,
+        confused=True if any(t['clear'] is not None for t in traces.values()) else None,
+        cta_understood=True if any(t['cta'] is not None for t in traces.values()) else None,
         trend_fit=None,
         excluded_traces=dict(
             failed=failed_pids,
@@ -536,6 +555,7 @@ def build_report(manifest, video, checkpoints, rows, provider, source_sha, note_
         scores=scores,
         completion=completion,
         notes=notes[:3],
+        comments=[dict(evidence_id=ev['id'],text=ev['comment_text'],start_ms=ev['start_ms']) for ev in terminal_evidence_by_id.values() if ev.get('comment_text')][:12],
         observations=observations,
         evidence=list(evidence_by_id.values()),
         trust=trust,

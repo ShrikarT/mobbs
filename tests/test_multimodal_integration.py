@@ -94,7 +94,10 @@ class MultimodalJourneyTests(unittest.TestCase):
                 self.assertEqual(scene['features']['transcript']['text'], 'opening words' if index == 0 else 'future words')
                 if pid in failed_ids:
                     raise httpx.ReadTimeout('unknown persona outcome')
-                return httpx.Response(200, json=envelope({'verdicts': [{'persona_id': pid, 'still_watching': pid != 'p001', 'reason': 'Test simulated reason', 'impression': 'Test impression', 'actions': []}]}))
+                item={'persona_id':pid,'still_watching':pid!='p001','reason':'Test simulated reason','impression':'Test impression','actions':[]}
+                if 'quick_reaction' in body['text']['format']['schema']['properties']['verdicts']['items']['properties']:
+                    item.update(confused=False,cta_understood=True if index else None,quick_reaction='okay, i’m in!',comment_text=None)
+                return httpx.Response(200,json=envelope({'verdicts':[item]}))
             return httpx.Response(200, json=envelope({'notes': [], 'limitations': []}))
         def factory(media_hash, duration, profile='test', lease=None):
             return StandardProvider(media_hash,duration,profile=profile,lease=lease,transport=httpx.MockTransport(handler))
@@ -109,6 +112,18 @@ class MultimodalJourneyTests(unittest.TestCase):
         self.assertEqual(response.status_code,200,response.text)
         report = response.json()
         self.assertTrue(report['coverage']['transcript'])
+        self.assertTrue(report['coverage']['confused'])
+        self.assertEqual(report['scores']['cta']['denominator'], report['cast']['effective'])
+        self.assertEqual(report['engagement']['follow']['observed'],0)
+        stream=self.client.get('/runs/'+run+'/events')
+        snapshot=stream.text.split('event: run.snapshot\n')[-1]
+        self.assertNotIn('\nid:',snapshot)
+        live=json.loads(snapshot.split('data: ',1)[1])['payload']['state']
+        self.assertEqual(live['stage'],'report')
+        self.assertEqual(live['effective'], report['cast']['effective'])
+        stranger=TestClient(app,base_url=settings().origin)
+        stranger.post('/sessions',headers={'Origin':settings().origin})
+        self.assertEqual(stranger.get('/runs/'+run+'/events').status_code,404)
         self.assertIn('muse-voice-transcribe-1.0', report['trust']['model_ids'])
         self.assertEqual(counts, {'visual': 2, 'audio': 2})
         self.assertNotIn(('p001',1), seen)

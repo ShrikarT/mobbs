@@ -130,14 +130,14 @@ def validate_reaction(value, persona_ids, scenes):
     return value
 
 
-def normalize_verdict(raw, persona_id, scene_id, start_sec, end_sec, evidence_id):
+def normalize_verdict(raw, persona_id, scene_id, start_sec, end_sec, evidence_id, *, extended_signals=False):
     values = raw.get('verdicts')
     require(isinstance(values, list) and len(values) == 1, 'wrong verdict count')
     item = values[0]
     require(item['persona_id'] == persona_id, 'wrong persona')
     reason = text(item['reason'])
     require(len(text(item['impression']).split()) <= 30, 'legacy impression exceeds 30 words')
-    require(isinstance(item['actions'], list) and all(a in LEGACY_ACTIONS for a in item['actions']), 'unknown legacy action')
+    require(isinstance(item['actions'], list) and all(a in (ACTIONS if extended_signals else LEGACY_ACTIONS) for a in item['actions']), 'unknown legacy action')
     start, end = milliseconds(start_sec), milliseconds(end_sec)
     reaction = dict(persona_id=persona_id, scene_id=scene_id, still_watching=item['still_watching'],
                     actions=[dict(type=a, at_ms=None, timing='unobserved') for a in item['actions']],
@@ -147,6 +147,16 @@ def normalize_verdict(raw, persona_id, scene_id, start_sec, end_sec, evidence_id
     evidence = dict(id=evidence_id, persona_id=persona_id, scene_id=scene_id,
                     start_ms=start, end_ms=end, quote=reason, kind='simulated_reason',
                     still_watching=item['still_watching'])
+    if extended_signals:
+        require(type(item.get('confused')) is bool, 'invalid confusion signal')
+        require(item.get('cta_understood') is None or type(item['cta_understood']) is bool, 'invalid CTA signal')
+        quick = text(item.get('quick_reaction')).strip()
+        require(len(quick)<=60 and len(quick.split())<=8, 'oversized quick reaction')
+        comment = item.get('comment_text')
+        require(comment is None or (isinstance(comment,str) and len(comment)<=180 and 'comment' in item['actions']), 'invalid comment text')
+        reaction['signals'].update(confused=item['confused'], cta_understood=item.get('cta_understood'))
+        evidence.update(quick_reaction=quick,comment_text=comment)
+        validate_reaction(reaction,{persona_id},{scene_id:(start,end)})
     return reaction, evidence
 
 

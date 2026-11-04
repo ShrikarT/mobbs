@@ -1,0 +1,855 @@
+{
+  "status": "fifty candidates; behavioral distinction must be measured",
+  "policies": [
+    {
+      "id": "p01",
+      "label": "Busy beginner",
+      "card": {
+        "goal": "Tidy occasional notes during a short break",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "plain explanation and immediately visible benefit",
+          "Prefer one clear example over detailed technical internals"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Prefer one clear example over detailed technical internals"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p02",
+      "label": "Visual learner",
+      "card": {
+        "goal": "Understand a new tool by watching it",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "readable before-and-after example",
+          "Can tolerate a longer clip when the example is concrete"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Can tolerate a longer clip when the example is concrete"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p03",
+      "label": "Mechanism reviewer",
+      "card": {
+        "goal": "Evaluate whether the described transformation is credible",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "precise operation and inspectable input/output",
+          "Technical language is acceptable; unsupported claims are insufficient"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Technical language is acceptable; unsupported claims are insufficient"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p04",
+      "label": "Edge-case reviewer",
+      "card": {
+        "goal": "Adopt cleanup for messy real-world records",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "demonstrated handling of ambiguous or exceptional inputs",
+          "Accept extra setup in exchange for edge-case coverage"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Accept extra setup in exchange for edge-case coverage"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p05",
+      "label": "Reproducibility reviewer",
+      "card": {
+        "goal": "Repeat transformations across collaborators",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "repeatable settings and reproducible results",
+          "A polished single example does not establish repeatability"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "A polished single example does not establish repeatability"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p06",
+      "label": "Sensitive-data operator",
+      "card": {
+        "goal": "Process confidential working material",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "device-only processing with no external transfer",
+          "Accept extra manual steps to keep material local"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Accept extra manual steps to keep material local"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p07",
+      "label": "Disclosure-first operator",
+      "card": {
+        "goal": "Choose where non-sensitive drafts may be processed",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "explicit processing location and retention terms",
+          "Hosted processing is acceptable when handling is disclosed"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Hosted processing is acceptable when handling is disclosed"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p08",
+      "label": "Ephemeral-work operator",
+      "card": {
+        "goal": "Process temporary non-sensitive samples",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "short retention or explicit delete-after-use",
+          "Can accept hosted processing but not indefinite retention"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Can accept hosted processing but not indefinite retention"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p09",
+      "label": "Offline traveler",
+      "card": {
+        "goal": "Work where a network is unavailable",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "operation without an internet connection",
+          "Accept an install and slower setup for offline operation"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Accept an install and slower setup for offline operation"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p10",
+      "label": "No-install operator",
+      "card": {
+        "goal": "Use a borrowed locked-down machine",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "no download, install or admin permission",
+          "Can accept a hosted browser tool for non-sensitive material"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Can accept a hosted browser tool for non-sensitive material"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p11",
+      "label": "One-action operator",
+      "card": {
+        "goal": "Reduce clicks on a frequent small task",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "one action after selecting the input",
+          "Local operation matters less than avoiding repeated clicks"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Local operation matters less than avoiding repeated clicks"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p12",
+      "label": "Batch operator",
+      "card": {
+        "goal": "Clean hundreds of records at once",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "batch processing rather than one item at a time",
+          "Will accept configuration work if each batch avoids repeated manual actions"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Will accept configuration work if each batch avoids repeated manual actions"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p13",
+      "label": "Keyboard operator",
+      "card": {
+        "goal": "Stay in a keyboard-driven workflow",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "complete keyboard operation and shortcuts",
+          "Prefer shortcuts to a novel voice interface"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Prefer shortcuts to a novel voice interface"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p14",
+      "label": "Voice operator",
+      "card": {
+        "goal": "Work while hands are occupied",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "voice operation with visible confirmation",
+          "Can accept slower execution if no keyboard or mouse is required"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Can accept slower execution if no keyboard or mouse is required"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p15",
+      "label": "Automation builder",
+      "card": {
+        "goal": "Connect cleanup to an existing workflow",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "documented API or automation interface",
+          "Accept technical setup; a click-only interface does not solve this task"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Accept technical setup; a click-only interface does not solve this task"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p16",
+      "label": "Original-preserving maintainer",
+      "card": {
+        "goal": "Clean important source documents safely",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "original is preserved independently of edits",
+          "An undo button alone is less useful than keeping an untouched original"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "An undo button alone is less useful than keeping an untouched original"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p17",
+      "label": "Undo-first editor",
+      "card": {
+        "goal": "Experiment on a current draft",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "working undo that visibly restores the prior result",
+          "Can edit in place when undo is demonstrated"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Can edit in place when undo is demonstrated"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p18",
+      "label": "Approval-gated editor",
+      "card": {
+        "goal": "Review changes before applying them",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "preview and explicit confirmation before mutation",
+          "Accept an extra approval click to prevent surprise changes"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Accept an extra approval click to prevent surprise changes"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p19",
+      "label": "Audit-trail maintainer",
+      "card": {
+        "goal": "Explain changes to teammates later",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "durable change log with input/output provenance",
+          "Accept a heavier workflow for traceability"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Accept a heavier workflow for traceability"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p20",
+      "label": "Disposable-sample explorer",
+      "card": {
+        "goal": "Try unfamiliar interactions on throwaway samples",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "understandable interaction and something tangible to try",
+          "Can accept no undo on disposable samples; novelty has value"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Can accept no undo on disposable samples; novelty has value"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p21",
+      "label": "Zero-budget founder",
+      "card": {
+        "goal": "Solve an occasional task without a budget",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "usable free path without payment details",
+          "Can accept lower volume and extra steps to avoid recurring cost"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Can accept lower volume and extra steps to avoid recurring cost"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p22",
+      "label": "Predictable-budget founder",
+      "card": {
+        "goal": "Keep a recurring operating expense predictable",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "clear fixed price or hard spend cap",
+          "Will pay a disclosed fixed amount; open-ended usage charges are a concern"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Will pay a disclosed fixed amount; open-ended usage charges are a concern"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p23",
+      "label": "High-volume buyer",
+      "card": {
+        "goal": "Reduce total cost on large workloads",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "clear bulk capacity and economical volume pricing",
+          "A tiny free allowance is less useful than proven scale economics"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "A tiny free allowance is less useful than proven scale economics"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p24",
+      "label": "Occasional buyer",
+      "card": {
+        "goal": "Use cleanup only a few times a year",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "pay-as-needed or usable free allowance",
+          "Avoid a recurring subscription even when the monthly price is low"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Avoid a recurring subscription even when the monthly price is low"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p25",
+      "label": "Trial-before-purchase buyer",
+      "card": {
+        "goal": "Assess a tool before committing money",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "functional trial using own non-sensitive sample",
+          "Will consider a subscription after testing; a canned preview alone is insufficient"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Will consider a subscription after testing; a canned preview alone is insufficient"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p26",
+      "label": "Accessible reader",
+      "card": {
+        "goal": "Understand the demo without reading tiny text",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "legible large text and a clear textual explanation",
+          "Can accept a longer straightforward explanation over visual density"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Can accept a longer straightforward explanation over visual density"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p27",
+      "label": "Muted commuter",
+      "card": {
+        "goal": "Watch with sound disabled",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "complete captions or on-screen explanation",
+          "Audio-only demonstrations provide too little usable information"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Audio-only demonstrations provide too little usable information"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p28",
+      "label": "Audio-first viewer",
+      "card": {
+        "goal": "Understand a demo while looking away intermittently",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "spoken explanation that carries the important steps",
+          "Tiny visual-only labels do not communicate enough for this situation"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Tiny visual-only labels do not communicate enough for this situation"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p29",
+      "label": "Low-bandwidth viewer",
+      "card": {
+        "goal": "Evaluate a tool on a slow connection",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "small media payload and usable lightweight mode",
+          "Accept simpler visuals for reliable loading"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Accept simpler visuals for reliable loading"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p30",
+      "label": "Attention-limited viewer",
+      "card": {
+        "goal": "Decide quickly whether a demo deserves time",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "concrete useful payoff in the opening",
+          "A detailed explanation is welcome only after relevance becomes clear"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "A detailed explanation is welcome only after relevance becomes clear"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p31",
+      "label": "Deep evaluator",
+      "card": {
+        "goal": "Understand a workflow thoroughly before adoption",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "full workflow with limitations rather than an opening hook alone",
+          "Can watch a longer demo; a short teaser does not answer the task"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Can watch a longer demo; a short teaser does not answer the task"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p32",
+      "label": "Skeptical buyer",
+      "card": {
+        "goal": "Separate an actual demonstration from marketing",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "observable result and restrained claims",
+          "Promises and social proof alone cannot replace demonstrated behavior"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Promises and social proof alone cannot replace demonstrated behavior"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p33",
+      "label": "Peer-guided buyer",
+      "card": {
+        "goal": "Find a workflow already useful to similar teams",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "specific relevant customer example with a verifiable outcome",
+          "A dry technical demo is less persuasive without a relevant use case"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "A dry technical demo is less persuasive without a relevant use case"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p34",
+      "label": "Independent tester",
+      "card": {
+        "goal": "Verify results without relying on the vendor",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "exportable sample or way to check the output independently",
+          "A testimonial does not establish correctness; accept manual verification effort"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "A testimonial does not establish correctness; accept manual verification effort"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p35",
+      "label": "Limit-aware operator",
+      "card": {
+        "goal": "Avoid discovering exclusions after adoption",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "explicit limitations and unsupported cases",
+          "An honestly narrow tool can be useful; unexplained guarantees reduce trust"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "An honestly narrow tool can be useful; unexplained guarantees reduce trust"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p36",
+      "label": "CSV analyst",
+      "card": {
+        "goal": "Clean tabular working records",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "CSV input/output with columns preserved",
+          "A polished note-cleaning workflow is irrelevant unless it handles tables"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "A polished note-cleaning workflow is irrelevant unless it handles tables"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p37",
+      "label": "Writing-focused founder",
+      "card": {
+        "goal": "Tidy prose without changing its meaning",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "text input/output that preserves wording and meaning",
+          "Table-only features do not address the current task"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Table-only features do not address the current task"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p38",
+      "label": "Structured-data builder",
+      "card": {
+        "goal": "Feed cleaned records into software",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "JSON or structured machine-readable output",
+          "Can accept technical setup; screenshots are not usable output"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Can accept technical setup; screenshots are not usable output"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p39",
+      "label": "Spreadsheet teammate",
+      "card": {
+        "goal": "Share cleanup with nontechnical spreadsheet users",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "spreadsheet integration and familiar tabular output",
+          "Prefer familiar spreadsheet operation over a separate developer API"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Prefer familiar spreadsheet operation over a separate developer API"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p40",
+      "label": "Document reviewer",
+      "card": {
+        "goal": "Review edits in existing documents",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "document import with formatting preserved",
+          "Plain-text export is insufficient if layout and formatting are lost"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Plain-text export is insufficient if layout and formatting are lost"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p41",
+      "label": "Collaboration lead",
+      "card": {
+        "goal": "Coordinate changes between several teammates",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "shared review and concurrent collaboration",
+          "Accept a hosted service for non-sensitive team material"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Accept a hosted service for non-sensitive team material"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p42",
+      "label": "Solo operator",
+      "card": {
+        "goal": "Finish a private personal workflow quickly",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "individual use without invitations or team setup",
+          "Collaboration features do not justify extra onboarding"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Collaboration features do not justify extra onboarding"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p43",
+      "label": "Portability-focused owner",
+      "card": {
+        "goal": "Avoid being locked into a new tool",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "standard export and ability to leave with the data",
+          "Can accept rougher UI when outputs remain portable"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Can accept rougher UI when outputs remain portable"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p44",
+      "label": "Security administrator",
+      "card": {
+        "goal": "Allow a team tool with controlled access",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "role-based access and explicit permission controls",
+          "Accept administrator setup; an anonymous shared workspace is unsuitable"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Accept administrator setup; an anonymous shared workspace is unsuitable"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p45",
+      "label": "Integration maintainer",
+      "card": {
+        "goal": "Fit a tool into a stable existing stack",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "compatibility with the existing documented integration",
+          "Avoid disruptive replacement even when a new interface looks attractive"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Avoid disruptive replacement even when a new interface looks attractive"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p46",
+      "label": "Latency-sensitive operator",
+      "card": {
+        "goal": "Use cleanup repeatedly during live work",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "measured quick response at realistic input size",
+          "A long background job is unsuitable even if it eventually succeeds"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "A long background job is unsuitable even if it eventually succeeds"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p47",
+      "label": "Throughput-focused operator",
+      "card": {
+        "goal": "Finish a large overnight workload",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "large-job throughput and resumable completion",
+          "Can accept latency per item when total throughput is high"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Can accept latency per item when total throughput is high"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p48",
+      "label": "Reliability-focused maintainer",
+      "card": {
+        "goal": "Trust a recurring routine",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "visible failure handling and safe retry without duplicate changes",
+          "A fast happy-path example does not establish reliable recovery"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "A fast happy-path example does not establish reliable recovery"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p49",
+      "label": "Learning-focused maker",
+      "card": {
+        "goal": "Understand how to extend an operation",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "clear mechanism with modifiable examples or documentation",
+          "Can accept setup friction for learning and extensibility"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "Can accept setup friction for learning and extensibility"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    },
+    {
+      "id": "p50",
+      "label": "Novelty-averse operator",
+      "card": {
+        "goal": "Adopt a tool without retraining a routine",
+        "knowledge": "Competent in this stated workflow; no unstated demographic assumptions.",
+        "priorities": [
+          "familiar predictable controls and straightforward steps",
+          "A novel voice interaction is a cost when ordinary controls already work"
+        ],
+        "decision_rule": "Judge usefulness for this particular goal. Low if an explicit requirement is contradicted or the tool cannot do this job. High only when the requirement is shown and the benefit fits this goal. Medium if a material requirement is genuinely unresolved. Do not default to medium when the facts settle the requirement.",
+        "tradeoffs": [
+          "A novel voice interaction is a cost when ordinary controls already work"
+        ],
+        "memory_rule": "In the running impression retain the relevant observed fact and any unresolved requirement; use that evidence in later scenes. A requirement is not evidence of a flaw."
+      }
+    }
+  ]
+}

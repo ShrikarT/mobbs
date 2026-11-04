@@ -70,10 +70,13 @@ export interface ProvisionalVerdict {
 }
 
 export interface RunState {
+  created_at?: string;
+  observed_reactions?: number;
+  worker_active?: boolean;
   run_id: string;
   video_id: string;
   status: 'queued' | 'processing' | 'simulating' | 'complete' | 'incomplete' | 'failed';
-  stage: 'queued' | 'decoding' | 'simulating' | 'reporting' | 'report' | 'failed';
+  stage: 'queued' | 'decoding' | 'reading_video' | 'transcribing' | 'simulating' | 'reporting' | 'report' | 'failed';
   error_code?: string | null;
   sequence: number;
   requested: number;
@@ -205,6 +208,7 @@ export interface TrustManifest {
 }
 
 export interface ReportData {
+  comments?:Array<{evidence_id:string;text:string;start_ms:number}>;
   schema_version: string;
   manifest?: RunManifest;
   duration_ms?: number;

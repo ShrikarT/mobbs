@@ -5,7 +5,7 @@ from pathlib import Path
 from contracts.normalized import require, content_hash
 from .config import ROOT
 
-POLICIES_PATH = ROOT / 'experiments/behavior/fifty-policies.json'
+POLICIES_PATH = Path(__file__).parent / 'data/fifty-policies.json'
 EXPECTED_POLICIES_HASH = '66d9649bf11e24fda80bddb721e0783f5c7ef72c0c203f448e70b5a744118ffd'
 
 

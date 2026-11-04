@@ -108,7 +108,8 @@ export async function startRun(
 export async function fetchRun(runId: string, signal?: AbortSignal): Promise<RunState> {
   const res = await fetch(`/runs/${runId}`, {
     headers: { 'Accept': 'application/json' },
-    signal,
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000),
+    cache: 'no-store',
   });
   if (!res.ok) {
     const err: any = new Error(`Failed to fetch run: HTTP ${res.status}`);

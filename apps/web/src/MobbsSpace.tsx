@@ -1,82 +1,92 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {animate} from 'animejs';
 import {MobFace} from './Doodles';
-import {roomLayout} from './room-layout';
 import type {SimulationEvent} from './types';
 
-interface PersonaView {
-  status: 'watching'|'stopped'|'active';
-  lastScene: number;
-  atMs?: number;
-  reason?: string;
-  actions: string[];
+interface Appearance {key:number;slot:number;born:number;variant:number;text:string;waiting:boolean;dx:number;dy:number;}
+const hash=(value:string)=>Array.from(value).reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,7);
+function littleReaction(event:SimulationEvent) {
+  const p=event.payload;
+  if(typeof p.quick_reaction==='string' && p.quick_reaction.trim())return p.quick_reaction.trim().slice(0,60);
+  const actions=(p.actions || []).map(a=>typeof a==='string'?a:a.type);
+  if(actions.includes('share'))return 'sending this ↗';
+  if(actions.includes('save'))return 'saving this one ☆';
+  if(actions.includes('like'))return 'love this ♡';
+  if(actions.includes('comment'))return 'got a thought!';
+  if(actions.includes('follow'))return 'more of this, please';
+  return event.type==='persona.stopped'?'lost me a little…':'okay, i’m in!';
 }
-interface Props {ids:string[]; states:Map<string,PersonaView>; events:SimulationEvent[]; paused:boolean; seed:string;}
-
-function Mob({id,state,variant,angle,paused,motionAllowed,onInspect}: {id:string;state?:PersonaView;variant:number;angle:number;paused:boolean;motionAllowed:boolean;onInspect:(id:string)=>void}) {
-  const ref = useRef<HTMLButtonElement>(null);
-  const animation = useRef<ReturnType<typeof animate> | null>(null);
-  const observed = !!state;
+function Visitor({item,age,motion,paused,capacity}:{item:Appearance;age:number;motion:boolean;paused:boolean;capacity:number}) {
+  const ref=useRef<HTMLDivElement>(null);
+  const animation=useRef<ReturnType<typeof animate>|null>(null);
   useEffect(()=>{
-    if(!ref.current || !observed || !motionAllowed) return;
-    const a=animate(ref.current,{scale:[.45,1],rotate:[angle,0],opacity:[.2,1],duration:520,ease:'outBack',autoplay:!paused});
-    animation.current=a;
-    return ()=>{a.revert(); animation.current=null;};
-  },[observed,motionAllowed,angle]);
-  useEffect(()=>{ if(paused) animation.current?.pause(); else animation.current?.resume(); },[paused]);
-  const label=state?.status==='stopped'?'left':state?'watching':'waiting';
-  return <button ref={ref} type="button" className={`persona-node mob-node ${state?.status==='stopped'?'stopped':state?'watching':'pending'}`} onClick={()=>onInspect(id)} onFocus={()=>onInspect(id)} aria-label={`${id}: ${label}${state ? `, scene ${state.lastScene}`:''}${state?.reason ? `. Simulated reason: ${state.reason}`:''}`}>
-    <MobFace variant={state?.status==='stopped'?5:variant}/>
-    <span className="persona-id mono">{id}</span>
-    <span className="persona-indicator">{label}</span>
-    {!!state?.actions.length && <span className="mob-actions">{state.actions.map(action=><span key={action}>{action==='like'?'♡':action==='share'?'↗':action==='save'?'☆':action}</span>)}</span>}
-  </button>;
+    if(!ref.current || !motion)return;
+    animation.current=animate(ref.current,{opacity:{from:0,to:1},scale:{from:.55,to:1},y:{from:14,to:0},duration:420,ease:'outBack'});
+    return()=>{animation.current?.revert();};
+  },[motion]);
+  const leaving=age>4100;
+  useEffect(()=>{
+    if(leaving && motion && ref.current)animation.current=animate(ref.current,{opacity:0,scale:.8,y:-8,duration:260,ease:'inQuad'});
+  },[leaving,motion]);
+  useEffect(()=>{if(paused)animation.current?.pause();else animation.current?.resume();},[paused]);
+  const x=(capacity===2?[28,72]:[18,50,82])[item.slot]+item.dx;
+  const y=(capacity===2?[32,72]:[48,67,35])[item.slot]+item.dy;
+  return <div className="mob-visitor-position" data-appearance={item.key} style={{left:`${x}%`,top:`${y}%`}}>
+    <div ref={ref} className={`mob-visitor ${item.waiting?'warming':''}`} aria-label={item.waiting?'A decorative mob getting ready':`Stylised simulated reaction: ${item.text}`}>
+      <span className="little-thought">{item.text}</span><MobFace variant={item.variant}/>
+    </div>
+  </div>;
 }
 
-export function MobbsSpace({ids,states,events,paused,seed}: Props) {
+export function MobbsSpace({events,paused,seed}:{events:SimulationEvent[];paused:boolean;seed:string}) {
   const root=useRef<HTMLDivElement>(null);
-  const [motionAllowed,setMotionAllowed] = useState(false);
-  useEffect(()=>{
-    const media=window.matchMedia('(prefers-reduced-motion: reduce)');
-    const change=()=>setMotionAllowed(!media.matches);
-    change(); media.addEventListener('change',change);
-    return ()=>media.removeEventListener('change',change);
-  },[]);
-  const [width,setWidth]=useState(800);
-  const [inspected,setInspected]=useState<string|null>(null);
+  const eventsRef=useRef(events);eventsRef.current=events;
+  const pausedRef=useRef(paused);pausedRef.current=paused;
+  const [width,setWidth]=useState(700);
+  const [motion,setMotion]=useState(false);
+  const [clock,setClock]=useState(0);
+  const [visitors,setVisitors]=useState<Appearance[]>([]);
+  const elapsed=useRef(0),serial=useRef(0),lastSpawn=useRef(-2000);
+  const used=useRef(new Set<string>());
+  const visitorsRef=useRef<Appearance[]>([]);
+  const visibleRef=useRef(true);
   const [visible,setVisible]=useState(true);
-  const [tabVisible,setTabVisible]=useState(!document.hidden);
+  const capacity=width<520?2:3;
   useEffect(()=>{
-    const node=root.current;
-    if(!node) return;
-    const resize=new ResizeObserver(entries=>setWidth(entries[0].contentRect.width));
-    resize.observe(node);
-    const intersection=new IntersectionObserver(entries=>setVisible(entries[0].isIntersecting));
-    intersection.observe(node);
-    const visibility=()=>setTabVisible(!document.hidden);
-    document.addEventListener('visibilitychange',visibility);
-    return ()=>{resize.disconnect();intersection.disconnect();document.removeEventListener('visibilitychange',visibility);};
+    const node=root.current;if(!node)return;
+    const observer=new ResizeObserver(entries=>setWidth(entries[0].contentRect.width));observer.observe(node);
+    const intersection=new IntersectionObserver(entries=>{visibleRef.current=entries[0].isIntersecting;setVisible(entries[0].isIntersecting&&!document.hidden);});intersection.observe(node);
+    const visibility=()=>setVisible(visibleRef.current&&!document.hidden);document.addEventListener('visibilitychange',visibility);
+    const preference=matchMedia('(prefers-reduced-motion: reduce)');
+    const change=()=>setMotion(!preference.matches);change();preference.addEventListener('change',change);
+    return()=>{observer.disconnect();intersection.disconnect();document.removeEventListener('visibilitychange',visibility);preference.removeEventListener('change',change);};
   },[]);
-  const layout=useMemo(()=>roomLayout(ids,width,seed),[ids,width,seed]);
-  const latest = useMemo(()=>{
-    for(let i=events.length-1;i>=0;i--) {
-      const id=events[i].payload?.persona_id;
-      if(id && states.get(id)?.reason) return id;
-    }
-    return null;
-  },[events,states]);
-  const chosen=inspected || latest;
-  const selected=chosen?states.get(chosen):null;
-  return <div className="mobbs-space-wrap">
-    <div ref={root} className="persona-grid mobbs-space" role="region" aria-label="Simulated personas state grid" style={{height:Math.min(layout.height,620)}}>
-      <div className="mobbs-stage" style={{height:layout.height}}>
-      <span className="room-star room-star-a" aria-hidden="true">✧</span><span className="room-star room-star-b" aria-hidden="true">✳</span>
-      {layout.positions.map(position=><div key={position.id} className="mob-position" style={{left:position.x,top:position.y}}><Mob id={position.id} state={states.get(position.id)} variant={position.variant} angle={position.angle} paused={paused || !visible || !tabVisible} motionAllowed={motionAllowed} onInspect={setInspected}/></div>)}
-      </div>
+  useEffect(()=>{
+    const timer=setInterval(()=>{
+      if(pausedRef.current || document.hidden || !visibleRef.current)return;
+      elapsed.current+=400;const now=elapsed.current;setClock(now);
+      const update=()=>{
+        const alive=visitorsRef.current.filter(v=>now-v.born<4600 && v.slot<capacity);
+        if(alive.length>=capacity || now-lastSpawn.current<1400)return alive;
+        const slot=Array.from({length:capacity},(_,i)=>i).find(i=>!alive.some(v=>v.slot===i))!;
+        const reactions=eventsRef.current.filter(e=>e.type==='persona.continued'||e.type==='persona.stopped');
+        const fresh=reactions.slice(-30).find(e=>!used.current.has(e.event_id));
+        if(fresh)used.current.add(fresh.event_id);
+        const key=serial.current++;lastSpawn.current=now;
+        const waiting=['getting comfy…','popcorn ready','eyes on this…','hmm, let’s see'];
+        const roll=hash(seed+key);
+        return [...alive,{key,slot,born:now,variant:roll%8,text:fresh?littleReaction(fresh):waiting[key%waiting.length],waiting:!fresh,dx:(roll%5-2)*(capacity===2?.5:1.5),dy:(roll%11-5)}];
+      };
+      visitorsRef.current=update();setVisitors(visitorsRef.current);
+    },400);
+    return()=>clearInterval(timer);
+  },[capacity,seed]);
+  return <div className="mobbs-room-wrap">
+    <div ref={root} className="mobbs-room" role="region" aria-label="The mobbs space">
+      <span className="room-spark room-spark-one" aria-hidden="true">✳</span><span className="room-spark room-spark-two" aria-hidden="true">✧</span>
+      <span className="room-floor" aria-hidden="true"/>
+      {visitors.map(item=><Visitor key={item.key} item={item} age={clock-item.born} paused={paused || !visible} motion={motion} capacity={capacity}/>)}
     </div>
-    <div className="mob-reaction-inspector" aria-live={paused?"polite":"off"} aria-atomic="true">
-      {selected?.reason ? <><div className="reaction-byline"><MobFace variant={selected.status==='stopped'?5:3}/><span>{chosen} · {selected.status==='stopped'?'left':'watching'} · scene {selected.lastScene}</span>{inspected && <button type="button" onClick={()=>setInspected(null)} className="text-button">latest reaction</button>}</div><blockquote className="handwritten-bubble">“{selected.reason}”</blockquote><p>saved simulated persona reason{selected.atMs!==undefined?` · ${(selected.atMs/1000).toFixed(1)}s`:''}</p></> : <p className="awaiting-reactions">{chosen?`${chosen} is waiting for a saved reaction.`:'the stage is ready. reactions appear when the actual events arrive.'}</p>}
-    </div>
-    <p className="room-caption">positions and character expressions are decorative. labels, actions and quotes reflect saved simulation events. Select a mob to inspect it.</p>
+    <p className="room-note">{paused?'a little pause. your scan keeps going.':'little takes from a simulated crowd. big feelings included.'}</p>
   </div>;
 }
