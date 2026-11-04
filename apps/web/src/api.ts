@@ -135,7 +135,7 @@ export async function fetchEvidence(runId: string, evidenceId: string, signal?: 
 export async function fetchReport(runId: string, signal?: AbortSignal): Promise<{ ready: boolean; report?: ReportData; stage?: string }> {
   const res = await fetch(`/runs/${runId}/report`, {
     headers: { 'Accept': 'application/json' },
-    signal,
+    signal: signal ? AbortSignal.any([signal,AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000),
   });
   if (res.status === 202) {
     const body = await res.json();

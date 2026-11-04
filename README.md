@@ -1,92 +1,160 @@
 # Mobbs
 
-Local V03 is usable: the real Standard-provider Flash50 journey, supported notes/video evidence, refresh/recovery and deletion have been verified, including one constructed60s input. Formal p95 and the historical cost target remain open. See [current state](docs/STATE.md) for exact commits and journey evidence. Local V03 credit use is authorized under the [current owner decision](docs/decisions-v03-product-priority.md); custom accounting is deferred.
+**Meet your mobbs before the internet does.**
 
-## Current website and app design
+Mobbs gives short videos a small, simulated audience before you post. Drop a cut, watch a crowd of odd little personalities react, and explore where attention faded, what they would do, and what to change next.
 
-New Standard scans use Spark1.3 to interpret isolated native-video segments and Muse Voice Transcribe1.0 to transcribe each segment when an audio track exists. Each fictional persona receives only its current segment's frame, observations, approximate speech transcript and its own prior impression. Shared preparation runs once per segment with durable accepted outputs and no blind retries. Reports identify actual models and coverage; older reports retain their original visual-only disclosure. Image thumbnails, Wonder and SAM integrations remain outside this V03 scan implementation.
+**Current product: V03 · Flash Scan + Director’s Notes.**
 
-The approved landing page and V03 app share Space Mono, Patrick Hand, cobalt ink and lavender hand-drawn artwork. The landing **drop a video** button opens a fresh upload at `/#/app/new`, including on refresh. Saved scans remain accessible in **previous scans**. A started scan uses `/#/app/run/{run_id}` so refresh restores that specific owned scan; legacy `/#/app` retains latest-scan recovery. `/#/sample` is explicitly illustrative and never starts inference. `/#/roadmap` retains V04, V05, Deep, multi-platform, accounts/API and calibration research as future work.
+![The Mobbs screening room](apps/web/src/assets/hero-poster.svg)
 
-[Editable Figma app screens](https://www.figma.com/design/HNAM1otmM0c7FUlsLK72Ub/mobbs.fun?node-id=56-56) live in the same file as the full landing motion. The mobbs space scatters characters with a stable per-run layout. Waiting characters are neutral; observed labels, actions and inspectable reaction quotes come from saved simulation events. Position/face styling is decorative. Pause freezes the view; processing continues. Reduced-motion, hidden-tab and offscreen states stop decorative animation. Fonts are self-hosted.
+[Explore the design](https://www.figma.com/design/HNAM1otmM0c7FUlsLK72Ub/mobbs.fun?node-id=56-56)
 
-```powershell
-# Presentation browser checks; automatically starts Vite. API responses are controlled.
-npx playwright test --config playwright.ui.config.ts
-# Point those checks at a running production build:
-$env:MOBBS_UI_BASE_URL='http://127.0.0.1:58020'
-npx playwright test --config playwright.ui.config.ts
-# Actual recorded-inference app journeys; requires API/worker/private fixtures:
-$env:MOBBS_E2E_BASE_URL='http://127.0.0.1:58021'
-npx playwright test --config playwright.v03.config.ts
+---
+
+## What is Mobbs?
+
+A private screening room for the thing you’re about to share. Mobbs watches your video scene by scene through fictional personalities with different tastes. Some stay, some leave, some would save it for later.
+
+The result is an attention curve, simulated engagement, and timestamped editing suggestions grounded in saved reactions. These are **simulations, not real viewer feedback or predictions of views, reach, or virality**.
+
+## Why Mobbs?
+
+| When you’re editing | Mobbs helps you explore |
+| :--- | :--- |
+| Does the opening hold attention? | How many simulated viewers stay past the opening |
+| Where does the cut lose people? | A scene-by-scene attention curve with video jumps |
+| What would they do next? | Simulated likes, shares, saves, comments, and follows |
+| What could I change? | Editing notes linked to the moment and saved reasons |
+
+## Product
+
+- **Flash Scan** — a cast of 50 fictional viewers, watching scene by scene.
+- **Quick Preview** — a smaller 3-viewer scan for a faster first look.
+- **The Mobbs Space** — brief character visits with tiny thoughts while the scan runs.
+- **The Verdict** — an early opening result, followed by a full attention and engagement report.
+- **Director’s Notes** — supported suggestions you can jump to in your uploaded video.
+- **Private by session** — no signup; saved scans belong to your browser session. Delete a video and its app-owned derivatives, reactions, and reports together.
+
+Full scans can take several minutes. The screen updates as scenes and reactions are saved. A partial report identifies excluded responses; missing historical signals are never invented.
+
+---
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Drop a video] --> B[Validate and split scenes]
+    B --> C[Watch and transcribe each scene]
+    C --> D[Simulate the crowd]
+    D --> E[Verdict and attention curve]
+    E --> F[Editing notes for your next cut]
+    style A fill:#F4F3F8,stroke:#2000C8,color:#2000C8
+    style D fill:#C6BEDC,stroke:#2000C8,color:#2000C8
+    style F fill:#F4F3F8,stroke:#2000C8,color:#2000C8
 ```
 
-`PLAYWRIGHT_CHROMIUM_EXECUTABLE` optionally selects an installed Chromium executable. Recorded journeys exercise the production API, scheduler, persistence, report renderer and deletion with saved provider inference; they do not establish a fresh live-provider result. See STATE for exact revision evidence and the current local service ports. Deployment/release remains a separate milestone.
+**Spark (`muse-spark-1.3`)** interprets physically isolated scene clips and generates persona decisions. **Muse Voice Transcribe (`muse-voice-transcribe-1.0`)** transcribes scene audio when present. Each persona receives the current scene’s frame, observations, transcript, and only its own previous impression. Once it leaves, it receives no later scenes.
 
-Local development (Windows, Python 3.10.2 / Node 26.7.0). Run the worker and API in separate terminals using the same private configuration:
+The opening verdict and full report come from saved decisions. Engagement counts represent unique simulated viewers taking an action, not real platform events. Clarity and next-step understanding appear when collected. Trend fit and real-world reach are not measured. Resampling ranges describe variation within the fictional cast; they are not calibrated confidence intervals.
 
-```powershell
+## Architecture
+
+```mermaid
+flowchart TB
+    UI[React + TypeScript + Anime.js] --> API[FastAPI / same-origin private sessions]
+    API --> PG[(PostgreSQL / durable jobs and reports)]
+    API --> S3[(Private S3-compatible media storage)]
+    WORKER[Python worker + FFmpeg] --> PG
+    WORKER --> S3
+    WORKER --> SPARK[Meta Spark]
+    WORKER --> AUDIO[Muse Voice Transcribe]
+    PG --> API
+```
+
+| Component | Purpose |
+| :--- | :--- |
+| `apps/web` | Landing page, upload, live screening room, report, and roadmap |
+| `apps/api/app` | Session ownership, validated uploads, durable worker, model adapters, and deletion |
+| `contracts` | Normalized reactions and evidence validation |
+| `migrations` | PostgreSQL schema and immutable run manifests |
+| `compose.yaml` | Local web, worker, database, and private object storage |
+
+Provider calls have bounded concurrency and durable request markers. Accepted work is reused. Requests with unknown outcomes are not blindly retried; affected traces are excluded where safe. Shared preparation failures stop dependent work. Model credentials stay on the server.
+
+---
+
+## Roadmap
+
+| Stage | Scope | Status |
+| :--- | :--- | :--- |
+| V03 | Flash Scan, scene audio/video, simulated engagement, Director’s Notes | Implemented locally |
+| V04 | Compare original and edited cuts with matched casts and paired ranges | Planned |
+| V05 | Thumbnail Lab with owned-frame variants and simulated voting | Planned |
+| Deep | Richer context and more detailed simulations | Planned |
+| Multi-platform | More formats, platform context, and comparative benchmarks | Planned |
+| Accounts + API | Personal libraries, collaboration, integrations | Planned |
+| Validation | Accuracy research, human-audience calibration, latency benchmarks | Future research |
+
+---
+
+## Getting started
+
+### With Docker
+
+Requires Docker Desktop or Docker Engine with Compose, and a Meta API key with access to both models.
+
+```sh
+git clone https://github.com/ShrikarT/mobbs.git
+cd mobbs
+cp .env.example .env
+# Set MODEL_API_KEY, POSTGRES_PASSWORD and S3 credentials in .env.
+docker compose up --build -d
+```
+
+Open **http://localhost:8000**. Use this exact origin; session and upload checks require it. Keep `.env` private. Use a URL-safe database password in Compose, or supply a correctly percent-encoded connection URL for native hosting.
+
+```sh
+docker compose logs -f web worker
+docker compose stop
+```
+
+Stopping preserves local volumes. The first startup creates the schema and configured private bucket. Only the web port is exposed, on localhost. Model calls use your provider account and may incur charges.
+
+### Native development
+
+Requires Node.js 22.12+ (or 24+), Python 3.12, FFmpeg/ffprobe, PostgreSQL 17, and a private S3-compatible bucket. Export the variables in `.env.example` into your shell; native Python does not automatically load that file. Set `APP_ORIGIN` to the exact browser origin.
+
+```sh
 python -m venv .venv
-.venv/Scripts/python -m pip install -r requirements.txt
+# Activate the environment for your shell.
+pip install -r requirements.txt
 npm ci
 npm run build
-.venv/Scripts/python -m apps.api.app.db
-.venv/Scripts/python -m scripts.check_services
-.venv/Scripts/python -m apps.api.app.worker
-.venv/Scripts/python -m uvicorn apps.api.app.main:app --host 127.0.0.1 --port 58000 --no-access-log
+python -m apps.api.app.bootstrap
+uvicorn apps.api.app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Private configuration defaults to `~/.codex/private-runs/mobbs-v02-local/runtime.json`
-(fallback to `viralist-v02-local/runtime.json`; override with `MOBBS_RUNTIME` or legacy `VIRALIST_RUNTIME`). Required keys: `database_url`, `s3_endpoint`,
-`s3_access_key`, `s3_secret_key`, `s3_bucket`, `provider_evidence_root`.
-Never commit this file. Existing coordinator-owned PostgreSQL 17 and RustFS services
-are required; `scripts.check_services` creates the configured private app bucket
-if absent and checks a disposable object. Open `http://127.0.0.1:58000`.
-Recorded mode uses hash-bound saved inference. Standard mode uses the server-only provider key under the current V03 authorization.
+In a second terminal with the same environment:
 
-Test a short MP4 with a simulated audience and inspect timestamped editing notes. V04 edited-cut comparison and V05 Thumbnail Lab are planned, not available.
-
-**Local V02 recorded-inference slice; acceptance is tracked in `docs/STATE.md`.** Real local upload, durable PostgreSQL worker, hash-bound recorded 3-person Meta adapter simulation, supported Director's Note with concrete fix and suppressed note disclosure, persistent reloadable workbench UI, and complete deletion lifecycle.
-
-Start with [the planning handoff](docs/START_HERE.md), [the product brief](docs/PROJECT_BRIEF.md), and [the delivery plan](PLAN.md). Current evidence and next actions are in [STATE](docs/STATE.md). Operating rules are in [AGENTS](AGENTS.md).
-
-The hackathon slice is Flash Scan → Director's Notes → edited-cut comparison → Thumbnail Lab, for Instagram Reels. Outputs describe a simulation; they do not predict real-world reach or reproduce Instagram's algorithm. The full product roadmap remains sequenced after this slice.
-
-Verified local regression and end-to-end checks (exact revisions and limits are in [the integrated journey record](docs/evidence/v02-integrated-journey.md)):
-
-```powershell
-# Python unit, domain integration, security isolation, and full journey tests (28 passing)
-.venv/Scripts/python -m unittest tests.test_normalized tests.test_domain_integration tests.test_api_security_isolation tests.test_full_journey
-
-# V03 Flash 50-persona backend suite (manifest, SSE events, report resampling, failure, deletion, 9 passing)
-.venv/Scripts/python -m unittest tests.test_v03_flash_backend
-
-# Standalone saved evidence reconciliation (reconciles 19 reactions and 2 note envelopes)
-.venv/Scripts/python -m tests.reconcile_saved
-
-# Playwright browser journeys (Desktop Chrome and 320px Mobile, 6 passing)
-npx playwright test
-
-# Historical experiment test suite
-python -m unittest discover -s experiments -p 'test_*.py' -v
+```sh
+python -m apps.api.app.worker
 ```
 
-### V03 UI Workbench Execution & End-to-End Verification
+Use `python -m apps.api.app.bootstrap --create-bucket` only when you want Mobbs to create a missing local bucket. For hosted storage, provision a private bucket and use credentials limited to it. `MOBBS_RUNTIME` can alternatively point to a private JSON configuration; environment settings override it.
 
-To run and verify the V03-U1 Flash evidence workbench environment:
+**Accepted uploads:** MP4, up to 60 seconds and 200,000,000 bytes. The server validates codecs, duration, resolution, frame rate, and actual decoding. A report is accessible only to the session that owns its upload. Clearing browser cookies loses access to that session; automatic retention cleanup runs in the worker after 24 hours.
 
-```powershell
-# 1. Bootstrap isolated V03 database and private runtime config:
-.venv/Scripts/python scripts/v03_ui_setup.py
+### Hosting
 
-# 2. Build the frontend web application:
-npm run build
+The Docker image serves the built frontend and API together. Run a second service with `python -m apps.api.app.worker`, and provide managed PostgreSQL plus a private S3-compatible bucket. Set `APP_ORIGIN` to the public HTTPS URL; secure session cookies are enabled automatically. Set `APP_COMMIT` to the deployed Git SHA when building outside a host that supplies it.
 
-# 3. Start the supervised API server and worker daemon on http://127.0.0.1:58003:
-.venv/Scripts/python scripts/v03_ui_runner.py
+Deployment is pending the owner’s platform selection. Runtime services, database, storage, and model usage have separate costs. No live deployment or production accuracy claim is implied by this repository.
 
-# 4. In a separate terminal, execute the isolated V03 Playwright browser suite:
-npx playwright test --config playwright.v03.config.ts
-```
+## Built with
 
-`experiments/meta_pipeline.py` is a historical experiment runner, not the V03 app entrypoint. The app uses the API and durable worker commands above with the same private runtime; Standard mode selects `provider_mode: "standard"` and a server-only `MODEL_API_KEY` environment variable. Keep the key, media and raw responses outside Git and the browser. Recorded mode remains the default. Follow current STATE and owner authority for the reviewed checkout and real-provider journey; historical experiment-ledger prerequisites do not apply to current V03 execution.
+React · TypeScript · Vite · Anime.js · FastAPI · PostgreSQL · FFmpeg · S3-compatible storage · Meta Spark · Muse Voice Transcribe.
+
+Space Mono and Patrick Hand are self-hosted; their licenses and the Anime.js license are included with the web assets. Concept inspiration: @shubhamgl2003’s Viralist reel. Mobbs is an independent implementation.
+
+**Made for people who make things. Built with a little chaos. ♡**

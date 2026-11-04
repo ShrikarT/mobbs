@@ -3,6 +3,7 @@ import json
 import re
 import secrets
 import tempfile
+import psycopg
 from urllib.parse import urlsplit
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
@@ -26,6 +27,14 @@ app = FastAPI(title='Mobbs local evidence desk', docs_url=None, redoc_url=None)
 
 def error(code, status=400, stage='request'):
     return JSONResponse(dict(code=code,stage=stage,message=code.replace('_',' '),retryable=False,request_id=uid()),status_code=status)
+
+
+@app.exception_handler(psycopg.OperationalError)
+@app.exception_handler(psycopg.InterfaceError)
+async def database_unavailable(_, exc):
+    response = error('database_temporarily_unavailable',503,'storage')
+    response.headers['Retry-After'] = '3'
+    return response
 
 
 @app.exception_handler(Denied)

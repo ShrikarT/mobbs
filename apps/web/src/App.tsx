@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {Brand,Doodle} from './Doodles';
 import {ScanExperience} from './ScanExperience';
 import {ProductReport} from './ProductReport';
@@ -24,8 +24,6 @@ import {
   DeletionState,
   NoteItem,
   SimulationEvent,
-  RetentionRow,
-  MetricItem,
   EvidenceItem,
   ProvisionalVerdict,
 } from './types';
@@ -109,23 +107,6 @@ function formatRunErrorMessage(code?: string | null): { title: string; explanati
   );
 }
 
-function formatUnavailableReason(code?: string | null): string {
-  if (!code) return 'Not observed';
-  const map: Record<string, string> = {
-    confusion_signal_unobserved: 'Confusion signal unobserved',
-    cta_understanding_signal_unobserved: 'Call to action signal unobserved',
-    action_not_observed_by_legacy_provider: 'Action not observed by provider',
-    no_scene_entrants: 'no_scene_entrants',
-    trend_signal_unobserved: 'Trend fit signal unobserved',
-    unsupported_trigger: 'Trigger not supported by evidence',
-    quote_mismatch: 'Quote mismatch',
-    invalid_time: 'Invalid timing window',
-    invalid_reference: 'Invalid scene reference',
-    malformed_candidate: 'Malformed candidate payload',
-  };
-  return map[code] || code.replace(/_/g, ' ');
-}
-
 export function App({
   initialReport,
   initialViewState,
@@ -161,7 +142,7 @@ export function App({
 
   // Profile choice: 'flash' (50 personas) or 'test' (3 personas)
   const [selectedProfile, setSelectedProfile] = useState<'flash' | 'test'>('flash');
-  const [availableProfiles, setAvailableProfiles] = useState<('flash' | 'test')[]>(['flash', 'test']);
+  const [, setAvailableProfiles] = useState<('flash' | 'test')[]>(['flash', 'test']);
 
   // Active video & run
   const [videoId, setVideoId] = useState<string | null>(null);
@@ -239,7 +220,6 @@ export function App({
   // Start polling deletion helper with sequenced polling and generation fencing
   const startPollingDeletion = (delId: string) => {
     const currentDelFence = ++delFenceRef.current;
-    let delTimer: ReturnType<typeof setTimeout> | null = null;
     let isDelBusy = false;
 
     const pollDel = async () => {
@@ -263,12 +243,12 @@ export function App({
       } finally {
         isDelBusy = false;
         if (delFenceRef.current === currentDelFence) {
-          delTimer = setTimeout(pollDel, 1000);
+          setTimeout(pollDel, 1000);
         }
       }
     };
 
-    delTimer = setTimeout(pollDel, 1000);
+    setTimeout(pollDel, 1000);
   };
 
   // Explicit new-upload intent never restores a prior run. Legacy /app and
@@ -344,7 +324,7 @@ export function App({
       if (!isMounted || runFenceRef.current !== currentFence) return;
       try {
         const res = await fetch(`/runs/${activeRunId}/events?after=${lastSeq}`, {
-          signal: abortCtrl.signal,
+          signal: AbortSignal.any([abortCtrl.signal,AbortSignal.timeout(10000)]),
         });
         if (!res.ok) return;
         const text = await res.text();
@@ -641,94 +621,7 @@ export function App({
     onNewUpload?.();
   };
 
-  // Authoritative stored scenes and duration derivation
-  const scenes = report?.scenes && report.scenes.length > 0 ? report.scenes : [];
-  const durationMs = report?.duration_ms ?? (scenes.length > 0 ? scenes[scenes.length - 1].end_ms : null);
-  const durationSec = durationMs !== null ? (durationMs / 1000).toFixed(1) : null;
-
-  // Suppressed notes count derived from backend data
-  const suppressedCount = useMemo(() => {
-    if (!report) return 0;
-    if (report.note_rejections) {
-      return Object.values(report.note_rejections).reduce((a, b) => a + b, 0);
-    }
-    if (report.suppressed_notes !== undefined) {
-      return report.suppressed_notes;
-    }
-    const match = report.caveats?.find((c) => c.includes('unsupported note'))?.match(/(\d+)/);
-    return match ? parseInt(match[1], 10) : 0;
-  }, [report]);
-
-  // Derive persona state map for the live graph using persisted reason
-  const personaStateMap = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        status: 'watching' | 'stopped' | 'active';
-        lastScene: number;
-        atMs?: number;
-        reason?: string;
-        actions: string[];
-      }
-    >();
-
-    for (const ev of events) {
-      const p = ev.payload;
-      if (!p || !p.persona_id) continue;
-      const current: {
-        status: 'watching' | 'stopped' | 'active';
-        lastScene: number;
-        atMs?: number;
-        reason?: string;
-        actions: string[];
-      } = map.get(p.persona_id) || {
-        status: 'watching',
-        lastScene: p.scene_id ?? 0,
-        atMs: p.at_ms,
-        actions: [],
-      };
-
-      current.lastScene = Math.max(current.lastScene, p.scene_id ?? 0);
-      if (p.at_ms !== undefined) current.atMs = p.at_ms;
-
-      if (ev.type === 'persona.stopped') {
-        current.status = 'stopped';
-        current.reason = p.reason || p.drop_reason;
-      } else if (ev.type === 'persona.continued') {
-        current.status = 'watching';
-        current.reason = p.reason;
-      }
-
-      if (p.actions && Array.isArray(p.actions)) {
-        for (const act of p.actions) {
-          const actType = typeof act === 'object' && act ? act.type : String(act);
-          if (actType && !current.actions.includes(actType)) {
-            current.actions.push(actType);
-          }
-        }
-      }
-      map.set(p.persona_id, current);
-    }
-    return map;
-  }, [events]);
-
-  // Count persona decisions strictly (excluding system or verdict events)
-  const personaDecisionsCount = useMemo(() => {
-    return events.filter((e) => e.type.startsWith('persona.')).length;
-  }, [events]);
-
-  // List of all expected persona IDs based on requested count
-  const allExpectedPersonaIds = useMemo(() => {
-    const requested = runState?.requested || (selectedProfile === 'flash' ? 50 : 3);
-    return Array.from({ length: requested }, (_, i) => `p${String(i + 1).padStart(3, '0')}`);
-  }, [runState, selectedProfile]);
-
-  // Derive effective mode: saved report provenance first, sealed manifest second, session config only for initial empty state
-  const effectiveMode = useMemo(() => {
-    if (report?.trust?.mode) return report.trust.mode;
-    if (runState?.manifest?.provider_mode) return runState.manifest.provider_mode;
-    return session?.provider_mode || 'recorded';
-  }, [report?.trust?.mode, runState?.manifest?.provider_mode, session?.provider_mode]);
+  const effectiveMode=report?.trust?.mode || runState?.manifest?.provider_mode || session?.provider_mode || 'recorded';
 
   return (
     <div>
@@ -796,7 +689,7 @@ export function App({
 
             {/* Profile Selection */}
             <div className="profile-selector-box" role="group" aria-label="Audience simulation profile">
-              <span className="selector-title">Simulation Profile:</span>
+              <span className="selector-title">choose your crowd</span>
               <div className="profile-options">
                 <button
                   type="button"
@@ -804,8 +697,8 @@ export function App({
                   onClick={() => setSelectedProfile('flash')}
                   aria-pressed={selectedProfile === 'flash'}
                 >
-                  <span className="btn-toggle-title">Flash (50 personas)</span>
-                  <span className="btn-toggle-desc">Full 50-persona scan · scene-by-scene reactions · more detail</span>
+                  <span className="btn-toggle-title">Flash · 50 mobbs</span>
+                  <span className="btn-toggle-desc">the full crowd · more perspectives</span>
                 </button>
                 <button
                   type="button"
@@ -813,8 +706,8 @@ export function App({
                   onClick={() => setSelectedProfile('test')}
                   aria-pressed={selectedProfile === 'test'}
                 >
-                  <span className="btn-toggle-title">Quick preview (3 personas)</span>
-                  <span className="btn-toggle-desc">Small diagnostic sample · faster, less detailed</span>
+                  <span className="btn-toggle-title">Quick preview · 3 mobbs</span>
+                  <span className="btn-toggle-desc">a smaller crowd · a quicker first look</span>
                 </button>
               </div>
             </div>
@@ -822,10 +715,10 @@ export function App({
             <details className="disclosure-box">
               <summary>before you upload / privacy + simulation details</summary>
               <ul className="disclosure-list">
-                <li>Server validates MP4 container, codec, and duration before any dispatch.</li>
-                <li>Simulated personas: 50 instances for Flash, 3 for Test. All audience outcomes are simulated models, never real people.</li>
+                <li>Upload an MP4 up to 60 seconds. We check it before the scan starts.</li>
+                <li>Flash uses 50 fictional viewers; Quick preview uses 3. Their reactions are simulated, not real audience feedback.</li>
                 {effectiveMode === 'standard' ? (
-                  <li>Live Standard provider inference via Meta muse-spark-1.3; bounded calls per run with concurrency {selectedProfile === 'flash' ? 8 : 1}. New scans combine Spark scene-video observations with Muse Voice Transcribe for audio-bearing uploads. Each persona receives only its current scene and own prior impression. Transcription timing is approximate; simulations are not human-calibrated.</li>
+                  <li>Your video is processed by Meta Spark and Muse Voice Transcribe when audio is present. The mobbs watch scene by scene. Results are not predictions of real views.</li>
                 ) : (
                   <li>Exact hash-bound recorded inference; no new provider latency or spend claimed.</li>
                 )}
