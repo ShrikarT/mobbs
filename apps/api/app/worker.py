@@ -101,7 +101,7 @@ def prepare(lease, provider):
             if not has_cp:
                 for pid in provider.persona_ids:
                     conn.execute('INSERT INTO checkpoints(run_id,persona_id) VALUES(%s,%s) ON CONFLICT DO NOTHING', (lease['run_id'], pid))
-                stage(conn, lease['run_id'], 'simulating')
+            stage(conn, lease['run_id'], 'simulating')
             return
         stage(conn, lease['run_id'], 'decoding')
     with tempfile.TemporaryDirectory(prefix='mobbs-worker-') as tmp:
