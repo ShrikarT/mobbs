@@ -9,6 +9,7 @@ from unittest.mock import patch
 import httpx
 from apps.api.app.standard_provider import StandardProvider, ProviderUnavailable
 from apps.api.app.worker import sanitize_error_receipt
+from apps.api.app.domain import LeaseLost
 from tests.test_v03_standard_app import make_verdict_response
 
 
@@ -88,3 +89,14 @@ class TestTransportReuse(unittest.TestCase):
         self.assertEqual(receipt['error']['code'],'provider_connection_unavailable')
         self.assertEqual(receipt['error']['charge_state'],'unconfirmed')
         self.assertIsNone(receipt['http_status'])
+
+    def test_deleted_or_cancelled_lease_prevents_connection_retry(self):
+        calls=[]
+        def transport(request):
+            calls.append(request)
+            raise httpx.ConnectTimeout('synthetic pre-request failure',request=request)
+        with httpx.Client(transport=httpx.MockTransport(transport)) as client:
+            provider=StandardProvider('synthetic',4000,profile='flash',client=client,lease={'id':'synthetic','run_id':'synthetic'})
+            with patch('apps.api.app.standard_provider.connection'),patch('apps.api.app.standard_provider.fence',side_effect=LeaseLost('deleted')):
+                with self.assertRaises(LeaseLost):provider.verdict(projection())
+        self.assertEqual(len(calls),1)

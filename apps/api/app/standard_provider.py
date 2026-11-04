@@ -19,7 +19,8 @@ from contracts.normalized import (
     stop_trigger,
 )
 from .config import ROOT, settings
-from .domain import utc
+from .domain import utc, fence, LeaseLost
+from .db import connection
 from .storage import Storage
 from .cast import get_persona_ids, get_persona_card
 
@@ -236,6 +237,12 @@ class StandardProvider:
                 # HTTPX has not established a connection or sent the HTTP body.
                 # Retry only this phase, once, inside the existing concurrency slot.
                 if attempt == 0:
+                    if self.lease is not None:
+                        with connection() as conn:
+                            fence(conn,self.lease)
+                            run=conn.execute('SELECT status FROM runs WHERE id=%s',(self.lease['run_id'],)).fetchone()
+                            if not run or run['status'] in ('failed','complete','incomplete'):
+                                raise LeaseLost('run no longer active')
                     continue
                 receipt = {'http_status': None, 'request_id': req_id,
                            'requested_model': self.model_id, 'latency_sec': time.monotonic()-t0}
