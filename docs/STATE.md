@@ -1,5 +1,14 @@
 # Mobbs current handoff — 2026-11-03
 
+### Bug-fix continuation checkpoint — c9371af, 2026-11-04
+
+The exact legacy ConnectTimeout recovery was applied once with the paused old worker stopped. Archived original sanitized receipt as a non-request transport-audit entry (retained original), preserved manifest and117 original reaction/evidence hashes, and resumed only remaining work. New worker c9371af completed346 accepted decisions/full50-persona report,0 failed/pending. Remaining work took162.8s; this is operator-assisted continuation, not a fresh full-scan benchmark. Original117 hashes/manifest match and stopped personas have0 later dispatches. Customer reports/media are preserved. API58020 remains available.
+
+The5 new adapter regressions pass; geometry check now passes9 motion beats and all6 UI tests pass. Initial48-case backend run was47pass/1lease-check failure; the lease check passed on isolated frozen c9371af and in the11-case pool rerun. That pool rerun exposed a test-query isolation defect: pg_locks counted production and test databases together (16), although advisory locks are database-scoped. Corrected only the two test introspection queries to current_database OID; actual8-call guard unchanged. Focused cross-process verification is running; final clean-revision regression pass follows. No second paid scan/retry of accepted work occurred.
+
+Existing3-person Test option is renamed Quick preview with an explicit smaller/less-detailed diagnostic description; full50 remains default. Provider-bound full scans still require hundreds of model decisions; no instant-scan promise or sample-size reduction is made. Pipeline improvements remove repeated connection/frame setup and busy polling.
+
+
 ## Active: MOBBS-ANIMATION-SCAN-FIX — 2026-11-04
 
 Owner reports oversized/glitched landing motion and slow scan ending uncertain_provider_charge. Direct Codex execution continues by owner override; no agents/Orca. Work is isolated on codex/mobbs-app-redesign atop1430548; original coordinator drafts preserved.

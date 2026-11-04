@@ -748,7 +748,7 @@ export function App({
                   aria-pressed={selectedProfile === 'flash'}
                 >
                   <span className="btn-toggle-title">Flash (50 personas)</span>
-                  <span className="btn-toggle-desc">Full sequential simulation · Hook &amp; Pacing · Drop-off curve</span>
+                  <span className="btn-toggle-desc">Full 50-persona scan · scene-by-scene reactions · more detail</span>
                 </button>
                 <button
                   type="button"
@@ -756,8 +756,8 @@ export function App({
                   onClick={() => setSelectedProfile('test')}
                   aria-pressed={selectedProfile === 'test'}
                 >
-                  <span className="btn-toggle-title">Test (3 personas)</span>
-                  <span className="btn-toggle-desc">Diagnostic test cast · Fast verification</span>
+                  <span className="btn-toggle-title">Quick preview (3 personas)</span>
+                  <span className="btn-toggle-desc">Small diagnostic sample · faster, less detailed</span>
                 </button>
               </div>
             </div>

@@ -369,7 +369,7 @@ class TestV03BoundedPool(unittest.TestCase):
                 while time.monotonic() < deadline:
                     self.assertIsNone(one.poll(), "Child 1 exited unexpectedly")
                     with connection() as db:
-                        locks_held = db.execute("SELECT count(1) AS count FROM pg_locks WHERE locktype='advisory' AND objid BETWEEN 58004001 AND 58004008 AND granted").fetchone()['count']
+                        locks_held = db.execute("SELECT count(1) AS count FROM pg_locks WHERE database=(SELECT oid FROM pg_database WHERE datname=current_database()) AND locktype='advisory' AND objid BETWEEN 58004001 AND 58004008 AND granted").fetchone()['count']
                     if locks_held == 8:
                         break
                     time.sleep(0.05)
@@ -455,7 +455,7 @@ class TestV03BoundedPool(unittest.TestCase):
             max_locks_observed = 0
             while one.poll() is None or two.poll() is None:
                 with connection() as db:
-                    locks = db.execute("SELECT count(1) AS count FROM pg_locks WHERE locktype='advisory' AND objid BETWEEN 58004001 AND 58004008 AND granted").fetchone()['count']
+                    locks = db.execute("SELECT count(1) AS count FROM pg_locks WHERE database=(SELECT oid FROM pg_database WHERE datname=current_database()) AND locktype='advisory' AND objid BETWEEN 58004001 AND 58004008 AND granted").fetchone()['count']
                     if locks > max_locks_observed:
                         max_locks_observed = locks
                 time.sleep(0.008)

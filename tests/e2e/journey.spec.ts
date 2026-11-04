@@ -32,8 +32,8 @@ test.describe('Mobbs V03 Browser Journey', () => {
     await expect(page.locator('.hero-heading')).toHaveText('what are we watching?');
     await expect(page.locator('.session-badge')).toContainText('Session:');
 
-    // Select Test (3 personas) profile for Video B
-    const testToggle = page.locator('button.btn-toggle:has-text("Test (3 personas)")');
+    // Select Quick preview (3 personas) profile for Video B
+    const testToggle = page.locator('button.btn-toggle:has-text("Quick preview (3 personas)")');
     await testToggle.click();
     await expect(testToggle).toHaveClass(/active/);
 
@@ -271,7 +271,7 @@ test.describe('Mobbs V03 Browser Journey', () => {
     await expect(page.locator('.session-badge')).toContainText('Session:');
 
     // Select Test 3 profile for quick start
-    await page.locator('button.btn-toggle:has-text("Test (3 personas)")').click();
+    await page.locator('button.btn-toggle:has-text("Quick preview (3 personas)")').click();
     await page.locator('#file-upload').setInputFiles(VIDEO_B_PATH);
 
     // In processing view, click Cancel & delete video
