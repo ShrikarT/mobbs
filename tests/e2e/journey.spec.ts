@@ -101,6 +101,20 @@ test.describe('Mobbs V03 Browser Journey', () => {
     await expect(page.locator('.timeline-header')).toContainText('17.1s');
     await expect(page.locator('.note-card').first()).toBeVisible();
 
+    // A landing upload CTA must stay fresh even with this real saved report.
+    const savedRunUrl=page.url();
+    expect(savedRunUrl).toMatch(/#\/app\/run\//);
+    await page.goto('/');
+    await page.getByRole('link',{name:'drop a video',exact:true}).click();
+    await expect(page.locator('#file-upload')).toBeVisible();
+    await expect(page.getByText('previous scans (1)',{exact:true})).toBeVisible();
+    await page.reload();
+    await expect(page.locator('#file-upload')).toBeVisible();
+    await page.getByText('previous scans (1)',{exact:true}).click();
+    await page.getByRole('link',{name:/previous scan/}).click();
+    await expect(page.locator('.workbench-grid')).toBeVisible();
+    await expect(page).toHaveURL(savedRunUrl);
+
     // 13. Open trust manifest & verify methodology / limitations
     await page.locator('.trust-summary').click();
     await expect(page.locator('text=Recorded inference · exact original media')).toBeVisible();

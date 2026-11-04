@@ -16,6 +16,7 @@ import {
 } from './api';
 import {
   SessionResponse,
+  VideoItem,
   RunState,
   ReportData,
   DeletionState,
@@ -71,6 +72,11 @@ function formatRunErrorMessage(code?: string | null): { title: string; explanati
       explanation: 'A transport error occurred while contacting the model provider.',
       guidance: 'No unconfirmed retry was sent.',
     },
+    saved_scan_unavailable: {
+      title: 'Saved scan unavailable',
+      explanation: 'This scan was not found in your current session.',
+      guidance: 'Return to upload to start a new scan. Your other saved scans remain available.',
+    },
     provider_connection_unavailable: {
       title: 'Could not connect to the model provider',
       explanation: 'The connection failed before a request could be sent, including one bounded connection retry.',
@@ -111,12 +117,28 @@ function formatUnavailableReason(code?: string | null): string {
 export function App({
   initialReport,
   initialViewState,
+  startFresh = false,
+  requestedRunId,
+  onRunStarted,
+  onNewUpload,
 }: {
   initialReport?: ReportData;
+  startFresh?: boolean;
+  requestedRunId?: string;
+  onRunStarted?: (runId:string)=>void;
+  onNewUpload?: ()=>void;
   initialViewState?: 'idle' | 'uploading' | 'processing' | 'ready' | 'deleting' | 'deleted' | 'error';
 } = {}) {
   const [session, setSession] = useState<SessionResponse | null>(null);
+  const [savedVideos,setSavedVideos] = useState<VideoItem[]>([]);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const sessionRequestRef=useRef<Promise<SessionResponse>|null>(null);
+  const initializeSession=()=>{
+    if(!sessionRequestRef.current)sessionRequestRef.current=ensureSession().catch(error=>{
+      sessionRequestRef.current=null;throw error;
+    });
+    return sessionRequestRef.current;
+  };
 
   // App workflow state: 'idle' | 'uploading' | 'processing' | 'ready' | 'deleting' | 'deleted' | 'error'
   const [viewState, setViewState] = useState<
@@ -233,55 +255,50 @@ export function App({
     delTimer = setTimeout(pollDel, 1000);
   };
 
-  // Initialize session on mount and restore durable state across reload
+  // Explicit new-upload intent never restores a prior run. Legacy /app and
+  // owned run links retain durable recovery. Fence bootstrap against a new upload.
   useEffect(() => {
-    ensureSession()
-      .then(async (data) => {
+    let mounted=true;
+    const bootstrapFence=runFenceRef.current;
+    const current=()=>mounted && runFenceRef.current===bootstrapFence;
+    initializeSession()
+      .then(async data=>{
+        if(!current())return;
         setSession(data);
-
-        // Check for any pending deletion first
-        try {
-          const dels = await listDeletions();
-          const pendingDel = dels.find((d) => d.state?.status === 'pending');
-          if (pendingDel) {
-            setDeletionState(pendingDel.state);
-            setViewState('deleting');
-            startPollingDeletion(pendingDel.id);
+        if(!startFresh && !requestedRunId){
+          try{
+            const dels=await listDeletions();
+            if(!current())return;
+            const pending=dels.find(d=>d.state?.status==='pending');
+            if(pending){setDeletionState(pending.state);setViewState('deleting');startPollingDeletion(pending.id);return;}
+          }catch{}
+        }
+        try{
+          const vids=await listVideos();
+          if(!current())return;
+          setSavedVideos(vids);
+          if(startFresh)return;
+          const selected=requestedRunId?vids.find(v=>v.run_id===requestedRunId):vids[0];
+          if(!selected){
+            if(requestedRunId){setErrorMessage('saved_scan_unavailable');setViewState('error');}
             return;
           }
-        } catch {}
-
-        // Check if there is an existing video in this session
-        try {
-          const vids = await listVideos();
-          if (vids.length > 0) {
-            const vid = vids[0].id;
-            setVideoId(vid);
-
-            // Fetch video analysis for profile availability
-            try {
-              const analysis = await fetchAnalysis(vid);
-              if (analysis.available_profiles) {
-                setAvailableProfiles(analysis.available_profiles);
-                if (!analysis.available_profiles.includes('flash')) {
-                  setSelectedProfile('test');
-                }
-              }
-            } catch {}
-
-            if (vids[0].run_id) {
-              setRunId(vids[0].run_id);
-              setViewState('processing');
-            } else {
-              setErrorMessage('Uploaded video found without an active run.');
-              setViewState('error');
+          setVideoId(selected.id);
+          try{
+            const analysis=await fetchAnalysis(selected.id);
+            if(!current())return;
+            if(analysis.available_profiles){
+              setAvailableProfiles(analysis.available_profiles);
+              if(!analysis.available_profiles.includes('flash'))setSelectedProfile('test');
             }
-          }
-        } catch {}
+          }catch{}
+          if(!current())return;
+          if(selected.run_id){setRunId(selected.run_id);setViewState('processing');}
+          else{setErrorMessage('Uploaded video found without an active run.');setViewState('error');}
+        }catch{}
       })
-      .catch((err) => {
-        setSessionError(err.message || 'Session initialization failed');
-      });
+      .catch(err=>{if(current())setSessionError(err.message || 'Session initialization failed');});
+    return ()=>{mounted=false;delFenceRef.current++;abortActiveRunTasks();};
   }, []);
 
   // Poll / SSE for run updates when processing with non-overlapping requests and generation fencing
@@ -469,12 +486,16 @@ export function App({
   // Handle file upload and analysis profile inspection
   const handleUpload = async (file: File) => {
     abortActiveRunTasks();
+    const uploadFence=runFenceRef.current;
+    const current=()=>runFenceRef.current===uploadFence;
     let currentSession = session;
     if (!currentSession) {
       try {
-        currentSession = await ensureSession();
+        currentSession = await initializeSession();
+        if(!current())return;
         setSession(currentSession);
       } catch (err: any) {
+        if(!current())return;
         setErrorMessage(err.message || 'Session initialization failed');
         setViewState('error');
         return;
@@ -486,12 +507,14 @@ export function App({
 
     try {
       const up = await uploadVideo(file, currentSession.csrf);
+      if(!current())return;
       setVideoId(up.video_id);
 
       // Check available profiles for uploaded media
       let profileToUse = selectedProfile;
       try {
         const analysis = await fetchAnalysis(up.video_id);
+        if(!current())return;
         if (analysis.available_profiles) {
           setAvailableProfiles(analysis.available_profiles);
           // If user picked flash but this video only supports test (e.g. Video B)
@@ -501,14 +524,18 @@ export function App({
           }
         }
       } catch {}
+      if(!current())return;
 
       setStatusMessage(`Video accepted. Queueing ${profileToUse === 'flash' ? '50-persona Flash' : '3-persona test'} analysis...`);
 
       const run = await startRun(up.video_id, currentSession.csrf, profileToUse);
+      if(!current())return;
       setRunId(run.run_id);
       setProvisionalVerdict(null);
       setViewState('processing');
+      onRunStarted?.(run.run_id);
     } catch (err: any) {
+      if(!current())return;
       setErrorMessage(err.message || 'Upload failed');
       setViewState('error');
     }
@@ -581,7 +608,9 @@ export function App({
     setIsGraphPaused(false);
     setDeletionState(null);
     setErrorMessage(null);
+    setAvailableProfiles(['flash','test']);
     setViewState('idle');
+    onNewUpload?.();
   };
 
   // Authoritative stored scenes and duration derivation
@@ -775,6 +804,12 @@ export function App({
                 <li>All uploaded video files, derivatives, and reports can be deleted at any time with access revoked immediately.</li>
               </ul>
             </details>
+            {savedVideos.some(video=>video.run_id) && <details className="disclosure-box recent-scans">
+              <summary>previous scans ({savedVideos.filter(video=>video.run_id).length})</summary>
+              <ul className="disclosure-list">{savedVideos.filter(video=>video.run_id).map((video,index)=><li key={video.id}>
+                <a href={`#/app/run/${encodeURIComponent(video.run_id!)}`}>previous scan {index+1}{video.metadata?.duration_ms?` · ${(video.metadata.duration_ms/1000).toFixed(1)}s`:''}</a>
+              </li>)}</ul>
+            </details>}
           </div>
         )}
 

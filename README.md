@@ -4,7 +4,7 @@ Local V03 is usable: the real Standard-provider Flash50 journey, supported notes
 
 ## Current website and app design
 
-The approved landing page and V03 app share Space Mono, Patrick Hand, cobalt ink and lavender hand-drawn artwork. The landing **drop a video** button opens `/#/app`; this hash route also survives refresh with the existing API server. `/#/sample` is explicitly illustrative and never starts inference. `/#/roadmap` retains V04, V05, Deep, multi-platform, accounts/API and calibration research as future work.
+The approved landing page and V03 app share Space Mono, Patrick Hand, cobalt ink and lavender hand-drawn artwork. The landing **drop a video** button opens a fresh upload at `/#/app/new`, including on refresh. Saved scans remain accessible in **previous scans**. A started scan uses `/#/app/run/{run_id}` so refresh restores that specific owned scan; legacy `/#/app` retains latest-scan recovery. `/#/sample` is explicitly illustrative and never starts inference. `/#/roadmap` retains V04, V05, Deep, multi-platform, accounts/API and calibration research as future work.
 
 [Editable Figma app screens](https://www.figma.com/design/HNAM1otmM0c7FUlsLK72Ub/mobbs.fun?node-id=56-56) live in the same file as the full landing motion. The mobbs space scatters characters with a stable per-run layout. Waiting characters are neutral; observed labels, actions and inspectable reaction quotes come from saved simulation events. Position/face styling is decorative. Pause freezes the view; processing continues. Reduced-motion, hidden-tab and offscreen states stop decorative animation. Fonts are self-hosted.
 
