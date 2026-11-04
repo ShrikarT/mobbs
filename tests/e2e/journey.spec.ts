@@ -253,11 +253,11 @@ test.describe('Mobbs V03 Browser Journey', () => {
 
     // Expect operation failure screen with explicit error message
     await expect(page.locator('.running-container')).toBeVisible({ timeout: 60000 });
-    await expect(page.locator('text=Operation failed')).toBeVisible({ timeout: 120000 });
+    await expect(page.getByRole('heading', {name:'Analysis failed',exact:true})).toBeVisible({ timeout: 120000 });
     await expect(page.locator('text=recorded_evidence_unavailable_for_this_upload')).toBeVisible();
 
     // Recovery button works
-    const tryAgainBtn = page.locator('button:has-text("Try again")');
+    const tryAgainBtn = page.getByRole('button', {name:'Return to upload',exact:true});
     await expect(tryAgainBtn).toBeVisible();
     await tryAgainBtn.click();
 

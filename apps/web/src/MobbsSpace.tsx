@@ -68,9 +68,11 @@ export function MobbsSpace({ids,states,events,paused,seed}: Props) {
   const chosen=inspected || latest;
   const selected=chosen?states.get(chosen):null;
   return <div className="mobbs-space-wrap">
-    <div ref={root} className="persona-grid mobbs-space" role="region" aria-label="Simulated personas state grid" style={{height:layout.height}}>
+    <div ref={root} className="persona-grid mobbs-space" role="region" aria-label="Simulated personas state grid" style={{height:Math.min(layout.height,620)}}>
+      <div className="mobbs-stage" style={{height:layout.height}}>
       <span className="room-star room-star-a" aria-hidden="true">✧</span><span className="room-star room-star-b" aria-hidden="true">✳</span>
       {layout.positions.map(position=><div key={position.id} className="mob-position" style={{left:position.x,top:position.y}}><Mob id={position.id} state={states.get(position.id)} variant={position.variant} angle={position.angle} paused={paused || !visible || !tabVisible} motionAllowed={motionAllowed} onInspect={setInspected}/></div>)}
+      </div>
     </div>
     <div className="mob-reaction-inspector" aria-live={paused?"polite":"off"} aria-atomic="true">
       {selected?.reason ? <><div className="reaction-byline"><MobFace variant={selected.status==='stopped'?5:3}/><span>{chosen} · {selected.status==='stopped'?'left':'watching'} · scene {selected.lastScene}</span>{inspected && <button type="button" onClick={()=>setInspected(null)} className="text-button">latest reaction</button>}</div><blockquote className="handwritten-bubble">“{selected.reason}”</blockquote><p>saved simulated persona reason{selected.atMs!==undefined?` · ${(selected.atMs/1000).toFixed(1)}s`:''}</p></> : <p className="awaiting-reactions">{chosen?`${chosen} is waiting for a saved reaction.`:'the stage is ready. reactions appear when the actual events arrive.'}</p>}

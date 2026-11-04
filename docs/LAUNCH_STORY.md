@@ -1,5 +1,12 @@
 # Launch story — proposed three-minute proof
 
+## Current V03 proof scope — 2026-11-04
+
+For the current project, show the implemented landing → upload → saved simulated reactions → report → video/evidence inspection → refresh/deletion flow. Show V04 comparison, V05 thumbnails and the later full roadmap as planned. The historical three-minute proposal below includes future capabilities and is not a claim that those capabilities exist today. The Figma design and its sample loop are design illustrations, not inference proof. The short synthetic functional fixture verifies integration only and must not impersonate creator footage or establish predictive accuracy/performance.
+
+Current design/code verification lives in STATE and the app-redesign evidence. No submission, hosting deployment, public release or social message has been performed as part of the redesign. No further submission requirements are being requested from the owner; preserve the event context already recorded here.
+
+
 Audience: an indie founder choosing an edit before a product launch. Story: **“Watch a simulated viewer leave. Find the moment. Try a better cut and inspect what changed.”** Product usefulness is the editing loop; there is no real-world virality claim.
 
 Required before capture: journey-verified build, source SHA/artifact digest, owned A/B footage of the same subject, actual live events/notes/comparison, accessible failure state and replay label. TokenTree is explicitly excluded by the owner (2026-10-28); replacement subject and footage remain unresolved. Record rights and input hashes first. Preserve the supplied concept attribution to @shubhamgl2003's original Viralist reel; exact source link/permission context remains unverified, so avoid “invented from scratch.”

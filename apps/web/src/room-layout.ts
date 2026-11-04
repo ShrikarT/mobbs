@@ -7,17 +7,24 @@ export function hashIdentity(value: string): number {
 
 export function roomLayout(ids: readonly string[], width: number, seed: string) {
   const usable = Math.max(192, width);
-  const columns = Math.max(3, Math.min(10, Math.floor(usable/64)));
+  const columns = Math.max(3, Math.min(10, Math.floor(usable/84)));
   const rows = Math.max(3, Math.ceil(ids.length/columns));
   const cell = usable/columns;
-  const rowHeight = 78;
-  const slots = Array.from({length:rows*columns},(_,i)=>i).sort((a,b)=>hashIdentity(`${seed}:slot:${a}`)-hashIdentity(`${seed}:slot:${b}`));
+  const rowHeight = 104;
+  let randomState=hashIdentity(seed) || 1;
+  const random=()=>{
+    randomState ^= randomState<<13;randomState ^= randomState>>>17;randomState ^= randomState<<5;
+    return (randomState>>>0)/4294967296;
+  };
+  const slots = Array.from({length:rows*columns},(_,i)=>i);
+  for(let i=slots.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[slots[i],slots[j]]=[slots[j],slots[i]];}
+  const jitterX=Math.min(18,(cell-64)/2);
   return {
-    height: rows*rowHeight+96,
+    height: rows*rowHeight+72,
     positions: ids.map((id,i)=>{
       const slot = slots[i];
       const h = hashIdentity(`${seed}:${id}`);
-      return {id, x: (slot%columns+.5)*cell + (h%13-6), y: 58+Math.floor(slot/columns)*rowHeight+((h>>>4)%15-7), variant:h%8, angle:(h%13)-6};
+      return {id, x: (slot%columns+.5)*cell + (random()*2-1)*jitterX, y: 64+Math.floor(slot/columns)*rowHeight+(random()*32-16), variant:h%8, angle:(h%13)-6};
     }),
   };
 }

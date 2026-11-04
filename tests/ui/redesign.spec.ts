@@ -99,4 +99,15 @@ test('50 mobs bind saved streamed reasons, remain placed, and pause the display'
   expect(await page.locator('.mob-position').evaluateAll(els=>els.map(el=>(el as HTMLElement).style.cssText))).toEqual(positions);
   await page.setViewportSize({width:320,height:800});await noOverflow(page);
   await expect(page.locator('.mob-node')).toHaveCount(50);
+  const region=page.getByRole('region',{name:'Simulated personas state grid'});
+  expect(await region.evaluate(el=>getComputedStyle(el).overflowY)).toBe('auto');
+  await expect.poll(()=>page.locator('.mobbs-stage').evaluate(el=>el.clientHeight)).toBeGreaterThan(1000);
+  const lowest=await page.locator('.mob-position').evaluateAll(els=>els.reduce((best,el,i)=>parseFloat((el as HTMLElement).style.top)>best.y?{i,y:parseFloat((el as HTMLElement).style.top)}:best,{i:0,y:0}).i);
+  await page.locator('.mob-node').nth((lowest+1)%50).focus();
+  await page.locator('.mob-node').nth(lowest).focus();
+  await expect.poll(async()=>{
+    const bottom=await page.locator('.mob-node').nth(lowest).boundingBox();
+    const bounds=await region.boundingBox();
+    return bottom!.y+bottom!.height-(bounds!.y+bounds!.height);
+  }).toBeLessThanOrEqual(1);
 });
