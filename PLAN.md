@@ -1,5 +1,9 @@
 # Mobbs delivery plan
 
+## Current: MOBBS-PERSONA-TIMEOUT-ISOLATION — WORKER-REPORTED / author-verified
+
+Fixed AV persona-timeout handling so uncertain requests stay excluded while unaffected personas finish; bounded90s read deadline and no blind retry. Existing failed scan recovered to42/50 partial report,8excluded,0pending; original159 accepted units/151 decisions and all8 uncertain receipts preserved by hash. Known39-call continuation estimate0.12036800USD; total uncertain. Recoverya392501, cached-stage/test follow-up1c39183. Main58020 running.34 focused +3 AV +legacy/cached checks passed; pooled8-timeout case passed with42/50 and completed QA deletion (651.350s). Fix branch pushed at a392501; stage/test/evidence follow-up uses the same branch. No main merge/deployment/release/submission.
+
 ## Current: MOBBS-MULTIMODAL-SCAN — WORKER-REPORTED / author-verified / pushed
 
 Restored native scene-video observations plus Muse Voice Transcribe to new V03 Standard scans, including isolated persona context, durable preparation, truthful coverage/models and existing recovery/deletion. Functionaldbd63a9 + compatibilityed4de13. Real3/3 and50/50 scans passed with both models;34 focused,2 AV integration,4 legacy checks and8 UI regressions passed. Main58020 running; Docker/retained volumes recovered. Completed landing/app/reliability/multimodal branch codex/mobbs-app-redesign pushed to ShrikarT/mobbs per owner request. Evidence/state packaging follows. Existing coordinator V04/V05 drafts preserved; no merge/deployment/release/submission. See STATE and multimodal evidence.

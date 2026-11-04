@@ -1,0 +1,25 @@
+# Persona timeout isolation and partial recovery — 2026-11-04
+
+Task MOBBS-PERSONA-TIMEOUT-ISOLATION. Owner reported uncertain_provider_charge again on the running Standard app. Direct Codex per the existing no-agents instruction; continued local fixes/Git push remain authorized. Functional recovery source **a3925011fa111861f82e9fad7354180435b95708**, cached-stage correction and pooled regression **1c3918319a95b01e39c4de3b23dbbe9dd5b78b1b**, on codex/mobbs-app-redesign.
+
+## Actual failure
+
+Run99f229e8a6904be39ac8eb9ad6211212 completed all4 scene-video and4 speech-preparation calls. It saved151 persona decisions, then eight concurrent persona calls in scene3 encountered ReadTimeout under the30s client read deadline. The failure handler stopped the entire run and set the shared pause marker, despite39 unaffected active personas and3 already terminal personas. Accepted request latency previously averaged4.1s/max7.8s; the underlying provider/network stall itself is not established. The app's whole-run failure policy and short deadline were confirmed separately from that external cause.
+
+## Change and safe recovery
+
+Read deadline is now90s, retaining bounded concurrency/calls and no read/write/protocol resend. In scene-av-v1 runs, an ambiguous persona request permanently fails/excludes only that persona. Remaining personas can finish; confirmed terminal traces produce a visibly partial report. Unknown dispatched persona markers after a crash are similarly quarantined without resend. Shared preparation/notes uncertainty still blocks dependent units. Historical visual-only manifests retain their earlier fail-closed policy. A global legacy pause file no longer prevents a separate AV run from preparing independent units; durable per-unit state still prevents replay. Unknown-cost receipts are preserved and report cost remains uncertain. Cached-feature resumes now return to the visible simulating stage.
+
+Main worker was replaced under job-admission lock with no queued/leased work. Preserved the immutable manifest and features, all159 accepted units and all151 original reaction/evidence hashes, and all8 uncertain receipt/audit hashes. Requeued only the existing job for the39 unaffected active personas; no unknown persona/checkpoint was reset or retried. It accepted39 additional decisions (known incremental estimate **0.12036800USD**, not invoice), then published **42/50 effective,8failed,0pending**,4stopped,0supported notes. Status incomplete, stage report, error_code null; total cost uncertain. Original upload and reports remain preserved. The prior error screen should be refreshed to fetch this report.
+
+Private baseline/result hashes and guarded recovery scripts: `~/.codex/private-runs/mobbs-app-redesign-20261104/multimodal/persona-isolation-{baseline,result}.json`, resume-unaffected.py and restart-isolated-worker.ps1. They must not be blindly rerun. SourceAPI/bundle unchanged by this backend fix. Main worker recovery parent2632 runsa392501; later cached-stage/test packaging is a small follow-up.
+
+## Observed checks and limits
+
+- Correct production API/worker regression went red on a controlled ReadTimeout: only p001 was attempted and the whole run failed. After the fix,3 AV integration checks passed (184.411s), including that same timeout with2/3 valid terminal personas, one permanently excluded persona, an incomplete report and uncertain total cost. Model HTTP is controlled; API, scheduler, PostgreSQL, storage and report building are production components.
+-34 focused scene-model/transport/reconnect/normalization/config tests passed. Existing read-timeout-no-resend check remains green. One legacy unresolved-dispatch/no-reissue check passed (22.524s).
+- Cached-feature resume regression passed (22.921s) against the corrected production prepare function: a queued run with existing features/checkpoints advances to processing/simulating without any model request. It uses an independent private test database.
+- A further50-person pooled regression injects eight simultaneous ReadTimeouts, asserts each failed unit was attempted once, no later scene reached those personas,42 valid terminal personas remain, and report cost is uncertain. It passed (651.350s), including42/50 with8failed, all failed-unit attempt counters exactly1, no later delivery and complete owned QA deletion.
+- Actual main run recovery reached the same42/50 outcome without model-response substitution, with the preserved hashes verified. No8/8 timeout resend, no re-upload, no fabricated50/50 success, and no discarded accepted decisions. Native video/ASR provenance remains present.
+
+This handles recoverable persona failures; it does not promise that an external provider never stalls or that a run with no valid terminal traces can yield useful metrics. Unknown shared preparation/notes requests are not automatically replayed. No new calibration/performance claim. WORKER-REPORTED / author-verified; independent acceptance/formal integration/journey verification remain pending because the owner excluded other agents. No main merge, hosting deployment, release or submission.
