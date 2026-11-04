@@ -1,5 +1,10 @@
 # Mobbs delivery plan
 
+## Current: MOBBS-ANIMATION-SCAN-FIX — WORKER-REPORTED / author-verified
+
+Two owner-reported issues fixed locally: native-sized hero SVGs and pooled/cached/bounded-retry scan transport. Final functional219e0ff, frontenda8b3c4a. Saved failed scan recovered to50/50 with117 original decisions preserved;26 focused tests and10 browser checks pass. See current STATE/evidence for exact source, initial test failures/reruns and practical latency limits. Reload original owner browser tab; reports remain protected/preserved. No agents, merge, deployment or submission.
+
+
 ## Current task: MOBBS-APP-REDESIGN — WORKER-REPORTED / author-verified
 
 Owner-authorized direct Codex execution, no Orca/agents. Same-file Figma app board56:56 plus approved landing and actual V03 app are implemented locally in `C:/Users/Shrikar/mobbs-app-redesign`, branch `codex/mobbs-app-redesign`. Final functional6837a58;5 UI+4 recorded app checks passed, one bounded real Standard functional run verified and deleted. See [current STATE](docs/STATE.md) and [evidence](docs/evidence/mobbs-app-redesign.md). Subsequent user upload is preserved and processing. Independent acceptance and release remain pending/not performed; V04/V05/full roadmap stay future. Historical tasks below are retained as provenance.

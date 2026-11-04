@@ -1,5 +1,18 @@
 # Mobbs current handoff — 2026-11-03
 
+## Current: MOBBS-ANIMATION-SCAN-FIX — author-complete, 2026-11-04
+
+Owner’s two reported bugs are fixed locally on `codex/mobbs-app-redesign`, `C:/Users/Shrikar/mobbs-app-redesign`. Final functional **219e0ff0638c24e3ac6993ea3e970c22eb88ce7c**, frontenda8b3c4a. [Complete verification/limits](evidence/mobbs-animation-scan-fix.md). Artifact **5bf404b1886a889e6003611f49ac7e67cff00f67b1b3f852e30ed52548a62bc7**. Full landing retained; nested SVG viewport dimensions corrected,9-beat/wrap regression passes.26 focused normalized/config/transport tests and6 UI+4 actual recorded-provider browser checks pass. No new dependency.
+
+Actual customer failed scan safely resumed from117 accepted decisions atc9371af:50/50 complete,0failed/pending,346accepted calls including notes. All117 original reaction/evidence hashes and immutable manifest unchanged,0post-skip future dispatches.229remaining calls/162.8s, incremental known estimate0.59942420USD (not invoice); old sanitized ConnectTimeout receipt retained, aggregate cost not invented. Both original completed report and recovered report/media are preserved. Original browser/cookies are outside automation access; owner should reload their existing tab to see the completed report and new bundle.
+
+Worker reuses one8-connection pool/current-scene frame cache, closes resources on every exit, waits for completed futures, and retries only one pre-request connection failure after rechecking lease/deletion/active-run status. Read/write/unknown outcomes remain non-retryable. Final guarded worker219e0ff was installed with job-admission table locked and no queued/leased/dispatched analysis; no in-flight request interrupted. Main API/auth/report source unchanged. Website **http://127.0.0.1:58020/** remains healthy in Standard mode; source/runtime helper stays private.
+
+Full50 remains default and can take several minutes due to hundreds of model decisions. Existing3-person option now clearly labeled Quick preview, smaller/faster diagnostic sample. No sample-count/model/call-limit change and no universal speedup/p95/accuracy claim. Six geometry/UI checks and26 focused tests pass; cross-process cap/deletion tests pass after scoping test pg_locks introspection to its own database, observing8 slots. Initial broad-suite lease failure and subsequent passing isolated/full-pool reruns are documented; no single clean48-case suite claim.
+
+All task-owned unit/recorded QA content cleaned, no cleanup process remains. Customer reports/uploads untouched. PG58032/RustFS59000 preserved. Private unit runtime is now under its own parent (`.../unit/runtime.json`) so tests cannot clear the live pause marker. Source is owner-authorized direct Codex; no Orca/agents. WORKER-REPORTED / author-verified; independent acceptance/formal integration/release pending/not performed. No push, deployment or submission. Original coordinator V04/V05 drafts remain untouched.
+
+
 ### Bug-fix continuation checkpoint — c9371af, 2026-11-04
 
 The exact legacy ConnectTimeout recovery was applied once with the paused old worker stopped. Archived original sanitized receipt as a non-request transport-audit entry (retained original), preserved manifest and117 original reaction/evidence hashes, and resumed only remaining work. New worker c9371af completed346 accepted decisions/full50-persona report,0 failed/pending. Remaining work took162.8s; this is operator-assisted continuation, not a fresh full-scan benchmark. Original117 hashes/manifest match and stopped personas have0 later dispatches. Customer reports/media are preserved. API58020 remains available.
