@@ -9,7 +9,8 @@ ROOT = Path(__file__).resolve().parents[3]
 
 def _build_commit():
     for key in ('APP_COMMIT','RENDER_GIT_COMMIT','VERCEL_GIT_COMMIT_SHA'):
-        if os.environ.get(key): return os.environ[key]
+        value = os.environ.get(key)
+        if value and value != 'unknown': return value
     try: return subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True,stderr=subprocess.DEVNULL).strip()
     except (OSError,subprocess.CalledProcessError): return 'unknown'
 
