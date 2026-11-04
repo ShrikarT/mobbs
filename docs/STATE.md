@@ -1,5 +1,16 @@
 # Mobbs current handoff — 2026-11-03
 
+## Active: MOBBS-ANIMATION-SCAN-FIX — 2026-11-04
+
+Owner reports oversized/glitched landing motion and slow scan ending uncertain_provider_charge. Direct Codex execution continues by owner override; no agents/Orca. Work is isolated on codex/mobbs-app-redesign atop1430548; original coordinator drafts preserved.
+
+Reproduced: animated nested SVGs have CSS40px but render~700–900px because their intrinsic nested viewport had no width/height attributes. Regression failed with28 oversized elements, then passed across9 beats after explicit SVG viewport dimensions.6/6 UI checks pass on the rebuilt production app.
+
+Actual failed run:117 accepted decisions, one sanitized ConnectTimeout; completed preceding scan343calls/242.483s, median request4.657s. Adapter recreated an HTTP client and fetched the same scene frame for every persona. Implemented per-run shared bounded8-connection pool with teardown, lazy current-frame cache, completion-based pool waiting, one bounded retry for ConnectError/ConnectTimeout only. Read/write/unknown transport remains non-retryable/uncertain, no invented HTTP500.5 new regression checks reproduced failures first and now pass; broader isolated backend suite is running. Unit runtime moved into a separate private parent so tests cannot clear the live operational-pause marker.
+
+Scoped operator continuation procedure validates only the legacy pre-request ConnectTimeout, refuses any ambiguous dispatched/read/write/other failed request, retains original sanitized receipt, immutable manifest and accepted hashes. Dry run accepted117 saved decisions. Apply/recovery verification still pending at this checkpoint. No accepted decision will be resubmitted. All changes author-in-progress, independent acceptance/release not claimed.
+
+
 ## Current: MOBBS-APP-REDESIGN — author-complete, 2026-11-04
 
 **Working website:** http://127.0.0.1:58020/ (app `/#/app`); same-file [Figma app board56:56](https://www.figma.com/design/HNAM1otmM0c7FUlsLK72Ub/mobbs.fun?node-id=56-56). Owner explicitly authorized direct Codex work without Orca or other agents. [Complete author evidence](evidence/mobbs-app-redesign.md).

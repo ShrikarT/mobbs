@@ -13,12 +13,12 @@ export function Doodle({name = 'flower', className = ''}: {name?: DoodleName; cl
     pause: 'M17 12L17 38 M31 12L31 38',
     play: 'M15 9L15 40L39 25Z',
   };
-  return <svg viewBox={name === 'upload' ? '-3 -3 64 54' : '-4 -4 56 56'} className={`doodle ${className}`} fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]}/></svg>;
+  return <svg width="48" height="48" viewBox={name === 'upload' ? '-3 -3 64 54' : '-4 -4 56 56'} className={`doodle ${className}`} fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]}/></svg>;
 }
 
 export function MobFace({variant = 3, className = ''}: {variant?: number; className?: string}) {
   const face = faces[((variant % faces.length) + faces.length) % faces.length];
-  return <svg className={`mob-face ${className}`} viewBox="0 0 40 40" aria-hidden="true"><g transform={`translate(${-face.offset} 0)`}>{face.paths.map((p, index) => <path key={index} d={p.d} fill={p.fill || 'none'} stroke={p.stroke} strokeWidth={Number(p['stroke-width'])} strokeLinecap="round" strokeLinejoin="round"/>)}</g></svg>;
+  return <svg width="40" height="40" className={`mob-face ${className}`} viewBox="0 0 40 40" aria-hidden="true"><g transform={`translate(${-face.offset} 0)`}>{face.paths.map((p, index) => <path key={index} d={p.d} fill={p.fill || 'none'} stroke={p.stroke} strokeWidth={Number(p['stroke-width'])} strokeLinecap="round" strokeLinejoin="round"/>)}</g></svg>;
 }
 
 export function Brand({home = '#/'}: {home?: string}) {

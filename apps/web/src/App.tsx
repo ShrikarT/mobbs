@@ -71,6 +71,11 @@ function formatRunErrorMessage(code?: string | null): { title: string; explanati
       explanation: 'A transport error occurred while contacting the model provider.',
       guidance: 'No unconfirmed retry was sent.',
     },
+    provider_connection_unavailable: {
+      title: 'Could not connect to the model provider',
+      explanation: 'The connection failed before a request could be sent, including one bounded connection retry.',
+      guidance: 'Your upload and saved reactions are preserved. Requests with an unconfirmed provider response are never automatically resent.',
+    },
     provider_response_rejected: {
       title: 'Provider response rejected',
       explanation: 'The model provider returned an unexpected payload structure.',
@@ -796,6 +801,7 @@ export function App({
                 {runState?.requested || (selectedProfile === 'flash' ? 50 : 3)} requested ·{' '}
                 {runState?.effective ?? 0} finished · {runState?.pending ?? (selectedProfile === 'flash' ? 50 : 3)} active
                 {runState?.failed ? ` · ${runState.failed} failed` : ''}
+                {' · '}{personaDecisionsCount} saved reactions
               </p>
             </div>
 

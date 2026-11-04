@@ -13,7 +13,7 @@ import tempfile
 import time
 from pathlib import Path
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 from contracts.normalized import (
     cast_status,
     normalize_envelope,
@@ -375,6 +375,16 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
         provider_factory = StandardProvider if mode == 'standard' else RecordedProvider
 
     provider = instantiate_provider(provider_factory, video['sha256'], video['metadata']['duration_ms'], profile=profile, lease=lease)
+    try:
+        return _run_prepared_analysis(lease, provider, run_row, mode, profile, concurrency, before_publish)
+    finally:
+        close = getattr(provider, 'close', None)
+        if callable(close):
+            close()
+
+
+def _run_prepared_analysis(lease, provider, run_row, mode, profile, concurrency, before_publish):
+    manifest = run_row.get('manifest') or {}
     prepare(lease, provider)
 
     with connection() as conn:
@@ -653,7 +663,7 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
 
                     available_slots = concurrency - len(futures)
                     if available_slots <= 0:
-                        time.sleep(0.005)
+                        wait(futures, timeout=0.1, return_when=FIRST_COMPLETED)
                         continue
 
                     if halt_event.is_set():
@@ -689,7 +699,7 @@ def process_analysis(lease, provider_factory=None, before_publish=None):
                     if admitted == 0 and not futures:
                         break
                     elif admitted == 0:
-                        time.sleep(0.005)
+                        wait(futures, timeout=0.1, return_when=FIRST_COMPLETED)
 
                 for f in list(futures.keys()):
                     pid = futures.pop(f)

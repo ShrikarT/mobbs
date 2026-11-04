@@ -285,3 +285,8 @@ Retained roadmap epics (NOT READY tasks): Deep 300–500/native hybrid/full note
 ## MOBBS-APP-REDESIGN — active (2026-11-04)
 
 Owner: Codex directly, by explicit owner override; no Orca/agents. Scope: same-file Figma app screens, approved landing design integration, V03 upload/live/report redesign and actual local browser verification. V04/V05 remain roadmap. Baseline6c47b22 in isolated `C:/Users/Shrikar/mobbs-app-redesign`; see current docs/STATE.md checkpoint. Acceptance pending; deployment/release not performed.
+
+
+## MOBBS-ANIMATION-SCAN-FIX — active (2026-11-04)
+
+Owner requests fixing glitched landing motion, connection failure and slow scanning. Direct Codex, no agents. Current STATE records reproduced geometry/ConnectTimeout and isolated checks; safe continuation of saved decisions is pending. No V04/V05/deployment/release.

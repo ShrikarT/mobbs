@@ -80,3 +80,10 @@ Separate account preflight2026-10-29: one authorized authenticated `GET https://
 Coordinator read current public pages, without authentication or inference. [Responses](https://dev.meta.ai/docs/protocols/responses) confirms POST https://api.meta.ai/v1/responses with muse-spark-1.3 and explicit store:false for stateless use. [Responses schemas](https://dev.meta.ai/docs/api-reference/responses/schemas) and [structured-output cookbook](https://dev.meta.ai/docs/cookbook/structured-output) distinguish text.format from Chat response_format: use json_schema/name/schema/strict in the Responses text.format object. Capture and assert this in the adapter test.
 
 [Pricing](https://dev.meta.ai/docs/pricing-rate-limits) still lists Standard Spark input1.25/cached0.15/output4.25 USD per million tokens; rate limits are team-scoped. [Counting](https://dev.meta.ai/docs/token-counting) describes input_tokens tokenization, not account monetary balance verification. This source check proves no account permission, remaining dollar allowance, real generation, app integration or retention/deletion. It adds no accounting implementation gate; the owner course correction at this document start remains controlling.
+
+
+###2026-11-04 connection-phase clarification
+
+A run owns one reusable HTTP client (at most8 connections) and releases it after work, including failures. Scene image caching is lazy by the validated current projection’s frame key, never persona history or future context. The existing global8-call admission/fencing and per-persona order remain.
+
+The transport may retry once only when HTTPX raises ConnectTimeout/ConnectError before establishing the connection or sending the request body, inside the same admitted unit. Read/write/protocol/HTTP failures and unknown dispatched units are never automatically retried. Exhausted connection failure is reported as provider_connection_unavailable with no HTTP response status; an actual response status is never invented. This is not a new financial-accounting or generic retry subsystem.
