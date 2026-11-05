@@ -296,6 +296,9 @@ def run_snapshot(conn, row):
     provisional_verdict = prov_event['payload'] if prov_event else None
     decisions = conn.execute('SELECT count(*) AS n FROM reactions WHERE run_id=%s',(run_id,)).fetchone()['n']
     job = conn.execute("SELECT status,lease_until>now() AS active FROM jobs WHERE run_id=%s AND kind='analysis' LIMIT 1",(run_id,)).fetchone()
+    issue = conn.execute("SELECT receipt FROM provider_calls WHERE run_id=%s AND status='failed' ORDER BY unit LIMIT 1",(run_id,)).fetchone()
+    receipt = (issue or {}).get('receipt') or {}
+    provider_issue = {key:receipt[key] for key in ('http_status','requested_model','error') if key in receipt}
     return dict(
         run_id=run_id,
         created_at=row['created_at'].isoformat(),
@@ -305,6 +308,7 @@ def run_snapshot(conn, row):
         status=row['status'],
         stage=row['stage'],
         error_code=row['error_code'],
+        provider_issue=provider_issue or None,
         sequence=row['sequence'],
         manifest=manifest,
         requested=requested,

@@ -62,7 +62,9 @@ def durable_feature(lease, unit, send):
             unit, type(exc).__name__, getattr(exc, 'original_exception_class', None),
             receipt.get('http_status'), receipt.get('requested_model'))
         uncertain = getattr(exc, 'charge_state', 'uncertain') == 'uncertain'
-        receipt.update(mode='standard', error={'code': 'media_preparation_failed', 'charge_state': 'uncertain' if uncertain else 'unconfirmed'})
+        receipt.update(mode='standard', error={'code': 'media_preparation_failed',
+                       'error_class': getattr(exc, 'original_exception_class', None) or type(exc).__name__,
+                       'charge_state': 'uncertain' if uncertain else 'unconfirmed'})
         with connection() as conn:
             fence(conn, lease)
             conn.execute("UPDATE provider_calls SET status='failed',receipt=%s WHERE run_id=%s AND unit=%s", (Jsonb(receipt), lease['run_id'], unit))
