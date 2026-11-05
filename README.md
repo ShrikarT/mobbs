@@ -8,7 +8,7 @@ Mobbs gives short videos a small, simulated audience before you post. Drop a cut
 
 ![The Mobbs screening room](apps/web/src/assets/hero-poster.svg)
 
-[Try Mobbs](https://mobbs.fun.com) · [Watch demo video](https://youtu.be/6Y26-5RxBqQ) 
+[Try Mobbs](https://mobbs.fun) · [Watch demo video](https://youtu.be/6Y26-5RxBqQ) 
 
 ---
 
