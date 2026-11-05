@@ -6,12 +6,13 @@ from contracts.normalized import require, content_hash
 from .config import ROOT
 
 POLICIES_PATH = Path(__file__).parent / 'data/fifty-policies.json'
-EXPECTED_POLICIES_HASH = '66d9649bf11e24fda80bddb721e0783f5c7ef72c0c203f448e70b5a744118ffd'
+EXPECTED_POLICIES_HASH = '7565aa6bd4da94005dedb4e640f6d2a7cdcddd3abb7d683305b11916b7131e0e'
 
 
 def _load_policies():
     require(POLICIES_PATH.is_file(), 'fifty-policies.json missing')
-    raw_bytes = POLICIES_PATH.read_bytes()
+    # Git checkouts use LF on Linux and may use CRLF on Windows.
+    raw_bytes = POLICIES_PATH.read_bytes().replace(b'\r\n', b'\n')
     file_hash = hashlib.sha256(raw_bytes).hexdigest()
     require(file_hash == EXPECTED_POLICIES_HASH, f'fifty-policies.json hash mismatch: {file_hash}')
     data = json.loads(raw_bytes.decode('utf-8'))
