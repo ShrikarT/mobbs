@@ -1,5 +1,6 @@
 """Durable preparation units; only current-scene features reach a persona."""
 import threading
+import logging
 from contextlib import contextmanager
 
 from contracts.normalized import require
@@ -56,6 +57,10 @@ def durable_feature(lease, unit, send):
         raise
     except Exception as exc:
         receipt = dict(getattr(exc, 'receipt', {}) or {})
+        logging.getLogger(__name__).warning(
+            'Media preparation stopped (unit=%s, exception=%s, transport=%s, http=%s, model=%s)',
+            unit, type(exc).__name__, getattr(exc, 'original_exception_class', None),
+            receipt.get('http_status'), receipt.get('requested_model'))
         uncertain = getattr(exc, 'charge_state', 'uncertain') == 'uncertain'
         receipt.update(mode='standard', error={'code': 'media_preparation_failed', 'charge_state': 'uncertain' if uncertain else 'unconfirmed'})
         with connection() as conn:
