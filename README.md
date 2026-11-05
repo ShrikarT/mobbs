@@ -8,9 +8,7 @@ Mobbs gives short videos a small, simulated audience before you post. Drop a cut
 
 ![The Mobbs screening room](apps/web/src/assets/hero-poster.svg)
 
-[Try Mobbs](https://mobbs-fun.onrender.com) · [Explore the design](https://www.figma.com/design/HNAM1otmM0c7FUlsLK72Ub/mobbs.fun?node-id=56-56)
-
-The hosted preview runs on Render Free. Allow about a minute to wake after inactivity. Its temporary database expires on December 5, 2026.
+[Try Mobbs](https://mobbs.fun.com) · [Watch demo video](https://youtu.be/6Y26-5RxBqQ) 
 
 ---
 
