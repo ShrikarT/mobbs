@@ -13,7 +13,7 @@ from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict
 from .config import ROOT, settings
 from .db import connection, uid, Jsonb
-from .storage import Storage
+from .storage import Storage, StorageCapacityError
 from .domain import (Denied, Conflict, LeaseLost, owned_video, owned_run, idem,
     request_deletion, reserve_object, put_reserved)
 from .media import probe, MediaError, MAX_BYTES
@@ -43,6 +43,11 @@ async def denied(_, exc): return error(str(exc),404)
 
 @app.exception_handler(Conflict)
 async def conflict(_, exc): return error(str(exc),409)
+
+
+@app.exception_handler(StorageCapacityError)
+async def storage_full(_, exc):
+    return JSONResponse(dict(code='private_storage_full',stage='storage',message='Private storage is full. Delete an older video before uploading another.',retryable=False,request_id=uid()),status_code=507)
 
 
 @app.middleware('http')
@@ -432,7 +437,7 @@ def health():
         assert 1 in rows and 2 in rows and 3 in rows
     Storage().check()
     mode = settings().provider_mode
-    return {'status': 'ok', 'database': 'postgresql', 'storage': 'private_s3', 'inference': 'standard' if mode == 'standard' else 'recorded_only'}
+    return {'status': 'ok', 'database': 'postgresql', 'storage': 'private_postgres' if settings().storage_backend=='postgres' else 'private_s3', 'inference': 'standard' if mode == 'standard' else 'recorded_only'}
 
 
 dist = ROOT/'apps/web/dist'

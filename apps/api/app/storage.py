@@ -3,7 +3,17 @@ from botocore.config import Config
 from .config import settings
 
 
+class StorageCapacityError(ValueError):
+    pass
+
+
 class Storage:
+    def __new__(cls):
+        if settings().storage_backend == 'postgres':
+            from .postgres_storage import PostgresStorage
+            return PostgresStorage()
+        return super().__new__(cls)
+
     def __init__(self):
         cfg = settings()
         self.bucket = cfg.s3_bucket

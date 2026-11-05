@@ -149,7 +149,9 @@ Use `python -m apps.api.app.bootstrap --create-bucket` only when you want Mobbs 
 
 The Docker image serves the built frontend and API together. Run a second service with `python -m apps.api.app.worker`, and provide managed PostgreSQL plus a private S3-compatible bucket. Set `APP_ORIGIN` to the public HTTPS URL; secure session cookies are enabled automatically. Set `APP_COMMIT` to the deployed Git SHA when building outside a host that supplies it.
 
-Deployment is pending the owner’s platform selection. Runtime services, database, storage, and model usage have separate costs. No live deployment or production accuracy claim is implied by this repository.
+For a temporary Render Free preview, set `MOBBS_STORAGE_BACKEND=postgres` and `MOBBS_EMBEDDED_WORKER=1`, with the free database’s internal `DATABASE_URL`. The default container command starts the API and supervises the existing worker together. Private media is stored in chunks in PostgreSQL, with the same ownership checks, video ranges, and deletion inventory. This avoids a separate paid worker and object-storage service. The standard S3/separate-worker setup remains the default for local Compose.
+
+The free preview reserves database space for reports and cleanup, rejecting new storage before the database fills. Render’s free web instance sleeps when idle, and its free database expires after 30 days. This is a temporary demo configuration. Workspace build/bandwidth allowances and model-provider credits are separate from compute plans; selecting free resources does not establish an account-wide spending cap. Deployment status is verified separately from this source repository.
 
 ## Built with
 

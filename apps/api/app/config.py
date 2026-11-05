@@ -34,6 +34,7 @@ class Settings:
     lease_seconds: int = 120
     provider_mode: str = 'recorded'
     model_api_key: str = ''
+    storage_backend: str = 's3'
 
 
 def get_effective_runtime_path() -> str:
@@ -60,7 +61,11 @@ def settings():
     kwargs = {k: os.environ.get(k.upper()) or raw.get(k,'') for k in fields}
     if not kwargs['s3_endpoint'] and os.environ.get('S3_HOST'):
         kwargs['s3_endpoint']='http://'+os.environ['S3_HOST']+':9000'
-    missing=[k.upper() for k in fields[:-1] if not kwargs[k]]
+    backend=(os.environ.get('MOBBS_STORAGE_BACKEND') or raw.get('storage_backend') or 's3').strip()
+    if backend not in ('s3','postgres'): raise ValueError('Unsupported storage backend')
+    kwargs['storage_backend']=backend
+    required=fields[:1] if backend=='postgres' else fields[:-1]
+    missing=[k.upper() for k in required if not kwargs[k]]
     if missing: raise ValueError('Missing server settings: '+', '.join(missing))
     if 'origin' in raw:
         kwargs['origin'] = raw['origin']

@@ -19,4 +19,4 @@ ENV APP_COMMIT=${APP_COMMIT} PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PORT=8
 RUN useradd --create-home mobbs && chown -R mobbs:mobbs /app
 USER mobbs
 EXPOSE 8000
-CMD ["sh", "-c", "python -m apps.api.app.bootstrap && exec uvicorn apps.api.app.main:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["python", "-m", "apps.api.app.server"]
