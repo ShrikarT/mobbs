@@ -4,6 +4,7 @@ The existing object inventory still owns every byte and deletion cascades.
 The normal deployment continues to use S3.
 """
 import re
+import io
 import tempfile
 from botocore.exceptions import ClientError
 from botocore.response import StreamingBody
@@ -20,20 +21,29 @@ class PostgresStorage:
             conn.execute('SELECT 1 FROM media_objects LIMIT 1')
 
     def put(self, key, data, content_type='application/octet-stream'):
+        owned=not hasattr(data,'read')
+        source=io.BytesIO(data) if owned else data
+        start=source.tell()
+        source.seek(0,2);length=source.tell()-start;source.seek(start)
         # Serialize capacity admission, leaving room for reports and deletion.
-        with connection() as conn:
-            conn.execute('SELECT pg_advisory_xact_lock(733030)')
-            used=conn.execute('SELECT pg_database_size(current_database()) AS n').fetchone()['n']
-            if used + len(data) * 1.1 > DATABASE_CEILING:
-                raise StorageCapacityError('private_storage_full')
-            conn.execute('DELETE FROM media_objects WHERE key=%s',(key,))
-            conn.execute('INSERT INTO media_objects(key,bytes,content_type) VALUES(%s,%s,%s)',(key,len(data),content_type))
-            view=memoryview(data)
-            with conn.cursor() as cursor:
-                for batch in range(0,len(data),CHUNK*8):
-                    cursor.executemany('INSERT INTO media_chunks(key,part,data) VALUES(%s,%s,%s)',
-                        [(key,offset//CHUNK,view[offset:offset+CHUNK])
-                         for offset in range(batch,min(len(data),batch+CHUNK*8),CHUNK)])
+        try:
+            with connection() as conn:
+                conn.execute('SELECT pg_advisory_xact_lock(733030)')
+                used=conn.execute('SELECT pg_database_size(current_database()) AS n').fetchone()['n']
+                if used + length * 1.1 > DATABASE_CEILING:
+                    raise StorageCapacityError('private_storage_full')
+                conn.execute('DELETE FROM media_objects WHERE key=%s',(key,))
+                conn.execute('INSERT INTO media_objects(key,bytes,content_type) VALUES(%s,%s,%s)',(key,length,content_type))
+                with conn.cursor() as cursor:
+                    for batch in range(0,length,CHUNK*8):
+                        rows=[]
+                        for offset in range(batch,min(length,batch+CHUNK*8),CHUNK):
+                            chunk=source.read(min(CHUNK,length-offset))
+                            if len(chunk)!=min(CHUNK,length-offset):raise ValueError('incomplete_object_body')
+                            rows.append((key,offset//CHUNK,chunk))
+                        cursor.executemany('INSERT INTO media_chunks(key,part,data) VALUES(%s,%s,%s)',rows)
+        finally:
+            if owned:source.close()
 
     def get(self, key, **kwargs):
         body=tempfile.SpooledTemporaryFile(max_size=1024*1024,mode='w+b')
